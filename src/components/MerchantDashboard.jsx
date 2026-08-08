@@ -100,26 +100,88 @@ export function MerchantDashboard({
     }
   }, [shop, user, lat, lng])
 
-  // Handle Shop Creation
+  // Handle Shop Creation — always acquires FRESH GPS before saving
   const handleCreateShop = async (e) => {
     e.preventDefault()
     if (!shopName.trim() || !whatsappNumber.trim()) {
       showToast('Please fill in Shop Name and WhatsApp number.', 'error', 'Validation Error')
       return
     }
+
+    setCreatingShop(true)
+    showToast('Locking live GPS position before saving...', 'info', 'GPS Lock')
+
+    // Helper: get fresh high-accuracy GPS (returns a Promise)
+    const getFreshGPS = () =>
+      new Promise((resolve) => {
+        if (!navigator.geolocation) {
+          resolve(null)
+          return
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve({
+            lat: Number(pos.coords.latitude.toFixed(6)),
+            lng: Number(pos.coords.longitude.toFixed(6)),
+            accuracy: pos.coords.accuracy
+          }),
+          () => resolve(null),
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        )
+      })
+
     try {
-      setCreatingShop(true)
+      // 1. Get fresh GPS coordinates
+      const gps = await getFreshGPS()
+      const finalLat = gps?.lat ?? parseFloat(lat)
+      const finalLng = gps?.lng ?? parseFloat(lng)
+
+      // 2. Warn if we're still on the Delhi defaults (GPS failed)
+      if (finalLat === 28.6139 && finalLng === 77.209) {
+        showToast('Could not get precise GPS! Please tap "Use Current GPS Location" and try again.', 'error', 'GPS Failed')
+        setCreatingShop(false)
+        return
+      }
+
+      // 3. Update local state so lat/lng inputs reflect the locked position
+      setLat(finalLat)
+      setLng(finalLng)
+
+      // 4. Try to get a readable address via reverse geocoding
+      let finalAddress = addressText.trim() || null
+      if (!finalAddress) {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${finalLat}&lon=${finalLng}&zoom=18&addressdetails=1`
+          )
+          if (res.ok) {
+            const data = await res.json()
+            const addr = data.address || {}
+            const fullAddr = [
+              addr.amenity || addr.shop || addr.building,
+              addr.road,
+              addr.suburb || addr.neighbourhood,
+              addr.city || addr.town
+            ].filter(Boolean).join(', ')
+            if (fullAddr) {
+              finalAddress = fullAddr
+              setAddressText(fullAddr)
+            }
+          }
+        } catch (_) {}
+      }
+
+      // 5. Save to API with verified GPS coordinates
       await apiFetch('/api/shops', {
         method: 'POST',
         body: JSON.stringify({
           shop_name: shopName.trim(),
           whatsapp_number: whatsappNumber.trim(),
-          lat: parseFloat(lat),
-          lng: parseFloat(lng),
-          address_text: addressText.trim() || null
+          lat: finalLat,
+          lng: finalLng,
+          address_text: finalAddress
         })
       })
-      showToast('Shop profile created successfully!', 'success', 'Success')
+      showToast(`Shop created with precise GPS!\nLat: ${finalLat}, Lng: ${finalLng}${gps ? `\nAccuracy: ±${Math.round(gps.accuracy)}m` : ''}`, 'success', 'Shop Created')
       await fetchMerchantShop()
     } catch (err) {
       showToast(`Failed to create shop: ${err.message}`, 'error', 'Shop Creation Failed')
