@@ -20,7 +20,7 @@ export default function App() {
   const [loadingProducts, setLoadingProducts] = useState(true)
 
   // Reverse geocode coordinates to human-readable street/neighborhood name
-  const fetchAddressName = useCallback(async (lat, lng) => {
+  const fetchAddressName = useCallback(async (lat, lng, statusPrefix = '') => {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
@@ -37,33 +37,32 @@ export default function App() {
           addr.city ||
           addr.town ||
           'Live GPS Location'
-        setUserLocationName(name)
+        setUserLocationName(statusPrefix ? `${statusPrefix} - ${name}` : name)
         return
       }
     } catch (err) {
       console.warn('Reverse geocoding error:', err)
     }
-    setUserLocationName(`GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+    setUserLocationName(statusPrefix ? `${statusPrefix} - GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})` : `GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
   }, [])
 
-  // Get GPS position as a Promise — tries high accuracy first, then falls back to low accuracy
+  // Get GPS position as a Promise — returns position object + mode ('high' | 'low' | null)
   const getGPSPosition = useCallback(() => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
-        resolve(null)
+        resolve({ pos: null, mode: null })
         return
       }
 
       // Phase 1: Try HIGH accuracy (real GPS satellite lock)
       navigator.geolocation.getCurrentPosition(
-        (pos) => resolve(pos),
+        (pos) => resolve({ pos, mode: 'high' }),
         () => {
           // Phase 2: HIGH accuracy failed → try LOW accuracy (cell tower / Wi-Fi)
-          // This is much faster and almost never fails — gives rough but REAL location
           console.warn('High-accuracy GPS failed, trying low-accuracy fallback...')
           navigator.geolocation.getCurrentPosition(
-            (pos) => resolve(pos),
-            () => resolve(null), // Both failed
+            (pos) => resolve({ pos, mode: 'low' }),
+            () => resolve({ pos: null, mode: null }), // Both failed
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
           )
         },
@@ -76,17 +75,26 @@ export default function App() {
   const detectLocation = useCallback(async () => {
     setUserLocationName('📍 Getting your location...')
 
-    const pos = await getGPSPosition()
+    const { pos, mode } = await getGPSPosition()
 
     if (pos) {
       const { latitude: lat, longitude: lng, accuracy } = pos.coords
-      console.log(`📍 GPS locked: ${lat}, ${lng} (±${Math.round(accuracy)}m)`)
+      console.log(`📍 GPS locked: ${lat}, ${lng} (±${Math.round(accuracy)}m), mode: ${mode}`)
       setUserCoords({ lat, lng, accuracy })
-      fetchAddressName(lat, lng)
+      
+      let statusMsg = ''
+      if (mode === 'high' && accuracy <= 100) {
+        statusMsg = 'Success'
+      } else {
+        statusMsg = 'Low accuracy, approximate location'
+      }
+      setUserLocationName(statusMsg)
+      
+      fetchAddressName(lat, lng, statusMsg)
     } else {
-      // GPS completely unavailable — show error, DON'T default to Delhi
+      // GPS completely unavailable — show exact failure message requested
       console.error('GPS completely unavailable')
-      setUserLocationName('⚠️ Location unavailable — tap to retry')
+      setUserLocationName("Can't get your location")
     }
   }, [getGPSPosition, fetchAddressName])
 
@@ -103,7 +111,8 @@ export default function App() {
         const { latitude: lat, longitude: lng, accuracy } = pos.coords
         console.log(`📍 GPS refined: ${lat}, ${lng} (±${Math.round(accuracy)}m)`)
         setUserCoords({ lat, lng, accuracy })
-        fetchAddressName(lat, lng)
+        const statusMsg = accuracy <= 100 ? 'Success' : 'Low accuracy, approximate location'
+        fetchAddressName(lat, lng, statusMsg)
       },
       () => {}, // Silently ignore watch errors — initial detectLocation already handled the user-facing error
       { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
