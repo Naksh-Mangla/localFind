@@ -1,4 +1,4 @@
-﻿import React from 'react'
+import React from 'react'
 import { formatDistance } from '../utils/haversine'
 
 export function ProductDetailModal({ product, onClose }) {
@@ -6,7 +6,7 @@ export function ProductDetailModal({ product, onClose }) {
 
   const cleanWhatsapp = (product.whatsapp_number || '').replace(/[^0-9]/g, '')
   const whatsappMsg = encodeURIComponent(
-    `Hi, is "${product.name}" (â‚¹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
+    `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
   )
   const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}`
   const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${product.lat},${product.lng}`
@@ -51,7 +51,7 @@ export function ProductDetailModal({ product, onClose }) {
               </h2>
             </div>
             <div className="text-right flex-shrink-0">
-              <span className="font-display-lg text-3xl font-bold text-primary">â‚¹{product.price}</span>
+              <span className="font-display-lg text-3xl font-bold text-primary">₹{product.price}</span>
             </div>
           </div>
 

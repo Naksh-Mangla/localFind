@@ -23,7 +23,7 @@ export function Header({
           <div className="flex flex-col">
             <div className="flex items-center gap-1">
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">YOUR LOCATION</span>
-              <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded">v1.1.0</span>
+              <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded">v1.4.0</span>
             </div>
             <span className="font-title-md text-sm text-on-surface line-clamp-1">{userLocationName || 'Detecting Location...'}</span>
           </div>
@@ -70,7 +70,7 @@ export function Header({
                 LocalFind
               </h1>
               <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                v1.1.0
+                v1.4.0
               </span>
             </div>
           </div>

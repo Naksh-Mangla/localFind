@@ -219,16 +219,40 @@ export function MerchantDashboard({
     }
   }
 
-  // Use Browser GPS for shop location
+  // Use High-Precision Browser GPS for shop location
   const handleUseGPS = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setLat(pos.coords.latitude)
-          setLng(pos.coords.longitude)
-          alert('Updated shop coordinates with current GPS location!')
+        async (pos) => {
+          const latitude = Number(pos.coords.latitude.toFixed(6))
+          const longitude = Number(pos.coords.longitude.toFixed(6))
+          setLat(latitude)
+          setLng(longitude)
+
+          // Try reverse geocoding to pre-fill address
+          try {
+            const res = await fetch(
+              `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+            )
+            if (res.ok) {
+              const data = await res.json()
+              const addr = data.address || {}
+              const fullAddr = [
+                addr.amenity || addr.shop || addr.building,
+                addr.road,
+                addr.suburb || addr.neighbourhood,
+                addr.city || addr.town
+              ].filter(Boolean).join(', ')
+              if (fullAddr) setAddressText(fullAddr)
+            }
+          } catch (e) {
+            console.warn('Reverse geocode failed:', e)
+          }
+
+          alert(`Accurate GPS location locked!\nLatitude: ${latitude}\nLongitude: ${longitude}\nPrecision: ±${Math.round(pos.coords.accuracy || 10)}m`)
         },
-        (err) => alert(`Geolocation error: ${err.message}`)
+        (err) => alert(`Geolocation error: ${err.message}`),
+        { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       )
     } else {
       alert('Geolocation is not supported by your browser.')
@@ -245,7 +269,7 @@ export function MerchantDashboard({
           </div>
           <h2 className="font-headline-lg text-2xl font-bold text-on-surface mb-2">Shopkeeper Portal</h2>
           <p className="text-sm text-on-surface-variant mb-6">
-            Sign in with Google to display your products to buyers nearby in real-time â€” 100% free, zero commissions.
+            Sign in with Google to display your products to buyers nearby in real-time — 100% free, zero commissions.
           </p>
 
           <button
@@ -522,7 +546,7 @@ export function MerchantDashboard({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">Price (â‚¹) *</label>
+                  <label className="block text-xs font-bold text-on-surface mb-1">Price (₹) *</label>
                   <input
                     type="number"
                     step="any"

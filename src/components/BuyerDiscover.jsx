@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import { calculateDistanceKm, formatDistance } from '../utils/haversine'
 
 const CATEGORIES = [
@@ -18,6 +18,7 @@ export function BuyerDiscover({
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
+  const [maxRadiusKm, setMaxRadiusKm] = useState(2) // Default to 2km Hyperlocal radius
 
   // Calculate distance for all products and sort by distance
   const productsWithDistance = useMemo(() => {
@@ -47,16 +48,29 @@ export function BuyerDiscover({
     })
   }, [productsWithDistance, selectedCategory, searchQuery])
 
-  // Split local products vs affiliate fallback products
-  const localProducts = useMemo(() => {
+  // Local products strictly within the selected radius (Default: 2 km)
+  const hyperlocalProducts = useMemo(() => {
     return filteredProducts
       .filter((p) => !p.is_affiliate_fallback)
+      .filter((p) => {
+        if (maxRadiusKm === 'all' || p.distanceKm === null) return true
+        return p.distanceKm <= maxRadiusKm
+      })
       .sort((a, b) => {
         if (a.distanceKm === null) return 1
         if (b.distanceKm === null) return -1
         return a.distanceKm - b.distanceKm
       })
-  }, [filteredProducts])
+  }, [filteredProducts, maxRadiusKm])
+
+  // Local products beyond the selected radius (e.g. 16 km away)
+  const distantLocalProducts = useMemo(() => {
+    if (maxRadiusKm === 'all') return []
+    return filteredProducts
+      .filter((p) => !p.is_affiliate_fallback)
+      .filter((p) => p.distanceKm !== null && p.distanceKm > maxRadiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+  }, [filteredProducts, maxRadiusKm])
 
   const fallbackProducts = useMemo(() => {
     return filteredProducts.filter((p) => p.is_affiliate_fallback)
@@ -107,6 +121,35 @@ export function BuyerDiscover({
             )
           })}
         </div>
+
+        {/* Hyperlocal Distance Radius Filter Bar */}
+        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-surface-variant/40 overflow-x-auto hide-scrollbar">
+          <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1 shrink-0">
+            <span className="material-symbols-outlined text-sm text-primary">near_me</span>
+            <span>Hyperlocal Radius:</span>
+          </span>
+          {[
+            { label: '2 km (Hyperlocal)', value: 2 },
+            { label: '5 km', value: 5 },
+            { label: '10 km', value: 10 },
+            { label: 'All Distances', value: 'all' }
+          ].map((rad) => {
+            const isActive = maxRadiusKm === rad.value
+            return (
+              <button
+                key={rad.label}
+                onClick={() => setMaxRadiusKm(rad.value)}
+                className={`px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                  isActive
+                    ? 'bg-primary text-on-primary shadow-sm font-bold'
+                    : 'bg-surface-container-high border border-surface-variant text-on-surface-variant hover:bg-surface-variant'
+                }`}
+              >
+                {rad.label}
+              </button>
+            )
+          })}
+        </div>
       </section>
 
       {/* Loading Skeleton */}
@@ -118,30 +161,44 @@ export function BuyerDiscover({
         </div>
       )}
 
-      {/* Local Product Feed (Bento / Grid) */}
+      {/* Hyperlocal 2km Product Feed */}
       {!loading && (
         <section className="mb-stack-lg">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-headline-lg-mobile text-xl font-bold text-on-surface flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">store</span>
-              <span>Available in Offline Stores Nearby</span>
+              <span>
+                {maxRadiusKm === 'all'
+                  ? 'Available in Offline Stores'
+                  : `Available Nearby (Within ${maxRadiusKm} km)`}
+              </span>
             </h2>
-            <span className="text-xs text-on-surface-variant">
-              {localProducts.length} local items
+            <span className="text-xs text-on-surface-variant font-medium">
+              {hyperlocalProducts.length} local items within {maxRadiusKm === 'all' ? 'all distances' : `${maxRadiusKm} km`}
             </span>
           </div>
 
-          {localProducts.length === 0 ? (
+          {hyperlocalProducts.length === 0 ? (
             <div className="bg-surface-container-low p-8 rounded-2xl border border-surface-variant text-center my-6">
-              <span className="material-symbols-outlined text-4xl text-primary mb-2">search_off</span>
-              <h3 className="font-title-md text-lg font-bold text-on-surface mb-1">No Local Products Found</h3>
+              <span className="material-symbols-outlined text-4xl text-primary mb-2">near_me_disabled</span>
+              <h3 className="font-title-md text-lg font-bold text-on-surface mb-1">No Local Products Within {maxRadiusKm === 'all' ? 'Range' : `${maxRadiusKm} km`}</h3>
               <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-4">
-                No nearby shopkeeper has listed this item yet. Check out online fallback options below!
+                {distantLocalProducts.length > 0
+                  ? `Found ${distantLocalProducts.length} store items slightly further away (beyond ${maxRadiusKm} km). Try widening your radius filter to 5 km or 10 km above!`
+                  : 'No nearby shopkeeper has listed this item yet. Check out online fallback options below!'}
               </p>
+              {distantLocalProducts.length > 0 && (
+                <button
+                  onClick={() => setMaxRadiusKm('all')}
+                  className="bg-primary text-on-primary px-4 py-2 rounded-xl text-xs font-bold shadow-sm"
+                >
+                  Show All Distances
+                </button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
-              {localProducts.map((product) => (
+              {hyperlocalProducts.map((product) => (
                 <div
                   key={product.id}
                   onClick={() => onSelectProduct(product)}
@@ -172,7 +229,7 @@ export function BuyerDiscover({
                     <div className="mt-auto flex items-end justify-between">
                       <div>
                         <span className="font-headline-lg-mobile text-xl font-bold text-primary">
-                          â‚¹{product.price}
+                          ₹{product.price}
                         </span>
                       </div>
                       <button className="bg-primary text-on-primary px-3 py-1.5 rounded-lg font-label-caps text-xs hover:bg-primary-container transition-colors shadow-sm flex items-center gap-1">
@@ -184,6 +241,70 @@ export function BuyerDiscover({
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {/* Stores Beyond Selected Radius (e.g. 16 km away) */}
+      {!loading && distantLocalProducts.length > 0 && (
+        <section className="mb-stack-lg mt-8 pt-6 border-t border-surface-variant/60">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-headline-lg-mobile text-xl font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-amber-600">location_off</span>
+                <span>Stores Beyond {maxRadiusKm} km Radius</span>
+              </h2>
+              <p className="text-xs text-on-surface-variant">
+                These shops are further away from your current location.
+              </p>
+            </div>
+            <span className="text-xs text-on-surface-variant font-medium">
+              {distantLocalProducts.length} further items
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+            {distantLocalProducts.map((product) => (
+              <div
+                key={product.id}
+                onClick={() => onSelectProduct(product)}
+                className="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden border border-amber-500/30 flex flex-col group cursor-pointer hover:shadow-md transition-all duration-300"
+              >
+                <div className="relative w-full aspect-square overflow-hidden bg-surface-variant">
+                  <img
+                    src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'}
+                    alt={product.name}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                  />
+                  {product.distanceKm !== null && (
+                    <div className="absolute top-3 right-3 bg-amber-600 text-white px-2.5 py-1 rounded-full font-label-caps text-[11px] flex items-center gap-1 shadow-sm backdrop-blur-md bg-opacity-95 font-semibold">
+                      <span className="material-symbols-outlined text-[14px]">map</span>
+                      <span>{formatDistance(product.distanceKm)} (Beyond {maxRadiusKm}km)</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4 flex flex-col flex-grow">
+                  <div className="flex justify-between items-start mb-1">
+                    <h3 className="font-title-md text-base font-semibold text-on-surface line-clamp-1">
+                      {product.name}
+                    </h3>
+                  </div>
+                  <p className="font-body-sm text-xs text-on-surface-variant mb-3 line-clamp-1">
+                    {product.shop_name}
+                  </p>
+                  <div className="mt-auto flex items-end justify-between">
+                    <div>
+                      <span className="font-headline-lg-mobile text-xl font-bold text-primary">
+                        ₹{product.price}
+                      </span>
+                    </div>
+                    <button className="bg-surface-container-high text-on-surface px-3 py-1.5 rounded-lg font-label-caps text-xs hover:bg-surface-variant transition-colors shadow-sm flex items-center gap-1 border border-surface-variant">
+                      <span>View Details</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 
@@ -220,7 +341,7 @@ export function BuyerDiscover({
                     <span className="text-xs text-secondary font-medium">Online Affiliate Deal</span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-primary text-base">â‚¹{product.price}</span>
+                    <span className="font-bold text-primary text-base">₹{product.price}</span>
                     <span className="text-xs text-primary underline">Buy Online &rarr;</span>
                   </div>
                 </div>

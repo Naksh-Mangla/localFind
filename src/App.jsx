@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { apiFetch } from './lib/api'
 import { Header } from './components/Header'
@@ -19,36 +19,74 @@ export default function App() {
   const [products, setProducts] = useState([])
   const [loadingProducts, setLoadingProducts] = useState(true)
 
-  // Detect user GPS location
-  const detectLocation = useCallback(() => {
-    setUserLocationName('Locating...')
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const coords = {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude
-          }
-          setUserCoords(coords)
-          setUserLocationName('Current GPS Location')
-        },
-        (err) => {
-          console.warn('Geolocation failed/denied, defaulting to NYC/Delhi:', err.message)
-          // Default fallback coordinates (e.g. 28.6139, 77.2090)
-          setUserCoords({ lat: 28.6139, lng: 77.2090 })
-          setUserLocationName('Connaught Place, Delhi')
-        },
-        { timeout: 8000, enableHighAccuracy: true }
+  // Reverse geocode coordinates to human-readable street/neighborhood name
+  const fetchAddressName = useCallback(async (lat, lng) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
       )
-    } else {
-      setUserCoords({ lat: 28.6139, lng: 77.2090 })
-      setUserLocationName('Connaught Place, Delhi')
+      if (res.ok) {
+        const data = await res.json()
+        const addr = data.address || {}
+        const name =
+          addr.suburb ||
+          addr.neighbourhood ||
+          addr.residential ||
+          addr.road ||
+          addr.city_district ||
+          addr.city ||
+          addr.town ||
+          'Live GPS Location'
+        setUserLocationName(name)
+        return
+      }
+    } catch (err) {
+      console.warn('Reverse geocoding error:', err)
     }
+    setUserLocationName(`GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
   }, [])
 
+  // Detect and continuously track user GPS location in real time with high accuracy
+  const detectLocation = useCallback(() => {
+    setUserLocationName('Detecting High-Precision GPS...')
+    if (!navigator.geolocation) {
+      setUserCoords({ lat: 28.6139, lng: 77.2090 })
+      setUserLocationName('Connaught Place, Delhi (Default)')
+      return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords
+        setUserCoords({ lat, lng, accuracy })
+        fetchAddressName(lat, lng)
+      },
+      (err) => {
+        console.warn('Geolocation failed or permission denied:', err.message)
+        setUserCoords({ lat: 28.6139, lng: 77.2090 })
+        setUserLocationName('Connaught Place, Delhi (Default)')
+      },
+      { timeout: 30000, enableHighAccuracy: true, maximumAge: 0 }
+    )
+  }, [fetchAddressName])
+
+  // Continuous watchPosition for live satellite lock refinement
   useEffect(() => {
     detectLocation()
-  }, [detectLocation])
+    if (!navigator.geolocation) return
+
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords
+        setUserCoords({ lat, lng, accuracy })
+        fetchAddressName(lat, lng)
+      },
+      (err) => console.warn('GPS Watch error:', err.message),
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+    )
+
+    return () => navigator.geolocation.clearWatch(watchId)
+  }, [detectLocation, fetchAddressName])
 
   // Fetch products from Cloudflare Worker
   const fetchProducts = useCallback(async () => {
