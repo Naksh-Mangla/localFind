@@ -1,31 +1,13 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-# Diagnostic data & OS files
-.DS_Store
-Thumbs.db
-*.mjs.timestamp*
-vite.config.js.timestamp*
-
-# Dependencies
 node_modules/
 dist/
-dist-ssr/
-*.local
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Cloudflare Wrangler & IDE
+build/
 .wrangler/
-.openchrome/
+dev-dist/
+.env
+.env.*
+!.env.example
+*.local
+.DS_Store
+*.log
 .vscode/
 .idea/
