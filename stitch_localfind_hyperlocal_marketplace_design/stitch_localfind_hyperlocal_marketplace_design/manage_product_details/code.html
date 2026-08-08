@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Edit Product - LocalFind Shopkeeper</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Work+Sans:wght@600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#352f2b",
+                        "inverse-primary": "#ffb59f",
+                        "on-surface": "#1f1b17",
+                        "surface-bright": "#fff8f4",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed": "#1c1c17",
+                        "on-error": "#ffffff",
+                        "tertiary": "#5d5c55",
+                        "outline-variant": "#ddc0b8",
+                        "surface-tint": "#9f4122",
+                        "on-tertiary-container": "#fffbff",
+                        "surface-container": "#f6ece5",
+                        "surface-dim": "#e2d8d1",
+                        "primary": "#9c3e20",
+                        "surface": "#fff8f4",
+                        "tertiary-fixed-dim": "#c9c6be",
+                        "on-secondary-fixed": "#251a00",
+                        "primary-container": "#bc5636",
+                        "on-primary-container": "#fffbff",
+                        "primary-fixed-dim": "#ffb59f",
+                        "secondary-fixed": "#ffdf9a",
+                        "outline": "#89726b",
+                        "inverse-on-surface": "#f9efe8",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#e4c378",
+                        "on-tertiary-fixed-variant": "#484741",
+                        "primary-fixed": "#ffdbd0",
+                        "tertiary-fixed": "#e6e2d9",
+                        "tertiary-container": "#76746d",
+                        "on-secondary-fixed-variant": "#5a4302",
+                        "surface-variant": "#ebe1da",
+                        "on-primary-fixed-variant": "#802a0d",
+                        "on-background": "#1f1b17",
+                        "secondary-container": "#ffdc8e",
+                        "error-container": "#ffdad6",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#745b1a",
+                        "surface-container-high": "#f1e6df",
+                        "on-secondary": "#ffffff",
+                        "background": "#fff8f4",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#3a0a00",
+                        "on-surface-variant": "#56423c",
+                        "surface-container-highest": "#ebe1da",
+                        "surface-container-low": "#fcf2ea",
+                        "on-secondary-container": "#795f1e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-lg": "32px",
+                        "container-margin": "20px",
+                        "stack-sm": "8px",
+                        "unit": "4px",
+                        "gutter": "12px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "label-caps": ["Work Sans"],
+                        "title-md": ["Plus Jakarta Sans"],
+                        "body-sm": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "title-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body-lg min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md shadow-sm flex items-center justify-between px-container-margin h-16">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary dark:text-inverse-primary" style="font-variation-settings: 'FILL' 1;">location_on</span>
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-primary dark:text-inverse-primary tracking-tight">LocalFind</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-surface-variant flex items-center justify-center overflow-hidden">
+<span class="material-symbols-outlined text-on-surface-variant">person</span>
+</div>
+</header>
+<main class="pt-24 px-container-margin max-w-2xl mx-auto">
+<div class="mb-stack-lg flex items-center justify-between">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface">Edit Product</h1>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-1">Update details for your neighborhood storefront.</p>
+</div>
+<button class="text-on-surface-variant hover:bg-surface-variant/50 p-2 rounded-full transition-colors" type="button">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<form class="space-y-stack-lg">
+<!-- Image Upload Area -->
+<div class="glass-panel rounded-xl p-stack-md flex flex-col items-center justify-center border-2 border-dashed border-outline-variant hover:border-primary transition-colors cursor-pointer group h-64 relative overflow-hidden">
+<div class="absolute inset-0 bg-surface-variant/20 group-hover:bg-primary/5 transition-colors z-0"></div>
+<div class="relative z-10 flex flex-col items-center text-center space-y-stack-sm pointer-events-none">
+<div class="w-16 h-16 rounded-full bg-surface-bright shadow-sm flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+<span class="material-symbols-outlined text-3xl">add_photo_alternate</span>
+</div>
+<div>
+<p class="font-title-md text-title-md text-on-surface">Upload Product Image</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Drag and drop or click to browse. (1:1 ratio recommended)</p>
+</div>
+</div>
+<input accept="image/*" class="absolute inset-0 opacity-0 cursor-pointer z-20 w-full h-full" type="file"/>
+</div>
+<div class="space-y-stack-md bg-surface-container-lowest shadow-[0px_4px_20px_rgba(0,0,0,0.04)] rounded-xl p-stack-md">
+<!-- Product Name -->
+<div>
+<label class="block font-title-md text-title-md text-on-surface mb-unit" for="productName">Product Name</label>
+<input class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 font-body-lg text-body-lg text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-shadow" id="productName" placeholder="e.g., Handcrafted Ceramic Mug" type="text" value="Artisan Sourdough Loaf"/>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-md">
+<!-- Category -->
+<div>
+<label class="block font-title-md text-title-md text-on-surface mb-unit" for="category">Category</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-bright border border-outline-variant rounded-lg pl-4 pr-10 py-3 font-body-lg text-body-lg text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-shadow" id="category">
+<option>Baked Goods</option>
+<option>Fresh Produce</option>
+<option>Handicrafts</option>
+<option>Pantry Staples</option>
+</select>
+<span class="material-symbols-outlined absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant pointer-events-none">expand_more</span>
+</div>
+</div>
+<!-- Price -->
+<div>
+<label class="block font-title-md text-title-md text-on-surface mb-unit" for="price">Price</label>
+<div class="relative">
+<span class="absolute left-4 top-1/2 -translate-y-1/2 font-body-lg text-body-lg text-on-surface-variant">$</span>
+<input class="w-full bg-surface-bright border border-outline-variant rounded-lg pl-8 pr-4 py-3 font-body-lg text-body-lg text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-shadow" id="price" placeholder="0.00" step="0.01" type="number" value="8.50"/>
+</div>
+</div>
+</div>
+<!-- Description -->
+<div>
+<label class="block font-title-md text-title-md text-on-surface mb-unit" for="description">Description</label>
+<textarea class="w-full bg-surface-bright border border-outline-variant rounded-lg px-4 py-3 font-body-lg text-body-lg text-on-surface focus:ring-2 focus:ring-primary focus:border-primary transition-shadow resize-y" id="description" placeholder="Describe the product, ingredients, or story behind it..." rows="4">Freshly baked daily using a 10-year-old starter. Crisp crust with a chewy, tangy interior.</textarea>
+</div>
+<!-- Stock Toggle -->
+<div class="flex items-center justify-between pt-stack-sm border-t border-surface-variant">
+<div>
+<p class="font-title-md text-title-md text-on-surface">Currently in Stock</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Make visible to neighborhood shoppers.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-14 h-7 bg-surface-variant peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-primary shadow-sm"></div>
+</label>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="flex gap-stack-md pt-stack-md">
+<button class="flex-1 py-3 px-6 rounded-lg font-title-md text-title-md text-on-surface bg-surface-variant hover:bg-surface-dim transition-colors shadow-sm" type="button">
+                    Cancel
+                </button>
+<button class="flex-1 py-3 px-6 rounded-lg font-title-md text-title-md text-on-primary bg-primary hover:bg-surface-tint transition-colors shadow-[0px_8px_16px_rgba(156,62,32,0.1)]" type="submit">
+                    Save Product
+                </button>
+</div>
+</form>
+</main>
+</body></html>

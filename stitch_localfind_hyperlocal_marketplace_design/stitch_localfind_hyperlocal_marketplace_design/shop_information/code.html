@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Shop Details - LocalFind</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "inverse-surface": "#352f2b",
+                      "inverse-primary": "#ffb59f",
+                      "on-surface": "#1f1b17",
+                      "surface-bright": "#fff8f4",
+                      "on-primary": "#ffffff",
+                      "on-tertiary-fixed": "#1c1c17",
+                      "on-error": "#ffffff",
+                      "tertiary": "#5d5c55",
+                      "outline-variant": "#ddc0b8",
+                      "surface-tint": "#9f4122",
+                      "on-tertiary-container": "#fffbff",
+                      "surface-container": "#f6ece5",
+                      "surface-dim": "#e2d8d1",
+                      "primary": "#9c3e20",
+                      "surface": "#fff8f4",
+                      "tertiary-fixed-dim": "#c9c6be",
+                      "on-secondary-fixed": "#251a00",
+                      "primary-container": "#bc5636",
+                      "on-primary-container": "#fffbff",
+                      "primary-fixed-dim": "#ffb59f",
+                      "secondary-fixed": "#ffdf9a",
+                      "outline": "#89726b",
+                      "inverse-on-surface": "#f9efe8",
+                      "on-error-container": "#93000a",
+                      "secondary-fixed-dim": "#e4c378",
+                      "on-tertiary-fixed-variant": "#484741",
+                      "primary-fixed": "#ffdbd0",
+                      "tertiary-fixed": "#e6e2d9",
+                      "tertiary-container": "#76746d",
+                      "on-secondary-fixed-variant": "#5a4302",
+                      "surface-variant": "#ebe1da",
+                      "on-primary-fixed-variant": "#802a0d",
+                      "on-background": "#1f1b17",
+                      "secondary-container": "#ffdc8e",
+                      "error-container": "#ffdad6",
+                      "on-tertiary": "#ffffff",
+                      "secondary": "#745b1a",
+                      "surface-container-high": "#f1e6df",
+                      "on-secondary": "#ffffff",
+                      "background": "#fff8f4",
+                      "error": "#ba1a1a",
+                      "surface-container-lowest": "#ffffff",
+                      "on-primary-fixed": "#3a0a00",
+                      "on-surface-variant": "#56423c",
+                      "surface-container-highest": "#ebe1da",
+                      "surface-container-low": "#fcf2ea",
+                      "on-secondary-container": "#795f1e"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "stack-lg": "32px",
+                      "container-margin": "20px",
+                      "stack-sm": "8px",
+                      "unit": "4px",
+                      "gutter": "12px",
+                      "stack-md": "16px"
+              },
+              "fontFamily": {
+                      "display-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-lg-mobile": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-lg": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "label-caps": [
+                              "Work Sans"
+                      ],
+                      "title-md": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body-sm": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "headline-lg": [
+                              "Plus Jakarta Sans"
+                      ]
+              },
+              "fontSize": {
+                      "display-lg": [
+                              "40px",
+                              {
+                                      "lineHeight": "48px",
+                                      "letterSpacing": "-0.02em",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "headline-lg-mobile": [
+                              "24px",
+                              {
+                                      "lineHeight": "32px",
+                                      "fontWeight": "700"
+                              }
+                      ],
+                      "body-lg": [
+                              "16px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "label-caps": [
+                              "12px",
+                              {
+                                      "lineHeight": "16px",
+                                      "letterSpacing": "0.05em",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "title-md": [
+                              "18px",
+                              {
+                                      "lineHeight": "24px",
+                                      "fontWeight": "600"
+                              }
+                      ],
+                      "body-sm": [
+                              "14px",
+                              {
+                                      "lineHeight": "20px",
+                                      "fontWeight": "400"
+                              }
+                      ],
+                      "headline-lg": [
+                              "28px",
+                              {
+                                      "lineHeight": "36px",
+                                      "fontWeight": "700"
+                              }
+                      ]
+              }
+      },
+          },
+        }
+    </script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Work+Sans:wght@600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body-lg min-h-screen pt-16 md:pt-20 pb-24 md:pb-0">
+<!-- TopAppBar -->
+<header class="fixed top-0 w-full z-50 bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md shadow-sm flex items-center justify-between px-container-margin h-16 transition-transform active:scale-95">
+<div class="flex items-center gap-2 text-primary dark:text-inverse-primary hover:bg-surface-variant/50 transition-colors p-2 rounded-full cursor-pointer">
+<span class="material-symbols-outlined" data-icon="location_on">location_on</span>
+</div>
+<div class="font-display-lg text-display-lg text-primary dark:text-inverse-primary tracking-tight">LocalFind</div>
+<div class="flex items-center justify-center w-8 h-8 rounded-full bg-primary-container text-on-primary-container hover:bg-surface-variant/50 transition-colors cursor-pointer">
+<span class="font-title-md text-title-md">U</span>
+</div>
+</header>
+<main class="max-w-4xl mx-auto md:px-container-margin md:py-stack-lg">
+<!-- Back Button (Mobile Context mostly) -->
+<div class="px-container-margin py-stack-sm md:hidden">
+<button class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                Back to Shops
+            </button>
+</div>
+<!-- Shop Hero Image -->
+<div class="w-full h-64 md:h-96 md:rounded-xl overflow-hidden relative shadow-[0px_4px_20px_rgba(0,0,0,0.04)] bg-surface-container">
+<img class="w-full h-full object-cover object-center" data-alt="A warm, inviting exterior shot of a local bakery shop called 'The Daily Crumb'. The storefront features large glass windows showcasing fresh pastries, a vintage hanging sign, and potted plants framing the entrance. Sun-drenched natural lighting, warm minimalism aesthetic with earthy tones and soft terracotta accents." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQpRELjP6Jju95lh0kVirLBc7912nWz5I1dtFQvGNMQA0atLrkN6Y0-PQBFjDlzwekJxdWPSwSEf3OqrTa86iOwxkrJyQA5UDOm3Mgz883aBEcZN7vMgOcO2zxOJGrEs1uNkqC4vIzqlfpokrBQY_v03k9-dtHa3TDvh13V1qHFuBZC0QA5Lvigo1e-Zs_uQYshqfwO5hUD0ekAAaSBaZJ45Tpj5jQ40yRZNVaqmpBSnZjeU2pHSRJ"/>
+<div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+<div class="absolute bottom-0 left-0 w-full p-container-margin flex flex-col md:flex-row md:items-end justify-between gap-stack-sm">
+<div>
+<h1 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-white mb-2">The Daily Crumb</h1>
+<div class="flex items-center gap-3">
+<span class="bg-secondary text-on-secondary font-label-caps text-label-caps px-3 py-1 rounded-full shadow-md">OPEN NOW</span>
+<span class="text-surface-bright font-body-sm text-body-sm flex items-center gap-1">
+<span class="material-symbols-outlined fill text-secondary-container text-[16px]">star</span>
+                            4.9 (128 reviews)
+                        </span>
+</div>
+</div>
+</div>
+</div>
+<!-- Shop Details & Actions -->
+<div class="px-container-margin py-stack-md flex flex-col gap-stack-md bg-white shadow-[0px_4px_20px_rgba(0,0,0,0.04)] md:rounded-b-xl md:mb-stack-lg relative z-10 -mt-2 rounded-t-xl md:rounded-t-none md:-mt-4 md:mx-4">
+<div class="flex flex-col md:flex-row gap-stack-md justify-between items-start md:items-center border-b border-surface-variant pb-stack-md">
+<div class="flex flex-col gap-1">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-sm text-body-sm">
+<span class="material-symbols-outlined text-[18px]">location_on</span>
+<span>142 Baker St, Neighborhood District</span>
+</div>
+<div class="flex items-center gap-2 text-primary font-body-sm text-body-sm font-semibold">
+<span class="material-symbols-outlined text-[18px]">directions_walk</span>
+<span>0.8 km away • ~10m walk</span>
+</div>
+</div>
+<div class="flex w-full md:w-auto gap-stack-sm">
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-primary text-on-primary px-4 py-3 rounded-lg font-title-md text-title-md shadow-[0px_8px_16px_rgba(156,62,32,0.1)] active:scale-95 transition-transform">
+<span class="material-symbols-outlined">directions</span>
+                        Get Directions
+                    </button>
+<button class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-secondary text-on-secondary px-4 py-3 rounded-lg font-title-md text-title-md shadow-[0px_8px_16px_rgba(116,91,26,0.1)] active:scale-95 transition-transform">
+<span class="material-symbols-outlined">call</span>
+                        Call Shop
+                    </button>
+</div>
+</div>
+<div>
+<h2 class="font-title-md text-title-md text-on-surface mb-stack-sm">About</h2>
+<p class="font-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+                    Artisanal sourdough, fresh morning pastries, and locally roasted coffee served in a warm, welcoming environment. We believe in slow fermentation and building fast community ties. Stop by for your daily staple or a weekend treat.
+                </p>
+</div>
+</div>
+<!-- Featured Products Bento Grid -->
+<div class="px-container-margin py-stack-lg">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface mb-stack-md">Popular from this Shop</h2>
+<div class="grid grid-cols-2 md:grid-cols-4 gap-gutter md:gap-stack-md">
+<!-- Product Card 1 -->
+<div class="bg-white rounded-xl overflow-hidden shadow-[0px_4px_20px_rgba(0,0,0,0.04)] flex flex-col group cursor-pointer active:scale-[0.98] transition-transform">
+<div class="w-full aspect-square relative bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="A close-up shot of a crusty, golden-brown artisanal sourdough bread loaf on a wooden cutting board. Soft morning light highlighting the textures of the flour and crust. Warm minimalism style, shallow depth of field." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1swAbxAvcx_UCzvPLtyptlwnhe2GY8AarCPx_RogUUVUaOYUkGoK8Fouktm0LMmqyXgiI3xvkml_YRLl198bY9iIsTe9so4Ig3MX_J8UM4F2DrwG7eMawAtnJlGcZBjiy7-yDVZQEz_oJKS3gL1NsU8GmZk0VSHV_Lm5QE6xP7o4f2kfcma5WIrt7meXkediRjQsDo_9cv_r3T3ZdenUAQFdYlXbjCcjecDoKggeFny-TIeBkQSGh"/>
+<div class="absolute top-2 right-2 bg-secondary text-on-secondary font-label-caps text-label-caps px-2 py-1 rounded-full text-[10px]">
+                            FRESH
+                        </div>
+</div>
+<div class="p-3 flex flex-col gap-1 h-[40%]">
+<h3 class="font-title-md text-title-md text-on-surface truncate">Rustic Sourdough</h3>
+<p class="font-body-sm text-body-sm text-primary font-bold">$7.50</p>
+</div>
+</div>
+<!-- Product Card 2 -->
+<div class="bg-white rounded-xl overflow-hidden shadow-[0px_4px_20px_rgba(0,0,0,0.04)] flex flex-col group cursor-pointer active:scale-[0.98] transition-transform">
+<div class="w-full aspect-square relative bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="Two flaky, buttery croissants sitting on a white ceramic plate next to a cup of black coffee. Sun-drenched cafe table setting, warm minimalism aesthetic, bright and inviting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDyz4ojOUIhK-sKRG_oez1CyhO1yd_3_4e0n0R1Yw2ML3kLdR1QMsbhlX-CTvnRSw75AWIQ1tP1WkOV5m9jQKdkzD51ctbIMyJVmeizxssh4X857QYyEiqLeekeiGMuSQ_hEPJL12rRmpm2RFML0ZxI5BQRYaE3SVgq4DyQqrTR-2ANrYNd_SMT2FzQr2YNMFHaPzg17CIaG_-6rynZxSk7WVc9ZgCAUqUIs8oLp6_tJXXWPJOM4Qgl"/>
+</div>
+<div class="p-3 flex flex-col gap-1 h-[40%]">
+<h3 class="font-title-md text-title-md text-on-surface truncate">Butter Croissant</h3>
+<p class="font-body-sm text-body-sm text-primary font-bold">$3.50</p>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="bg-white rounded-xl overflow-hidden shadow-[0px_4px_20px_rgba(0,0,0,0.04)] flex flex-col group cursor-pointer active:scale-[0.98] transition-transform">
+<div class="w-full aspect-square relative bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="A beautifully crafted pour-over coffee being made in a glass carafe. Steam rising softly. Warm terracotta tones in the background, minimalist cafe counter setting, high-key lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAqU-a-_ZkzVGkHQnMT3Rjait2wWdDmt3NhOBJmZU_wYTl6eG-lqYSXbve04guak6UenoShRdjRcrRlVYkoCBFAMy0pcJPJvJSXT546QQossVWKT2qD2NOSWqsRq8DRk3pqeMvpRSU2SqTf7aJXZNpbrsJh9Nvo3bZLRssmtH44w53kLUUs3cfpgDPe66gZySJyIeyWVxmJjxiL0IJOu2ioYCx0I27oBnLkc-ug3CnnK0XlcV4kM8Dz"/>
+<div class="absolute top-2 right-2 bg-surface-variant text-on-surface-variant font-label-caps text-label-caps px-2 py-1 rounded-full text-[10px]">
+                            HOT
+                        </div>
+</div>
+<div class="p-3 flex flex-col gap-1 h-[40%]">
+<h3 class="font-title-md text-title-md text-on-surface truncate">House Roast</h3>
+<p class="font-body-sm text-body-sm text-primary font-bold">$4.00</p>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="bg-white rounded-xl overflow-hidden shadow-[0px_4px_20px_rgba(0,0,0,0.04)] flex flex-col group cursor-pointer active:scale-[0.98] transition-transform">
+<div class="w-full aspect-square relative bg-surface-container">
+<img class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" data-alt="A slice of seasonal fruit tart featuring bright red berries and a golden crust on a soft pastel plate. Airy, bright environment, warm minimalist design language, appetizing food photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCp43H25qqiFqvV-pmItWbbSWvE-OCoa3C6UvaIDuaTTmoQPGk_xNECIYlXM-9FzjbUZpOrRUkjuuPxZms0vRtI5GkHRnpM8uFLlr0t42rEcfevDOzyvCNHX7NJ-s5BZZgKKFJNBfnALJfBd-f7hBOEuW5q37-EoPmXyOL_iW9VGHJOtmuP0QyY97fyf_tO8YePjtU2vQ-VsAv1_lJyFwje58xp2bjunzx-i57S6JHMmCkc3ztot97c"/>
+</div>
+<div class="p-3 flex flex-col gap-1 h-[40%]">
+<h3 class="font-title-md text-title-md text-on-surface truncate">Seasonal Tart</h3>
+<p class="font-body-sm text-body-sm text-primary font-bold">$6.00</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Hidden on md and above) -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-4 pt-2 bg-surface/80 dark:bg-inverse-surface/80 backdrop-blur-md shadow-[0px_-4px_20px_rgba(0,0,0,0.04)] z-50 rounded-t-xl transition-all duration-200">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:text-primary dark:hover:text-inverse-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1">explore</span>
+<span class="font-label-caps text-label-caps">Discover</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:text-primary dark:hover:text-inverse-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1">bookmark</span>
+<span class="font-label-caps text-label-caps">Saved</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container dark:bg-secondary text-on-secondary-container dark:text-on-secondary rounded-full px-4 py-1 shadow-md active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1 fill">storefront</span>
+<span class="font-label-caps text-label-caps">Shops</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:text-primary dark:hover:text-inverse-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined mb-1">dashboard</span>
+<span class="font-label-caps text-label-caps">Dashboard</span>
+</a>
+</nav>
+</body></html>

@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LocalFind - Discover Local Shops</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&amp;family=Work+Sans:wght@600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-surface": "#352f2b",
+                        "inverse-primary": "#ffb59f",
+                        "on-surface": "#1f1b17",
+                        "surface-bright": "#fff8f4",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed": "#1c1c17",
+                        "on-error": "#ffffff",
+                        "tertiary": "#5d5c55",
+                        "outline-variant": "#ddc0b8",
+                        "surface-tint": "#9f4122",
+                        "on-tertiary-container": "#fffbff",
+                        "surface-container": "#f6ece5",
+                        "surface-dim": "#e2d8d1",
+                        "primary": "#9c3e20",
+                        "surface": "#fff8f4",
+                        "tertiary-fixed-dim": "#c9c6be",
+                        "on-secondary-fixed": "#251a00",
+                        "primary-container": "#bc5636",
+                        "on-primary-container": "#fffbff",
+                        "primary-fixed-dim": "#ffb59f",
+                        "secondary-fixed": "#ffdf9a",
+                        "outline": "#89726b",
+                        "inverse-on-surface": "#f9efe8",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#e4c378",
+                        "on-tertiary-fixed-variant": "#484741",
+                        "primary-fixed": "#ffdbd0",
+                        "tertiary-fixed": "#e6e2d9",
+                        "tertiary-container": "#76746d",
+                        "on-secondary-fixed-variant": "#5a4302",
+                        "surface-variant": "#ebe1da",
+                        "on-primary-fixed-variant": "#802a0d",
+                        "on-background": "#1f1b17",
+                        "secondary-container": "#ffdc8e",
+                        "error-container": "#ffdad6",
+                        "on-tertiary": "#ffffff",
+                        "secondary": "#745b1a",
+                        "surface-container-high": "#f1e6df",
+                        "on-secondary": "#ffffff",
+                        "background": "#fff8f4",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#3a0a00",
+                        "on-surface-variant": "#56423c",
+                        "surface-container-highest": "#ebe1da",
+                        "surface-container-low": "#fcf2ea",
+                        "on-secondary-container": "#795f1e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "stack-lg": "32px",
+                        "container-margin": "20px",
+                        "stack-sm": "8px",
+                        "unit": "4px",
+                        "gutter": "12px",
+                        "stack-md": "16px"
+                    },
+                    "fontFamily": {
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "body-lg": ["Plus Jakarta Sans"],
+                        "label-caps": ["Work Sans"],
+                        "title-md": ["Plus Jakarta Sans"],
+                        "body-sm": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+                        "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+                        "body-lg": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "title-md": ["18px", { "lineHeight": "24px", "fontWeight": "600" }],
+                        "body-sm": ["14px", { "lineHeight": "20px", "fontWeight": "400" }],
+                        "headline-lg": ["28px", { "lineHeight": "36px", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Custom scrollbar for horizontal lists */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface font-body-sm text-body-sm antialiased pb-24 md:pb-0">
+<!-- TopAppBar (Mobile) -->
+<header class="md:hidden bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md shadow-sm fixed top-0 w-full z-50 flex items-center justify-between px-container-margin h-16 w-full">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-2xl" data-icon="location_on">location_on</span>
+<div class="flex flex-col">
+<span class="font-label-caps text-label-caps text-on-surface-variant">DELIVER TO</span>
+<span class="font-title-md text-title-md text-on-surface">Brooklyn, NY</span>
+</div>
+</div>
+<img alt="User Profile" class="w-10 h-10 rounded-full object-cover shadow-sm border border-surface-variant" data-alt="A small, circular avatar portrait of a modern, smiling urban resident in warm sunlight. The image should feel friendly and approachable, suitable for a local neighborhood app profile picture. High quality, soft focus background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAfezUaNuvK-j-NHmpXLNc2XPVMVqBMhXDt7DtA0bdbmlLsP3HCY-IqVp-EKJlotfyAcnXfSTaUSlr0SMAnWMhguxu3EotVBFq7NXqHV585H_R9XlarkLwL2j7AsPnffON3pn2mq1mIzySlKUPwKK0Yu85fDjjJuYWaA2wRfnpdXXCHiZhMRn4GeONbzsf75MJmbTidRnfTZSaLvHzspc1sORLposnVCZyJ3h1-EfW8GMMa9t60CofO"/>
+</header>
+<!-- Desktop Navigation / TopAppBar Placeholder for larger screens -->
+<header class="hidden md:flex bg-surface/80 dark:bg-surface-dim/80 backdrop-blur-md shadow-sm fixed top-0 w-full z-50 items-center justify-between px-container-margin h-20 w-full">
+<div class="flex items-center gap-8">
+<h1 class="font-display-lg text-display-lg text-primary tracking-tight">LocalFind</h1>
+<div class="flex items-center gap-2 bg-surface-container-high rounded-full px-4 py-2">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="location_on">location_on</span>
+<span class="font-title-md text-title-md text-on-surface">Brooklyn, NY</span>
+<span class="material-symbols-outlined text-on-surface-variant cursor-pointer" data-icon="expand_more">expand_more</span>
+</div>
+</div>
+<nav class="flex gap-6">
+<a class="text-primary font-bold font-title-md text-title-md flex items-center gap-2 hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded-lg active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined" data-weight="fill">explore</span> Discover
+            </a>
+<a class="text-on-surface-variant font-title-md text-title-md flex items-center gap-2 hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded-lg active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">bookmark</span> Saved
+            </a>
+<a class="text-on-surface-variant font-title-md text-title-md flex items-center gap-2 hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded-lg active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">storefront</span> Shops
+            </a>
+<a class="text-on-surface-variant font-title-md text-title-md flex items-center gap-2 hover:bg-surface-variant/50 transition-colors px-3 py-2 rounded-lg active:scale-95 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span> Dashboard
+            </a>
+</nav>
+<img alt="User Profile" class="w-12 h-12 rounded-full object-cover shadow-sm border border-surface-variant" data-alt="A small, circular avatar portrait of a modern, smiling urban resident in warm sunlight. The image should feel friendly and approachable, suitable for a local neighborhood app profile picture. High quality, soft focus background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCF6C8lWq8twrp9mbrPqImE_IqE8nUg4regGi1dbTAFUmwsw6Ps-V0MxOBxh1NwqouX1VDDg-F1IXiWC6RDZMMJpq_-8_HmvDaSmJYYwtCR3-_UABuDE9Ghq6j4ISVdZSXUHk9LX2OW42su7etCBwJKrvmCZuH4VO8Fuib6EfIiVYq5jC44vew3k8dULS60lBkMk4ozBlwDX66MTRjrWT1_y9QVhUhHh5IjAa26YrFNn3H1wNq3zmwZ"/>
+</header>
+<main class="pt-20 md:pt-28 px-container-margin max-w-7xl mx-auto">
+<!-- Search and Filter Section -->
+<section class="mb-stack-lg sticky top-16 md:top-24 bg-surface z-40 py-2 pt-4">
+<div class="relative w-full mb-4">
+<span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-high border border-surface-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-xl py-3 pl-12 pr-4 font-body-lg text-body-lg text-on-surface placeholder-on-surface-variant transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]" placeholder="Search for local goods, shops, or categories..." type="text"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-surface rounded-lg shadow-sm border border-surface-variant hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined text-primary text-sm">tune</span>
+</button>
+</div>
+<!-- Categories / Filter Chips -->
+<div class="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
+<button class="flex items-center gap-2 bg-secondary-container text-on-secondary-container px-4 py-2 rounded-full font-label-caps text-label-caps shadow-sm whitespace-nowrap active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-[18px]">interests</span> All
+                </button>
+<button class="flex items-center gap-2 bg-surface-container-high border border-surface-variant text-on-surface px-4 py-2 rounded-full font-label-caps text-label-caps shadow-sm whitespace-nowrap hover:bg-surface-variant active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">handyman</span> Handmade
+                </button>
+<button class="flex items-center gap-2 bg-surface-container-high border border-surface-variant text-on-surface px-4 py-2 rounded-full font-label-caps text-label-caps shadow-sm whitespace-nowrap hover:bg-surface-variant active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">local_cafe</span> Groceries
+                </button>
+<button class="flex items-center gap-2 bg-surface-container-high border border-surface-variant text-on-surface px-4 py-2 rounded-full font-label-caps text-label-caps shadow-sm whitespace-nowrap hover:bg-surface-variant active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">checkroom</span> Fashion
+                </button>
+<button class="flex items-center gap-2 bg-surface-container-high border border-surface-variant text-on-surface px-4 py-2 rounded-full font-label-caps text-label-caps shadow-sm whitespace-nowrap hover:bg-surface-variant active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">devices</span> Electronics
+                </button>
+<button class="flex items-center gap-2 bg-surface-container-high border border-surface-variant text-on-surface px-4 py-2 rounded-full font-label-caps text-label-caps shadow-sm whitespace-nowrap hover:bg-surface-variant active:scale-95 transition-all">
+<span class="material-symbols-outlined text-[18px]">sell</span> Sale
+                </button>
+</div>
+</section>
+<!-- Product Feed (Bento/Asymmetric Grid style) -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter mb-stack-lg">
+<!-- Product Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(31,27,23,0.04)] overflow-hidden border border-surface-variant/50 flex flex-col group cursor-pointer hover:shadow-[0px_8px_24px_rgba(156,62,32,0.08)] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden">
+<img alt="Handcrafted Ceramic Mug" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A beautifully crafted, artisanal ceramic mug sitting on a textured wooden table in a sunlit studio. The lighting is warm and natural, casting soft shadows. The aesthetic is clean, organic, and modern rustic, emphasizing high-quality local craftsmanship." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCBlfUXE-7_YC6KwFbEhYx6bwdkSYiPyfLpbWQvP8k3Fpk5hZfB8IQEGLOKkhYsorL0QUAOD2LZ9CUGA96GtVo53ERnUHgMrTI5zlNde7nMmf6Cy96kkEHwC0x9s0zOls_hexNKWZDBPCUrtenBgFrMJcXScMSI0do5ZlTPWmyKOYLDoxLSalKhAnFGpuU_zgouKEQ0qjNqRJQNDK7Aa-ewMwGivknV77pEI1UnwybbnoCyF2R4t_LM"/>
+<div class="absolute top-3 right-3 bg-secondary text-on-secondary px-2 py-1 rounded-full font-label-caps text-[10px] flex items-center gap-1 shadow-sm backdrop-blur-md bg-opacity-90">
+<span class="material-symbols-outlined text-[12px]">directions_walk</span> 0.5 km away
+                    </div>
+<button class="absolute bottom-3 right-3 p-2 bg-surface/90 rounded-full shadow-sm text-on-surface-variant hover:text-primary transition-colors backdrop-blur-sm">
+<span class="material-symbols-outlined text-[20px]">favorite_border</span>
+</button>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-title-md text-title-md text-on-surface line-clamp-1">Rustic Clay Mug</h3>
+<div class="flex items-center gap-1 text-secondary-fixed-dim">
+<span class="material-symbols-outlined text-[16px]" data-weight="fill">star</span>
+<span class="font-label-caps text-label-caps text-on-surface">4.9</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Earth &amp; Fire Ceramics</p>
+<div class="mt-auto flex items-end justify-between">
+<div>
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-primary">$24</span>
+<span class="text-[12px] text-outline line-through ml-1">$30 retail</span>
+</div>
+<button class="bg-primary text-on-primary px-3 py-1.5 rounded-lg font-label-caps text-label-caps hover:bg-primary-container transition-colors shadow-sm">
+                            Add
+                        </button>
+</div>
+</div>
+</div>
+<!-- Product Card 2 (Highlight span 2 columns on larger screens) -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(31,27,23,0.04)] overflow-hidden border border-surface-variant/50 flex flex-col md:col-span-2 group cursor-pointer hover:shadow-[0px_8px_24px_rgba(156,62,32,0.08)] transition-all duration-300">
+<div class="flex flex-col md:flex-row h-full">
+<div class="relative w-full md:w-1/2 aspect-square md:aspect-auto overflow-hidden">
+<img alt="Organic Vegetable Box" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A fresh, vibrant organic vegetable basket filled with heirloom tomatoes, leafy greens, and bright carrots. Photographed in a sunny local farmers market setting with soft, warm light highlighting the dew on the produce. Healthy, appetizing, and locally sourced vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtp6UiSdVR8kCEgHv6GmbKZsXjk9MhucEE45CPKeEu9TsPmXaCXgpOjFtJSKAs_Rm2ubbr9izMLUEnNxVNdpQLl31LMqcsMScAzFqIiI4QQRl-pJAJaxAMpFFxLWT8Xt--yUjV98UvcwNoXiOYiFpbyU7qpnY9iVQm9t1-AbIvOqh_QtsF0dQC-fThlukS512M9AAwzYdZ0OWfUrjxllQ_SBKeXHl3nkEZMjLTc5nrGJQlFit6CnTO"/>
+<div class="absolute top-3 right-3 md:left-3 md:right-auto bg-secondary text-on-secondary px-2 py-1 rounded-full font-label-caps text-[10px] flex items-center gap-1 shadow-sm backdrop-blur-md bg-opacity-90">
+<span class="material-symbols-outlined text-[12px]">local_shipping</span> Ready in 10m
+                        </div>
+</div>
+<div class="p-6 flex flex-col justify-center w-full md:w-1/2 bg-surface-bright">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">Weekly Harvest Box</h3>
+<button class="p-2 bg-surface rounded-full shadow-sm text-on-surface-variant hover:text-primary transition-colors border border-surface-variant">
+<span class="material-symbols-outlined text-[20px]">favorite_border</span>
+</button>
+</div>
+<p class="font-body-lg text-body-lg text-on-surface-variant mb-1">Green Acres Urban Farm</p>
+<div class="flex items-center gap-2 mb-4">
+<div class="flex items-center gap-1 text-secondary-fixed-dim">
+<span class="material-symbols-outlined text-[16px]" data-weight="fill">star</span>
+<span class="material-symbols-outlined text-[16px]" data-weight="fill">star</span>
+<span class="material-symbols-outlined text-[16px]" data-weight="fill">star</span>
+<span class="material-symbols-outlined text-[16px]" data-weight="fill">star</span>
+<span class="material-symbols-outlined text-[16px]">star_half</span>
+</div>
+<span class="font-label-caps text-label-caps text-outline">(128 reviews)</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-6 line-clamp-2 md:line-clamp-none">
+                            Freshly picked seasonal vegetables sourced straight from our rooftop garden in Brooklyn. Includes tomatoes, kale, carrots, and more.
+                        </p>
+<div class="mt-auto flex items-center justify-between bg-surface-container-low p-3 rounded-xl border border-surface-variant/30">
+<div class="flex flex-col">
+<span class="font-label-caps text-[10px] text-on-surface-variant uppercase">Local Deal</span>
+<span class="font-headline-lg text-headline-lg text-primary">$35</span>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-title-md text-title-md hover:bg-primary-container transition-colors shadow-[0px_4px_12px_rgba(156,62,32,0.2)]">
+                                Order Now
+                            </button>
+</div>
+</div>
+</div>
+</div>
+<!-- Product Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(31,27,23,0.04)] overflow-hidden border border-surface-variant/50 flex flex-col group cursor-pointer hover:shadow-[0px_8px_24px_rgba(156,62,32,0.08)] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden">
+<img alt="Upcycled Denim Jacket" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A neatly folded stack of upcycled vintage denim jackets in a trendy, minimalist boutique. The lighting is soft and natural, emphasizing the texture of the fabric. Warm color palette with a focus on sustainable fashion and local craftsmanship." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtmztbNi_HRE0T3uHnflUm83n4dAH4Vsikat95keA5n5RjXf41GXeE3WjYkAW4vCkstCFXCoK01Pj12WvU8cuTUVmPFfcZMwge3aJicNaw6Alnrd3_Syf9ebmHeLT5l9NjmMUX3O1pNUnzOa1-6-w7qO60fZJ8BXGwgm6oLNM9ygdqmv0EUvSoC6ZgTa-fDi4SO_GZPqp19QLckt3LbXecJESjpT2-Yaf1tpPiizrR37CU28z152oA"/>
+<div class="absolute top-3 right-3 bg-secondary text-on-secondary px-2 py-1 rounded-full font-label-caps text-[10px] flex items-center gap-1 shadow-sm backdrop-blur-md bg-opacity-90">
+<span class="material-symbols-outlined text-[12px]">directions_walk</span> 1.2 km away
+                    </div>
+<button class="absolute bottom-3 right-3 p-2 bg-surface/90 rounded-full shadow-sm text-on-surface-variant hover:text-primary transition-colors backdrop-blur-sm">
+<span class="material-symbols-outlined text-[20px]">favorite_border</span>
+</button>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-title-md text-title-md text-on-surface line-clamp-1">Vintage Denim Tote</h3>
+<div class="flex items-center gap-1 text-secondary-fixed-dim">
+<span class="material-symbols-outlined text-[16px]" data-weight="fill">star</span>
+<span class="font-label-caps text-label-caps text-on-surface">4.7</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Thread &amp; Echo</p>
+<div class="mt-auto flex items-end justify-between">
+<div>
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-primary">$45</span>
+</div>
+<button class="bg-primary text-on-primary px-3 py-1.5 rounded-lg font-label-caps text-label-caps hover:bg-primary-container transition-colors shadow-sm">
+                            Add
+                        </button>
+</div>
+</div>
+</div>
+<!-- Product Card 4 -->
+<div class="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(31,27,23,0.04)] overflow-hidden border border-surface-variant/50 flex flex-col group cursor-pointer hover:shadow-[0px_8px_24px_rgba(156,62,32,0.08)] transition-all duration-300">
+<div class="relative w-full aspect-square overflow-hidden">
+<img alt="Artisan Latte" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A beautifully poured latte with intricate leaf art in a ceramic cup, sitting on a sunlit wooden cafe table beside a fresh pastry. Cozy, inviting neighborhood coffee shop atmosphere. Warm, soft lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD9KYo7F1FZdg8zIX4MCHksc1jzdY8_TN3T2r40msZGbA5cAi9A1vlUieberS2QMmah4FiiicFKo-dU333na6Ft6SpMsHcgB1lYMjpwkc8eywryGWXqlWRtZfCrMw6YMz1HZfLrhsVOgXc2TXOpadyNo2vzG-yq28HA003J6dRAfGzw-zZHzSKs_OIXw1YJiKpr2QV_bX3yMUrOGOz6mjMkVV4XJFxwzy9SkifpFLMjHtjqPfO5LZbf"/>
+<div class="absolute top-3 right-3 bg-secondary text-on-secondary px-2 py-1 rounded-full font-label-caps text-[10px] flex items-center gap-1 shadow-sm backdrop-blur-md bg-opacity-90">
+<span class="material-symbols-outlined text-[12px]">directions_walk</span> 0.2 km away
+                    </div>
+<button class="absolute bottom-3 right-3 p-2 bg-surface/90 rounded-full shadow-sm text-on-surface-variant hover:text-primary transition-colors backdrop-blur-sm">
+<span class="material-symbols-outlined text-[20px]">favorite_border</span>
+</button>
+</div>
+<div class="p-4 flex flex-col flex-grow">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-title-md text-title-md text-on-surface line-clamp-1">House Roast Latte</h3>
+<div class="flex items-center gap-1 text-secondary-fixed-dim">
+<span class="material-symbols-outlined text-[16px]" data-weight="fill">star</span>
+<span class="font-label-caps text-label-caps text-on-surface">5.0</span>
+</div>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-2">Morning Bloom Cafe</p>
+<div class="mt-auto flex items-end justify-between">
+<div>
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-primary">$4.50</span>
+<span class="text-[12px] text-outline line-through ml-1">$6.00</span>
+</div>
+<button class="bg-primary text-on-primary px-3 py-1.5 rounded-lg font-label-caps text-label-caps hover:bg-primary-container transition-colors shadow-sm">
+                            Order
+                        </button>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- BottomNavBar (Mobile Only) -->
+<nav class="md:hidden bg-surface/80 dark:bg-inverse-surface/80 backdrop-blur-md shadow-[0px_-4px_20px_rgba(0,0,0,0.04)] fixed bottom-0 w-full z-50 rounded-t-xl fixed bottom-0 left-0 w-full flex justify-around items-center px-4 pb-4 pt-2">
+<a class="flex flex-col items-center justify-center bg-secondary-container dark:bg-secondary text-on-secondary-container dark:text-on-secondary rounded-full px-4 py-1 shadow-md active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-weight="fill">explore</span>
+<span class="font-label-caps text-[10px] mt-1">Discover</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:text-primary dark:hover:text-inverse-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">bookmark</span>
+<span class="font-label-caps text-[10px] mt-1">Saved</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:text-primary dark:hover:text-inverse-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">storefront</span>
+<span class="font-label-caps text-[10px] mt-1">Shops</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant px-4 py-1 hover:text-primary dark:hover:text-inverse-primary active:scale-90 transition-all duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-caps text-[10px] mt-1">Dashboard</span>
+</a>
+</nav>
+</body></html>
