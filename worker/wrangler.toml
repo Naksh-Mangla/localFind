@@ -16,6 +16,6 @@ FIREBASE_CERTS_URL = "https://www.googleapis.com/robot/v1/metadata/x509/secureto
 FIREBASE_AUD = "localfind-2012"
 FIREBASE_PROJECT_ID = "localfind-2012"
 
-[[r2_buckets]]
-binding = "IMAGES_BUCKET"
-bucket_name = "localfind-images"
+# [[r2_buckets]]
+# binding = "IMAGES_BUCKET"
+# bucket_name = "localfind-images"
