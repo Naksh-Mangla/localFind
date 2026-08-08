@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+﻿import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
 
 export function MerchantDashboard({
@@ -159,21 +159,21 @@ export function MerchantDashboard({
   // Screen 1: Unauthenticated Merchant
   if (!user) {
     return (
-      <main class="pt-24 px-container-margin max-w-md mx-auto text-center pb-24">
-        <div class="bg-surface-container-lowest p-8 rounded-2xl border border-surface-variant shadow-lg flex flex-col items-center">
-          <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
-            <span class="material-symbols-outlined text-3xl">storefront</span>
+      <main className="pt-24 px-container-margin max-w-md mx-auto text-center pb-24">
+        <div className="bg-surface-container-lowest p-8 rounded-2xl border border-surface-variant shadow-lg flex flex-col items-center">
+          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
+            <span className="material-symbols-outlined text-3xl">storefront</span>
           </div>
-          <h2 class="font-headline-lg text-2xl font-bold text-on-surface mb-2">Shopkeeper Portal</h2>
-          <p class="text-sm text-on-surface-variant mb-6">
-            Sign in with Google to display your products to buyers nearby in real-time — 100% free, zero commissions.
+          <h2 className="font-headline-lg text-2xl font-bold text-on-surface mb-2">Shopkeeper Portal</h2>
+          <p className="text-sm text-on-surface-variant mb-6">
+            Sign in with Google to display your products to buyers nearby in real-time â€” 100% free, zero commissions.
           </p>
 
           <button
             onClick={signInWithGoogle}
-            class="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-title-md font-bold shadow-md transition-all flex items-center justify-center gap-3"
+            className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-title-md font-bold shadow-md transition-all flex items-center justify-center gap-3"
           >
-            <svg class="w-5 h-5" viewBox="0 0 24 24">
+            <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -200,9 +200,9 @@ export function MerchantDashboard({
 
   if (loadingShop) {
     return (
-      <main class="pt-24 px-container-margin max-w-2xl mx-auto text-center">
-        <div class="p-8 bg-surface-container-low rounded-xl animate-pulse">
-          <p class="text-on-surface-variant font-medium">Loading your shop details...</p>
+      <main className="pt-24 px-container-margin max-w-2xl mx-auto text-center">
+        <div className="p-8 bg-surface-container-low rounded-xl animate-pulse">
+          <p className="text-on-surface-variant font-medium">Loading your shop details...</p>
         </div>
       </main>
     )
@@ -211,81 +211,81 @@ export function MerchantDashboard({
   // Screen 2: Authenticated but No Shop Setup Yet
   if (!shop) {
     return (
-      <main class="pt-20 md:pt-24 px-container-margin max-w-xl mx-auto pb-24">
-        <div class="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-surface-variant shadow-lg">
-          <h2 class="font-headline-lg text-2xl font-bold text-on-surface mb-1">Set Up Your Shop</h2>
-          <p class="text-xs text-on-surface-variant mb-6">
+      <main className="pt-20 md:pt-24 px-container-margin max-w-xl mx-auto pb-24">
+        <div className="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-surface-variant shadow-lg">
+          <h2 className="font-headline-lg text-2xl font-bold text-on-surface mb-1">Set Up Your Shop</h2>
+          <p className="text-xs text-on-surface-variant mb-6">
             Welcome, {user.displayName}! Fill out your store details to start showcasing your products locally.
           </p>
 
-          <form onSubmit={handleCreateShop} class="flex flex-col gap-4">
+          <form onSubmit={handleCreateShop} className="flex flex-col gap-4">
             <div>
-              <label class="block text-xs font-bold text-on-surface mb-1">Shop Name *</label>
+              <label className="block text-xs font-bold text-on-surface mb-1">Shop Name *</label>
               <input
                 type="text"
                 required
                 value={shopName}
                 onChange={(e) => setShopName(e.target.value)}
                 placeholder="e.g. Earth & Fire Ceramics"
-                class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
               />
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-on-surface mb-1">WhatsApp Phone Number *</label>
+              <label className="block text-xs font-bold text-on-surface mb-1">WhatsApp Phone Number *</label>
               <input
                 type="tel"
                 required
                 value={whatsappNumber}
                 onChange={(e) => setWhatsappNumber(e.target.value)}
                 placeholder="e.g. +91 9876543210"
-                class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
               />
-              <span class="text-[11px] text-on-surface-variant">Buyers will tap this to chat directly with you on WhatsApp.</span>
+              <span className="text-[11px] text-on-surface-variant">Buyers will tap this to chat directly with you on WhatsApp.</span>
             </div>
 
             <div>
-              <label class="block text-xs font-bold text-on-surface mb-1">Address / Landmark</label>
+              <label className="block text-xs font-bold text-on-surface mb-1">Address / Landmark</label>
               <input
                 type="text"
                 value={addressText}
                 onChange={(e) => setAddressText(e.target.value)}
                 placeholder="e.g. Shop #4, Main Market, Connaught Place"
-                class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
               />
             </div>
 
-            <div class="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-2">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-on-surface">Store GPS Coordinates</span>
+            <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-on-surface">Store GPS Coordinates</span>
                 <button
                   type="button"
                   onClick={handleUseGPS}
-                  class="text-xs text-primary font-bold hover:underline flex items-center gap-1"
+                  className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
                 >
-                  <span class="material-symbols-outlined text-sm">my_location</span>
+                  <span className="material-symbols-outlined text-sm">my_location</span>
                   <span>Use Current GPS Location</span>
                 </button>
               </div>
-              <div class="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span class="text-[10px] text-on-surface-variant">Latitude</span>
+                  <span className="text-[10px] text-on-surface-variant">Latitude</span>
                   <input
                     type="number"
                     step="any"
                     value={lat}
                     onChange={(e) => setLat(e.target.value)}
-                    class="w-full bg-surface-container-high border border-surface-variant rounded-lg p-2 text-xs"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-lg p-2 text-xs"
                   />
                 </div>
                 <div>
-                  <span class="text-[10px] text-on-surface-variant">Longitude</span>
+                  <span className="text-[10px] text-on-surface-variant">Longitude</span>
                   <input
                     type="number"
                     step="any"
                     value={lng}
                     onChange={(e) => setLng(e.target.value)}
-                    class="w-full bg-surface-container-high border border-surface-variant rounded-lg p-2 text-xs"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-lg p-2 text-xs"
                   />
                 </div>
               </div>
@@ -294,7 +294,7 @@ export function MerchantDashboard({
             <button
               type="submit"
               disabled={creatingShop}
-              class="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2"
+              className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2"
             >
               {creatingShop ? 'Creating Shop...' : 'Save & Continue to Product Catalog'}
             </button>
@@ -306,33 +306,33 @@ export function MerchantDashboard({
 
   // Screen 3: Authenticated Merchant with Active Shop Dashboard
   return (
-    <main class="pt-20 md:pt-24 px-container-margin max-w-6xl mx-auto pb-24">
+    <main className="pt-20 md:pt-24 px-container-margin max-w-6xl mx-auto pb-24">
       {/* Merchant Header Bar */}
-      <div class="bg-surface-container-lowest p-6 rounded-2xl border border-surface-variant shadow-md mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-surface-container-lowest p-6 rounded-2xl border border-surface-variant shadow-md mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div class="flex items-center gap-2">
-            <h2 class="font-headline-lg text-2xl font-bold text-on-surface">{shop.shop_name}</h2>
-            <span class="bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full text-xs font-semibold">
+          <div className="flex items-center gap-2">
+            <h2 className="font-headline-lg text-2xl font-bold text-on-surface">{shop.shop_name}</h2>
+            <span className="bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full text-xs font-semibold">
               Live Shop Window
             </span>
           </div>
-          <p class="text-xs text-on-surface-variant flex items-center gap-1 mt-1">
-            <span class="material-symbols-outlined text-xs">location_on</span>
+          <p className="text-xs text-on-surface-variant flex items-center gap-1 mt-1">
+            <span className="material-symbols-outlined text-xs">location_on</span>
             {shop.address_text || 'Local Address'} | WhatsApp: {shop.whatsapp_number}
           </p>
         </div>
 
-        <div class="flex items-center gap-3">
+        <div className="flex items-center gap-3">
           <button
             onClick={() => setShowAddProductModal(true)}
-            class="bg-primary hover:bg-primary-container text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2"
+            className="bg-primary hover:bg-primary-container text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2"
           >
-            <span class="material-symbols-outlined">add</span>
+            <span className="material-symbols-outlined">add</span>
             <span>Add New Product</span>
           </button>
           <button
             onClick={signOut}
-            class="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3 py-2.5 rounded-xl text-xs font-semibold transition-all border border-surface-variant"
+            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3 py-2.5 rounded-xl text-xs font-semibold transition-all border border-surface-variant"
           >
             Sign Out
           </button>
@@ -340,49 +340,49 @@ export function MerchantDashboard({
       </div>
 
       {/* Product List Grid */}
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="font-title-md text-lg font-bold text-on-surface">Your Product Showcase ({products.length})</h3>
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="font-title-md text-lg font-bold text-on-surface">Your Product Showcase ({products.length})</h3>
       </div>
 
       {products.length === 0 ? (
-        <div class="bg-surface-container-low p-8 rounded-2xl border border-surface-variant text-center my-4">
-          <span class="material-symbols-outlined text-4xl text-primary mb-2">add_photo_alternate</span>
-          <h4 class="font-title-md text-base font-bold text-on-surface mb-1">No products added yet</h4>
-          <p class="text-xs text-on-surface-variant mb-4">
+        <div className="bg-surface-container-low p-8 rounded-2xl border border-surface-variant text-center my-4">
+          <span className="material-symbols-outlined text-4xl text-primary mb-2">add_photo_alternate</span>
+          <h4 className="font-title-md text-base font-bold text-on-surface mb-1">No products added yet</h4>
+          <p className="text-xs text-on-surface-variant mb-4">
             Showcase your best-selling items so local buyers nearby can discover them!
           </p>
           <button
             onClick={() => setShowAddProductModal(true)}
-            class="bg-primary text-on-primary px-4 py-2 rounded-xl text-xs font-bold shadow-sm"
+            className="bg-primary text-on-primary px-4 py-2 rounded-xl text-xs font-bold shadow-sm"
           >
             + Add First Product
           </button>
         </div>
       ) : (
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
           {products.map((product) => (
             <div
               key={product.id}
-              class="bg-surface-container-lowest rounded-xl border border-surface-variant/60 overflow-hidden shadow-sm flex flex-col"
+              className="bg-surface-container-lowest rounded-xl border border-surface-variant/60 overflow-hidden shadow-sm flex flex-col"
             >
-              <div class="w-full aspect-square bg-surface-variant overflow-hidden">
+              <div className="w-full aspect-square bg-surface-variant overflow-hidden">
                 <img
                   src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'}
                   alt={product.name}
-                  class="w-full h-full object-cover"
+                  className="w-full h-full object-cover"
                 />
               </div>
-              <div class="p-4 flex flex-col flex-1 justify-between">
+              <div className="p-4 flex flex-col flex-1 justify-between">
                 <div>
-                  <span class="text-[10px] text-primary font-bold uppercase tracking-wider">{product.category}</span>
-                  <h4 class="font-title-md text-sm font-semibold text-on-surface line-clamp-1">{product.name}</h4>
+                  <span className="text-[10px] text-primary font-bold uppercase tracking-wider">{product.category}</span>
+                  <h4 className="font-title-md text-sm font-semibold text-on-surface line-clamp-1">{product.name}</h4>
                 </div>
-                <div class="mt-3 flex items-center justify-between">
-                  <span class="font-bold text-primary text-base">₹{product.price}</span>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="font-bold text-primary text-base">â‚¹{product.price}</span>
                   {product.is_affiliate_fallback ? (
-                    <span class="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-md font-semibold">Affiliate</span>
+                    <span className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-md font-semibold">Affiliate</span>
                   ) : (
-                    <span class="text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-semibold">Local Showcase</span>
+                    <span className="text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-semibold">Local Showcase</span>
                   )}
                 </div>
               </div>
@@ -393,34 +393,34 @@ export function MerchantDashboard({
 
       {/* Add Product Modal */}
       {showAddProductModal && (
-        <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-sm">
-          <div class="bg-surface rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-surface-variant max-h-[90vh] overflow-y-auto">
-            <div class="flex items-center justify-between mb-4">
-              <h3 class="font-headline-lg text-xl font-bold text-on-surface">Add New Product</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-sm">
+          <div className="bg-surface rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-surface-variant max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-headline-lg text-xl font-bold text-on-surface">Add New Product</h3>
               <button
                 onClick={() => setShowAddProductModal(false)}
-                class="p-1 rounded-full text-on-surface-variant hover:bg-surface-variant"
+                className="p-1 rounded-full text-on-surface-variant hover:bg-surface-variant"
               >
-                <span class="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleAddProduct} class="flex flex-col gap-4">
+            <form onSubmit={handleAddProduct} className="flex flex-col gap-4">
               <div>
-                <label class="block text-xs font-bold text-on-surface mb-1">Product Name *</label>
+                <label className="block text-xs font-bold text-on-surface mb-1">Product Name *</label>
                 <input
                   type="text"
                   required
                   value={productName}
                   onChange={(e) => setProductName(e.target.value)}
                   placeholder="e.g. Handmade Leather Wallet"
-                  class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
                 />
               </div>
 
-              <div class="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs font-bold text-on-surface mb-1">Price (₹) *</label>
+                  <label className="block text-xs font-bold text-on-surface mb-1">Price (â‚¹) *</label>
                   <input
                     type="number"
                     step="any"
@@ -428,15 +428,15 @@ export function MerchantDashboard({
                     value={productPrice}
                     onChange={(e) => setProductPrice(e.target.value)}
                     placeholder="299"
-                    class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
                   />
                 </div>
                 <div>
-                  <label class="block text-xs font-bold text-on-surface mb-1">Category *</label>
+                  <label className="block text-xs font-bold text-on-surface mb-1">Category *</label>
                   <select
                     value={productCategory}
                     onChange={(e) => setProductCategory(e.target.value)}
-                    class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
                   >
                     <option value="General">General</option>
                     <option value="Handmade">Handmade</option>
@@ -449,9 +449,9 @@ export function MerchantDashboard({
               </div>
 
               {/* Image URL (optional) */}
-              <div class="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
-                <span class="text-xs font-bold text-on-surface">Product Photo (optional)</span>
-                <p class="text-[11px] text-on-surface-variant">
+              <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
+                <span className="text-xs font-bold text-on-surface">Product Photo (optional)</span>
+                <p className="text-[11px] text-on-surface-variant">
                   Paste a photo link from the internet. If you skip this, a placeholder image will be shown automatically.
                 </p>
                 <div>
@@ -460,34 +460,34 @@ export function MerchantDashboard({
                     value={productImageUrl}
                     onChange={(e) => setProductImageUrl(e.target.value)}
                     placeholder="https://example.com/item.jpg"
-                    class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-2.5 text-xs"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-2.5 text-xs"
                   />
                 </div>
               </div>
 
               {/* Affiliate Link Toggle */}
-              <div class="flex items-center gap-2 border-t border-surface-variant pt-3">
+              <div className="flex items-center gap-2 border-t border-surface-variant pt-3">
                 <input
                   type="checkbox"
                   id="affiliateToggle"
                   checked={isAffiliate}
                   onChange={(e) => setIsAffiliate(e.target.checked)}
-                  class="rounded text-primary focus:ring-primary"
+                  className="rounded text-primary focus:ring-primary"
                 />
-                <label htmlFor="affiliateToggle" class="text-xs font-bold text-on-surface cursor-pointer">
+                <label htmlFor="affiliateToggle" className="text-xs font-bold text-on-surface cursor-pointer">
                   Is this an Online Affiliate Fallback Product?
                 </label>
               </div>
 
               {isAffiliate && (
                 <div>
-                  <label class="block text-xs font-bold text-on-surface mb-1">Affiliate Product Link</label>
+                  <label className="block text-xs font-bold text-on-surface mb-1">Affiliate Product Link</label>
                   <input
                     type="url"
                     value={affiliateLink}
                     onChange={(e) => setAffiliateLink(e.target.value)}
                     placeholder="https://amazon.in/dp/..."
-                    class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm"
                   />
                 </div>
               )}
@@ -495,7 +495,7 @@ export function MerchantDashboard({
               <button
                 type="submit"
                 disabled={savingProduct}
-                class="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2"
+                className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2"
               >
                 {savingProduct ? 'Saving Product...' : 'Publish Product to Live App'}
               </button>
