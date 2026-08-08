@@ -512,6 +512,7 @@ export function MerchantDashboard({
               />
             </div>
 
+            <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-2">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-bold text-on-surface">Store GPS Coordinates</span>
                 <div className="flex items-center gap-2">

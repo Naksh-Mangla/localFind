@@ -46,9 +46,9 @@ export default function App() {
     setUserLocationName(`GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
   }, [])
 
-  // Detect and continuously track user GPS location in real time with high accuracy
+  // Detect and continuously track user GPS location automatically on app launch
   const detectLocation = useCallback(() => {
-    setUserLocationName('Detecting High-Precision GPS...')
+    setUserLocationName('Requesting GPS Permission...')
     if (!navigator.geolocation) {
       setUserCoords({ lat: 28.6139, lng: 77.2090 })
       setUserLocationName('Connaught Place, Delhi (Default)')
@@ -62,7 +62,7 @@ export default function App() {
         fetchAddressName(lat, lng)
       },
       (err) => {
-        console.warn('Geolocation failed or permission denied:', err.message)
+        console.warn('Geolocation permission denied or failed:', err.message)
         setUserCoords({ lat: 28.6139, lng: 77.2090 })
         setUserLocationName('Connaught Place, Delhi (Default)')
       },
