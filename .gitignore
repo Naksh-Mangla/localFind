@@ -11,3 +11,6 @@ dev-dist/
 *.log
 .vscode/
 .idea/
+
+.openchrome/
+*.timestamp-*.mjs
