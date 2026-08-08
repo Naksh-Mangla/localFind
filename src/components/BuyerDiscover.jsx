@@ -14,7 +14,9 @@ export function BuyerDiscover({
   products = [],
   userCoords,
   onSelectProduct,
-  loading
+  loading,
+  onRefreshProducts,
+  refreshing
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
@@ -165,16 +167,30 @@ export function BuyerDiscover({
       {!loading && (
         <section className="mb-stack-lg">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-headline-lg-mobile text-xl font-bold text-on-surface flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">store</span>
-              <span>
-                {maxRadiusKm === 'all'
-                  ? 'Available in Offline Stores'
-                  : `Available Nearby (Within ${maxRadiusKm} km)`}
-              </span>
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-headline-lg-mobile text-xl font-bold text-on-surface flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">store</span>
+                <span>
+                  {maxRadiusKm === 'all'
+                    ? 'Available in Offline Stores'
+                    : `Available Nearby (Within ${maxRadiusKm} km)`}
+                </span>
+              </h2>
+              {onRefreshProducts && (
+                <button
+                  onClick={onRefreshProducts}
+                  disabled={refreshing}
+                  title="Refresh products list"
+                  className="p-1.5 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors flex items-center justify-center border border-surface-variant active:scale-95"
+                >
+                  <span className={`material-symbols-outlined text-base ${refreshing ? 'animate-spin text-primary' : ''}`}>
+                    refresh
+                  </span>
+                </button>
+              )}
+            </div>
             <span className="text-xs text-on-surface-variant font-medium">
-              {hyperlocalProducts.length} local items within {maxRadiusKm === 'all' ? 'all distances' : `${maxRadiusKm} km`}
+              {hyperlocalProducts.length} local items
             </span>
           </div>
 

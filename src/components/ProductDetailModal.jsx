@@ -9,7 +9,7 @@ export function ProductDetailModal({ product, onClose }) {
     `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
   )
   const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}`
-  const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${product.lat},${product.lng}`
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${product.lat},${product.lng}`
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-sm overflow-y-auto animate-fadeIn">

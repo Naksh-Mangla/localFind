@@ -6,11 +6,13 @@ export function Header({
   user,
   userLocationName,
   onDetectLocation,
-  onOpenSignIn
+  onOpenSignIn,
+  onRefreshProducts,
+  refreshing
 }) {
   const getAvatarUrl = (userObj) => {
     if (userObj?.photoURL) return userObj.photoURL
-    const name = encodeURIComponent(userObj?.displayName || userObj?.email || 'Merchant')
+    const name = encodeURIComponent(userObj?.displayName || userObj?.email || 'User')
     return `https://ui-avatars.com/api/?name=${name}&background=9c3e20&color=ffffff&bold=true`
   }
 
@@ -23,13 +25,26 @@ export function Header({
           <div className="flex flex-col">
             <div className="flex items-center gap-1">
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">YOUR LOCATION</span>
-              <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded">v1.4.0</span>
+              <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded">v1.7.0</span>
             </div>
             <span className="font-title-md text-sm text-on-surface line-clamp-1">{userLocationName || 'Detecting Location...'}</span>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
+          {onRefreshProducts && (
+            <button
+              onClick={onRefreshProducts}
+              disabled={refreshing}
+              title="Quickly refresh products"
+              className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant flex items-center justify-center transition-all active:scale-90 border border-surface-variant"
+            >
+              <span className={`material-symbols-outlined text-base ${refreshing ? 'animate-spin text-primary' : ''}`}>
+                refresh
+              </span>
+            </button>
+          )}
+
           {user ? (
             <button
               onClick={() => setActiveView('merchant')}
@@ -59,7 +74,7 @@ export function Header({
 
       {/* Desktop TopAppBar */}
       <header className="hidden md:flex bg-surface/90 backdrop-blur-md shadow-sm fixed top-0 w-full z-50 items-center justify-between px-container-margin h-20">
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-6">
           <div
             onClick={() => setActiveView('discover')}
             className="flex items-center gap-2.5 cursor-pointer group"
@@ -70,7 +85,7 @@ export function Header({
                 LocalFind
               </h1>
               <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                v1.4.0
+                v1.7.0
               </span>
             </div>
           </div>
@@ -78,10 +93,26 @@ export function Header({
             onClick={onDetectLocation}
             className="flex items-center gap-2 bg-surface-container-high hover:bg-surface-variant transition-colors rounded-full px-4 py-2 text-left"
           >
-            <span className="material-symbols-outlined text-primary">location_on</span>
-            <span className="font-title-md text-sm text-on-surface">{userLocationName || 'Detect Location'}</span>
-            <span className="material-symbols-outlined text-on-surface-variant text-sm">my_location</span>
+            <span className="material-symbols-outlined text-primary text-lg">location_on</span>
+            <div className="flex flex-col">
+              <span className="font-label-caps text-[10px] text-on-surface-variant">LOCATION</span>
+              <span className="font-title-md text-xs font-semibold text-on-surface max-w-[180px] truncate">{userLocationName}</span>
+            </div>
           </button>
+
+          {onRefreshProducts && (
+            <button
+              onClick={onRefreshProducts}
+              disabled={refreshing}
+              title="Refresh available products"
+              className="flex items-center gap-1.5 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant px-3.5 py-2 rounded-full text-xs font-semibold shadow-sm transition-all active:scale-95"
+            >
+              <span className={`material-symbols-outlined text-base ${refreshing ? 'animate-spin text-primary' : ''}`}>
+                refresh
+              </span>
+              <span>Refresh</span>
+            </button>
+          )}
         </div>
 
         <nav className="flex items-center gap-4">

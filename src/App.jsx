@@ -120,6 +120,8 @@ export default function App() {
           }
           setActiveView('merchant')
         }}
+        onRefreshProducts={fetchProducts}
+        refreshing={loadingProducts}
       />
 
       {/* View Router */}
@@ -130,6 +132,8 @@ export default function App() {
             userCoords={userCoords}
             onSelectProduct={(p) => setSelectedProduct(p)}
             loading={loadingProducts}
+            onRefreshProducts={fetchProducts}
+            refreshing={loadingProducts}
           />
         ) : (
           <MerchantDashboard

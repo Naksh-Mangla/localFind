@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
+import { Toast } from './Toast'
+import { ConfirmModal } from './ConfirmModal'
+import { CustomSelect } from './CustomSelect'
 
 export function MerchantDashboard({
   user,
@@ -10,6 +13,12 @@ export function MerchantDashboard({
   const [shop, setShop] = useState(null)
   const [loadingShop, setLoadingShop] = useState(true)
   const [shopError, setShopError] = useState('')
+  const [toast, setToast] = useState(null)
+  const [deleteTargetId, setDeleteTargetId] = useState(null)
+
+  const showToast = (message, type = 'info', title = '') => {
+    setToast({ message, type, title })
+  }
 
   // Shop creation state
   const [shopName, setShopName] = useState('')
@@ -75,11 +84,27 @@ export function MerchantDashboard({
     }
   }, [userCoords])
 
+  // Auto-detect high-accuracy GPS when Shopkeeper Registration opens
+  useEffect(() => {
+    if (!shop && user && (lat === 28.6139 || lng === 77.2090)) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setLat(Number(pos.coords.latitude.toFixed(6)))
+            setLng(Number(pos.coords.longitude.toFixed(6)))
+          },
+          () => {},
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+        )
+      }
+    }
+  }, [shop, user, lat, lng])
+
   // Handle Shop Creation
   const handleCreateShop = async (e) => {
     e.preventDefault()
     if (!shopName.trim() || !whatsappNumber.trim()) {
-      alert('Please fill in Shop Name and WhatsApp number.')
+      showToast('Please fill in Shop Name and WhatsApp number.', 'error', 'Validation Error')
       return
     }
     try {
@@ -94,9 +119,10 @@ export function MerchantDashboard({
           address_text: addressText.trim() || null
         })
       })
+      showToast('Shop profile created successfully!', 'success', 'Success')
       await fetchMerchantShop()
     } catch (err) {
-      alert(`Failed to create shop: ${err.message}`)
+      showToast(`Failed to create shop: ${err.message}`, 'error', 'Shop Creation Failed')
     } finally {
       setCreatingShop(false)
     }
@@ -128,16 +154,24 @@ export function MerchantDashboard({
     setShowAddProductModal(true)
   }
 
-  // Handle Product Delete
-  const handleDeleteProduct = async (productId) => {
-    if (!window.confirm('Are you sure you want to delete this product from your store catalog?')) return
+  // Handle Product Delete Trigger
+  const handleDeleteProduct = (productId) => {
+    setDeleteTargetId(productId)
+  }
+
+  // Execute Product Deletion
+  const confirmDeleteProduct = async () => {
+    if (!deleteTargetId) return
+    const idToDelete = deleteTargetId
+    setDeleteTargetId(null)
     try {
-      await apiFetch(`/api/products?id=${productId}`, {
+      await apiFetch(`/api/products?id=${idToDelete}`, {
         method: 'DELETE'
       })
+      showToast('Product successfully removed from catalog.', 'success', 'Product Deleted')
       await fetchMerchantShop()
     } catch (err) {
-      alert(`Failed to delete product: ${err.message}`)
+      showToast(`Failed to delete product: ${err.message}`, 'error', 'Delete Error')
     }
   }
 
@@ -145,7 +179,7 @@ export function MerchantDashboard({
   const handleSaveProduct = async (e) => {
     e.preventDefault()
     if (!productName.trim() || !productPrice || !shop) {
-      alert('Please enter Product Name and Price.')
+      showToast('Please enter Product Name and Price.', 'error', 'Missing Information')
       return
     }
 
@@ -159,7 +193,7 @@ export function MerchantDashboard({
           finalImageUrl = await uploadImage(imageFile)
         } catch (uploadErr) {
           if (uploadErr.message?.includes('R2 bucket binding') || uploadErr.message?.includes('500')) {
-            alert('Cloudflare R2 Image Storage is not enabled on your Cloudflare dashboard yet.\n\nTo save this product right now, please clear the file selection and paste an image URL in the "Paste Image URL" field!')
+            showToast('Cloudflare R2 Image Storage is not enabled yet. Please paste an image URL instead!', 'warning', 'Storage Notice')
             setSavingProduct(false)
             setUploadProgress('')
             return
@@ -184,6 +218,7 @@ export function MerchantDashboard({
             affiliate_link: isAffiliate ? affiliateLink.trim() : null
           })
         })
+        showToast('Product updated successfully!', 'success', 'Product Updated')
       } else {
         // POST create product
         await apiFetch('/api/products', {
@@ -198,6 +233,7 @@ export function MerchantDashboard({
             affiliate_link: isAffiliate ? affiliateLink.trim() : null
           })
         })
+        showToast('Product published to live showcase!', 'success', 'Product Published')
       }
 
       // Reset form and reload products
@@ -212,7 +248,7 @@ export function MerchantDashboard({
       setShowAddProductModal(false)
       await fetchMerchantShop()
     } catch (err) {
-      alert(`Failed to save product: ${err.message}`)
+      showToast(`Failed to save product: ${err.message}`, 'error', 'Save Error')
     } finally {
       setSavingProduct(false)
       setUploadProgress('')
@@ -249,14 +285,70 @@ export function MerchantDashboard({
             console.warn('Reverse geocode failed:', e)
           }
 
-          alert(`Accurate GPS location locked!\nLatitude: ${latitude}\nLongitude: ${longitude}\nPrecision: ±${Math.round(pos.coords.accuracy || 10)}m`)
+          showToast(`Accurate GPS location locked!\nLat: ${latitude}, Lng: ${longitude}\nPrecision: ±${Math.round(pos.coords.accuracy || 10)}m`, 'success', 'GPS Locked')
         },
-        (err) => alert(`Geolocation error: ${err.message}`),
+        (err) => showToast(`Geolocation error: ${err.message}`, 'error', 'GPS Error'),
         { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
       )
     } else {
-      alert('Geolocation is not supported by your browser.')
+      showToast('Geolocation is not supported by your browser.', 'error', 'Unsupported')
     }
+  }
+
+  // Update existing shop location to current live high-precision GPS
+  const handleUpdateShopGPS = async () => {
+    if (!navigator.geolocation) {
+      showToast('Geolocation is not supported by your browser.', 'error', 'Unsupported')
+      return
+    }
+    showToast('Getting live GPS location...', 'info', 'Locating')
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const latitude = Number(pos.coords.latitude.toFixed(6))
+        const longitude = Number(pos.coords.longitude.toFixed(6))
+        setLat(latitude)
+        setLng(longitude)
+
+        let newAddress = shop?.address_text || ''
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`
+          )
+          if (res.ok) {
+            const data = await res.json()
+            const addr = data.address || {}
+            const fullAddr = [
+              addr.amenity || addr.shop || addr.building,
+              addr.road,
+              addr.suburb || addr.neighbourhood,
+              addr.city || addr.town
+            ].filter(Boolean).join(', ')
+            if (fullAddr) newAddress = fullAddr
+          }
+        } catch (e) {
+          console.warn('Reverse geocode failed:', e)
+        }
+
+        try {
+          await apiFetch('/api/shops', {
+            method: 'POST',
+            body: JSON.stringify({
+              shop_name: shop.shop_name,
+              whatsapp_number: shop.whatsapp_number,
+              lat: latitude,
+              lng: longitude,
+              address_text: newAddress || null
+            })
+          })
+          showToast(`Shop GPS location updated to your exact position!\nLat: ${latitude}, Lng: ${longitude}\nPrecision: ±${Math.round(pos.coords.accuracy || 10)}m`, 'success', 'GPS Updated')
+          await fetchMerchantShop()
+        } catch (err) {
+          showToast(`Failed to update shop location: ${err.message}`, 'error', 'Update Failed')
+        }
+      },
+      (err) => showToast(`Geolocation error: ${err.message}`, 'error', 'GPS Error'),
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
+    )
   }
 
   // Screen 1: Unauthenticated Merchant
@@ -425,7 +517,15 @@ export function MerchantDashboard({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleUpdateShopGPS}
+            title="Update shop location to your current high-precision GPS position"
+            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border border-surface-variant flex items-center gap-1.5 shadow-sm"
+          >
+            <span className="material-symbols-outlined text-primary text-base">my_location</span>
+            <span>Update Shop Location</span>
+          </button>
           <button
             onClick={handleOpenAddModal}
             className="bg-primary hover:bg-primary-container text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2"
@@ -558,19 +658,19 @@ export function MerchantDashboard({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">Category *</label>
-                  <select
+                  <CustomSelect
+                    label="Category *"
                     value={productCategory}
-                    onChange={(e) => setProductCategory(e.target.value)}
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                  >
-                    <option value="General">General</option>
-                    <option value="Handmade">Handmade</option>
-                    <option value="Groceries">Groceries</option>
-                    <option value="Fashion">Fashion</option>
-                    <option value="Electronics">Electronics</option>
-                    <option value="Sale">Sale</option>
-                  </select>
+                    onChange={(val) => setProductCategory(val)}
+                    options={[
+                      { label: 'General', value: 'General' },
+                      { label: 'Handmade', value: 'Handmade' },
+                      { label: 'Groceries', value: 'Groceries' },
+                      { label: 'Fashion', value: 'Fashion' },
+                      { label: 'Electronics', value: 'Electronics' },
+                      { label: 'Sale', value: 'Sale' }
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -633,6 +733,20 @@ export function MerchantDashboard({
           </div>
         </div>
       )}
+      {/* Custom Toast Notifications */}
+      <Toast toast={toast} onClose={() => setToast(null)} />
+
+      {/* Custom Delete Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(deleteTargetId)}
+        title="Delete Product"
+        message="Are you sure you want to delete this product from your store catalog?"
+        confirmText="Delete Product"
+        cancelText="Cancel"
+        type="danger"
+        onCancel={() => setDeleteTargetId(null)}
+        onConfirm={confirmDeleteProduct}
+      />
     </main>
   )
 }
