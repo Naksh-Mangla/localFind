@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { apiFetch, uploadImage } from '../lib/api'
+import { apiFetch } from '../lib/api'
 
 export function MerchantDashboard({
   user,
@@ -26,11 +26,9 @@ export function MerchantDashboard({
   const [productPrice, setProductPrice] = useState('')
   const [productCategory, setProductCategory] = useState('General')
   const [productImageUrl, setProductImageUrl] = useState('')
-  const [imageFile, setImageFile] = useState(null)
   const [isAffiliate, setIsAffiliate] = useState(false)
   const [affiliateLink, setAffiliateLink] = useState('')
   const [savingProduct, setSavingProduct] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState('')
 
   // Load shop data for logged-in merchant
   const fetchMerchantShop = useCallback(async () => {
@@ -111,25 +109,8 @@ export function MerchantDashboard({
 
     try {
       setSavingProduct(true)
-      let finalImageUrl = productImageUrl.trim()
+      const finalImageUrl = productImageUrl.trim()
 
-      // If user selected a local file, upload it to Cloudflare R2 via worker endpoint
-      if (imageFile) {
-        setUploadProgress('Uploading image to Cloudflare R2...')
-        try {
-          finalImageUrl = await uploadImage(imageFile)
-        } catch (uploadErr) {
-          if (uploadErr.message?.includes('R2 bucket binding') || uploadErr.message?.includes('500')) {
-            alert('Cloudflare R2 Image Storage is not enabled on your Cloudflare dashboard yet.\n\nTo add this product right now, please clear the file selection and paste an image URL in the "Paste Image URL" field!')
-            setSavingProduct(false)
-            setUploadProgress('')
-            return
-          }
-          throw uploadErr
-        }
-      }
-
-      setUploadProgress('Saving product...')
       await apiFetch('/api/products', {
         method: 'POST',
         body: JSON.stringify({
@@ -148,7 +129,6 @@ export function MerchantDashboard({
       setProductPrice('')
       setProductCategory('General')
       setProductImageUrl('')
-      setImageFile(null)
       setIsAffiliate(false)
       setAffiliateLink('')
       setShowAddProductModal(false)
@@ -157,7 +137,6 @@ export function MerchantDashboard({
       alert(`Failed to add product: ${err.message}`)
     } finally {
       setSavingProduct(false)
-      setUploadProgress('')
     }
   }
 
@@ -469,24 +448,13 @@ export function MerchantDashboard({
                 </div>
               </div>
 
-              {/* Image Upload Selection */}
+              {/* Image URL (optional) */}
               <div class="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
-                <span class="text-xs font-bold text-on-surface">Product Photo (Cloudflare R2 Upload)</span>
-
+                <span class="text-xs font-bold text-on-surface">Product Photo (optional)</span>
+                <p class="text-[11px] text-on-surface-variant">
+                  Paste a photo link from the internet. If you skip this, a placeholder image will be shown automatically.
+                </p>
                 <div>
-                  <label class="block text-[11px] text-on-surface-variant mb-1">Upload Photo from Phone/PC</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setImageFile(e.target.files[0] || null)}
-                    class="w-full text-xs text-on-surface file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-on-primary hover:file:bg-primary-container"
-                  />
-                </div>
-
-                <div class="text-center text-[10px] text-on-surface-variant font-bold">OR</div>
-
-                <div>
-                  <label class="block text-[11px] text-on-surface-variant mb-1">Paste Image URL</label>
                   <input
                     type="url"
                     value={productImageUrl}
@@ -521,12 +489,6 @@ export function MerchantDashboard({
                     placeholder="https://amazon.in/dp/..."
                     class="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm"
                   />
-                </div>
-              )}
-
-              {uploadProgress && (
-                <div class="text-xs text-primary font-semibold text-center animate-pulse">
-                  {uploadProgress}
                 </div>
               )}
 
