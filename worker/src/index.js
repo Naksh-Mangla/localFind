@@ -142,7 +142,9 @@ async function handleUpdateProduct(request, env, user) {
 
   const res = await env.DB.prepare(
     `UPDATE products
-     SET name = ?, price = ?, category = ?, image_url = ?, is_affiliate_fallback = ?, affiliate_link = ?
+     SET name = ?, price = ?, category = ?, image_url = ?, is_affiliate_fallback = ?, affiliate_link = ?,
+         version = COALESCE(version, 1) + 1,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
      WHERE id = ?`
   ).bind(
     name,
@@ -182,13 +184,13 @@ async function handleListShops(env) {
 async function handleListProducts(env) {
   const { results } = await env.DB.prepare(
     `SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
-            p.is_affiliate_fallback, p.affiliate_link, p.created_at,
+            p.is_affiliate_fallback, p.affiliate_link, p.version, p.updated_at, p.created_at,
             s.shop_name, s.whatsapp_number, s.lat, s.lng, s.address_text
      FROM products p
      JOIN shops s ON s.id = p.shop_id
      ORDER BY p.created_at DESC`
   ).all()
-  return json({ products: results })
+  return json({ products: results, app_version: '1.1.0' })
 }
 
 async function handleUploadImage(request, env, user) {

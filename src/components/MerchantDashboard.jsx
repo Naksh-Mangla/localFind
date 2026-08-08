@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
 
 export function MerchantDashboard({
@@ -22,13 +22,16 @@ export function MerchantDashboard({
   // Product management state
   const [products, setProducts] = useState([])
   const [showAddProductModal, setShowAddProductModal] = useState(false)
+  const [editingProduct, setEditingProduct] = useState(null)
   const [productName, setProductName] = useState('')
   const [productPrice, setProductPrice] = useState('')
   const [productCategory, setProductCategory] = useState('General')
   const [productImageUrl, setProductImageUrl] = useState('')
+  const [imageFile, setImageFile] = useState(null)
   const [isAffiliate, setIsAffiliate] = useState(false)
   const [affiliateLink, setAffiliateLink] = useState('')
   const [savingProduct, setSavingProduct] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState('')
 
   // Load shop data for logged-in merchant
   const fetchMerchantShop = useCallback(async () => {
@@ -99,8 +102,47 @@ export function MerchantDashboard({
     }
   }
 
-  // Handle Product Creation (with Cloudflare R2 Upload)
-  const handleAddProduct = async (e) => {
+  // Open Add Product Modal
+  const handleOpenAddModal = () => {
+    setEditingProduct(null)
+    setProductName('')
+    setProductPrice('')
+    setProductCategory('General')
+    setProductImageUrl('')
+    setImageFile(null)
+    setIsAffiliate(false)
+    setAffiliateLink('')
+    setShowAddProductModal(true)
+  }
+
+  // Open Edit Product Modal
+  const handleOpenEditModal = (product) => {
+    setEditingProduct(product)
+    setProductName(product.name || '')
+    setProductPrice(product.price ? product.price.toString() : '')
+    setProductCategory(product.category || 'General')
+    setProductImageUrl(product.image_url || '')
+    setImageFile(null)
+    setIsAffiliate(Boolean(product.is_affiliate_fallback))
+    setAffiliateLink(product.affiliate_link || '')
+    setShowAddProductModal(true)
+  }
+
+  // Handle Product Delete
+  const handleDeleteProduct = async (productId) => {
+    if (!window.confirm('Are you sure you want to delete this product from your store catalog?')) return
+    try {
+      await apiFetch(`/api/products?id=${productId}`, {
+        method: 'DELETE'
+      })
+      await fetchMerchantShop()
+    } catch (err) {
+      alert(`Failed to delete product: ${err.message}`)
+    }
+  }
+
+  // Handle Product Creation / Editing
+  const handleSaveProduct = async (e) => {
     e.preventDefault()
     if (!productName.trim() || !productPrice || !shop) {
       alert('Please enter Product Name and Price.')
@@ -109,34 +151,71 @@ export function MerchantDashboard({
 
     try {
       setSavingProduct(true)
-      const finalImageUrl = productImageUrl.trim()
+      let finalImageUrl = productImageUrl.trim()
 
-      await apiFetch('/api/products', {
-        method: 'POST',
-        body: JSON.stringify({
-          shop_id: shop.id,
-          name: productName.trim(),
-          price: parseFloat(productPrice),
-          category: productCategory,
-          image_url: finalImageUrl || null,
-          is_affiliate_fallback: isAffiliate ? 1 : 0,
-          affiliate_link: isAffiliate ? affiliateLink.trim() : null
+      if (imageFile) {
+        setUploadProgress('Uploading image to Cloudflare R2...')
+        try {
+          finalImageUrl = await uploadImage(imageFile)
+        } catch (uploadErr) {
+          if (uploadErr.message?.includes('R2 bucket binding') || uploadErr.message?.includes('500')) {
+            alert('Cloudflare R2 Image Storage is not enabled on your Cloudflare dashboard yet.\n\nTo save this product right now, please clear the file selection and paste an image URL in the "Paste Image URL" field!')
+            setSavingProduct(false)
+            setUploadProgress('')
+            return
+          }
+          throw uploadErr
+        }
+      }
+
+      setUploadProgress('Saving product...')
+
+      if (editingProduct) {
+        // PUT update product
+        await apiFetch('/api/products', {
+          method: 'PUT',
+          body: JSON.stringify({
+            id: editingProduct.id,
+            name: productName.trim(),
+            price: parseFloat(productPrice),
+            category: productCategory,
+            image_url: finalImageUrl || null,
+            is_affiliate_fallback: isAffiliate ? 1 : 0,
+            affiliate_link: isAffiliate ? affiliateLink.trim() : null
+          })
         })
-      })
+      } else {
+        // POST create product
+        await apiFetch('/api/products', {
+          method: 'POST',
+          body: JSON.stringify({
+            shop_id: shop.id,
+            name: productName.trim(),
+            price: parseFloat(productPrice),
+            category: productCategory,
+            image_url: finalImageUrl || null,
+            is_affiliate_fallback: isAffiliate ? 1 : 0,
+            affiliate_link: isAffiliate ? affiliateLink.trim() : null
+          })
+        })
+      }
 
       // Reset form and reload products
+      setEditingProduct(null)
       setProductName('')
       setProductPrice('')
       setProductCategory('General')
       setProductImageUrl('')
+      setImageFile(null)
       setIsAffiliate(false)
       setAffiliateLink('')
       setShowAddProductModal(false)
       await fetchMerchantShop()
     } catch (err) {
-      alert(`Failed to add product: ${err.message}`)
+      alert(`Failed to save product: ${err.message}`)
     } finally {
       setSavingProduct(false)
+      setUploadProgress('')
     }
   }
 
@@ -324,7 +403,7 @@ export function MerchantDashboard({
 
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowAddProductModal(true)}
+            onClick={handleOpenAddModal}
             className="bg-primary hover:bg-primary-container text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2"
           >
             <span className="material-symbols-outlined">add</span>
@@ -352,7 +431,7 @@ export function MerchantDashboard({
             Showcase your best-selling items so local buyers nearby can discover them!
           </p>
           <button
-            onClick={() => setShowAddProductModal(true)}
+            onClick={handleOpenAddModal}
             className="bg-primary text-on-primary px-4 py-2 rounded-xl text-xs font-bold shadow-sm"
           >
             + Add First Product
@@ -363,9 +442,9 @@ export function MerchantDashboard({
           {products.map((product) => (
             <div
               key={product.id}
-              className="bg-surface-container-lowest rounded-xl border border-surface-variant/60 overflow-hidden shadow-sm flex flex-col"
+              className="bg-surface-container-lowest rounded-xl border border-surface-variant/60 overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow"
             >
-              <div className="w-full aspect-square bg-surface-variant overflow-hidden">
+              <div className="w-full aspect-square bg-surface-variant overflow-hidden relative">
                 <img
                   src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'}
                   alt={product.name}
@@ -374,16 +453,37 @@ export function MerchantDashboard({
               </div>
               <div className="p-4 flex flex-col flex-1 justify-between">
                 <div>
-                  <span className="text-[10px] text-primary font-bold uppercase tracking-wider">{product.category}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-primary font-bold uppercase tracking-wider">{product.category}</span>
+                    <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                      v{product.version || 1}
+                    </span>
+                  </div>
                   <h4 className="font-title-md text-sm font-semibold text-on-surface line-clamp-1">{product.name}</h4>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="font-bold text-primary text-base">â‚¹{product.price}</span>
-                  {product.is_affiliate_fallback ? (
-                    <span className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-md font-semibold">Affiliate</span>
-                  ) : (
-                    <span className="text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-semibold">Local Showcase</span>
-                  )}
+                  <span className="font-bold text-primary text-base">₹{product.price}</span>
+                  <div className="flex items-center gap-1.5">
+                    {product.is_affiliate_fallback ? (
+                      <span className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-md font-semibold">Affiliate</span>
+                    ) : (
+                      <span className="text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-semibold">Local</span>
+                    )}
+                    <button
+                      onClick={() => handleOpenEditModal(product)}
+                      title="Edit Product"
+                      className="p-1.5 rounded-lg bg-surface-container-high hover:bg-primary/10 text-on-surface hover:text-primary transition-colors flex items-center justify-center"
+                    >
+                      <span className="material-symbols-outlined text-sm">edit</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteProduct(product.id)}
+                      title="Delete Product"
+                      className="p-1.5 rounded-lg bg-surface-container-high hover:bg-red-500/10 text-on-surface hover:text-red-500 transition-colors flex items-center justify-center"
+                    >
+                      <span className="material-symbols-outlined text-sm">delete</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -391,12 +491,14 @@ export function MerchantDashboard({
         </div>
       )}
 
-      {/* Add Product Modal */}
+      {/* Add / Edit Product Modal */}
       {showAddProductModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-sm">
           <div className="bg-surface rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-surface-variant max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-headline-lg text-xl font-bold text-on-surface">Add New Product</h3>
+              <h3 className="font-headline-lg text-xl font-bold text-on-surface">
+                {editingProduct ? 'Edit Product' : 'Add New Product'}
+              </h3>
               <button
                 onClick={() => setShowAddProductModal(false)}
                 className="p-1 rounded-full text-on-surface-variant hover:bg-surface-variant"
@@ -405,7 +507,7 @@ export function MerchantDashboard({
               </button>
             </div>
 
-            <form onSubmit={handleAddProduct} className="flex flex-col gap-4">
+            <form onSubmit={handleSaveProduct} className="flex flex-col gap-4">
               <div>
                 <label className="block text-xs font-bold text-on-surface mb-1">Product Name *</label>
                 <input
@@ -497,7 +599,11 @@ export function MerchantDashboard({
                 disabled={savingProduct}
                 className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2"
               >
-                {savingProduct ? 'Saving Product...' : 'Publish Product to Live App'}
+                {savingProduct
+                  ? 'Saving Product...'
+                  : editingProduct
+                  ? 'Update Product Details'
+                  : 'Publish Product to Live App'}
               </button>
             </form>
           </div>

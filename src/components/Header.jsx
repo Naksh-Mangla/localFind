@@ -62,9 +62,14 @@ export function Header({
             className="flex items-center gap-2.5 cursor-pointer group"
           >
             <img src="/logo.svg" alt="LocalFind Logo" className="w-9 h-9 rounded-xl shadow-sm object-contain group-hover:scale-105 transition-transform" />
-            <h1 className="font-display-lg text-3xl font-bold text-primary tracking-tight">
-              LocalFind
-            </h1>
+            <div className="flex items-baseline gap-1.5">
+              <h1 className="font-display-lg text-3xl font-bold text-primary tracking-tight">
+                LocalFind
+              </h1>
+              <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
+                v1.1.0
+              </span>
+            </div>
           </div>
           <button
             onClick={onDetectLocation}
