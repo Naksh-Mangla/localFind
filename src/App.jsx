@@ -46,42 +46,66 @@ export default function App() {
     setUserLocationName(`GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
   }, [])
 
-  // Detect and continuously track user GPS location automatically on app launch
-  const detectLocation = useCallback(() => {
-    setUserLocationName('Requesting GPS Permission...')
-    if (!navigator.geolocation) {
-      setUserCoords({ lat: 28.6139, lng: 77.2090 })
-      setUserLocationName('Connaught Place, Delhi (Default)')
-      return
+  // Get GPS position as a Promise — tries high accuracy first, then falls back to low accuracy
+  const getGPSPosition = useCallback(() => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve(null)
+        return
+      }
+
+      // Phase 1: Try HIGH accuracy (real GPS satellite lock)
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve(pos),
+        () => {
+          // Phase 2: HIGH accuracy failed → try LOW accuracy (cell tower / Wi-Fi)
+          // This is much faster and almost never fails — gives rough but REAL location
+          console.warn('High-accuracy GPS failed, trying low-accuracy fallback...')
+          navigator.geolocation.getCurrentPosition(
+            (pos) => resolve(pos),
+            () => resolve(null), // Both failed
+            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+          )
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      )
+    })
+  }, [])
+
+  // Main location detection — auto-runs on app launch
+  const detectLocation = useCallback(async () => {
+    setUserLocationName('📍 Getting your location...')
+
+    const pos = await getGPSPosition()
+
+    if (pos) {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords
+      console.log(`📍 GPS locked: ${lat}, ${lng} (±${Math.round(accuracy)}m)`)
+      setUserCoords({ lat, lng, accuracy })
+      fetchAddressName(lat, lng)
+    } else {
+      // GPS completely unavailable — show error, DON'T default to Delhi
+      console.error('GPS completely unavailable')
+      setUserLocationName('⚠️ Location unavailable — tap to retry')
     }
+  }, [getGPSPosition, fetchAddressName])
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng, accuracy } = pos.coords
-        setUserCoords({ lat, lng, accuracy })
-        fetchAddressName(lat, lng)
-      },
-      (err) => {
-        console.warn('Geolocation permission denied or failed:', err.message)
-        setUserCoords({ lat: 28.6139, lng: 77.2090 })
-        setUserLocationName('Connaught Place, Delhi (Default)')
-      },
-      { timeout: 30000, enableHighAccuracy: true, maximumAge: 0 }
-    )
-  }, [fetchAddressName])
-
-  // Continuous watchPosition for live satellite lock refinement
+  // Auto-detect on app launch + continuous background refinement via watchPosition
   useEffect(() => {
+    // Immediately request permission and detect location
     detectLocation()
+
     if (!navigator.geolocation) return
 
+    // Continuous background refinement — keeps improving accuracy as GPS satellites lock
     const watchId = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude: lat, longitude: lng, accuracy } = pos.coords
+        console.log(`📍 GPS refined: ${lat}, ${lng} (±${Math.round(accuracy)}m)`)
         setUserCoords({ lat, lng, accuracy })
         fetchAddressName(lat, lng)
       },
-      (err) => console.warn('GPS Watch error:', err.message),
+      () => {}, // Silently ignore watch errors — initial detectLocation already handled the user-facing error
       { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
     )
 
