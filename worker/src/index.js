@@ -217,7 +217,7 @@ async function handleListProducts(env) {
      JOIN shops s ON s.id = p.shop_id
      ORDER BY p.created_at DESC`
   ).all()
-  return json({ products: results, app_version: '1.6.0' })
+  return json({ products: results, app_version: '1.7.0' })
 }
 
 async function handleUploadImage(request, env, user) {
