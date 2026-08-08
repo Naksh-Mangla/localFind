@@ -1,4 +1,4 @@
-﻿import React from 'react'
+import React from 'react'
 
 export function Header({
   activeView,
@@ -19,7 +19,7 @@ export function Header({
       {/* Mobile TopAppBar */}
       <header className="md:hidden bg-surface/90 backdrop-blur-md shadow-sm fixed top-0 w-full z-50 flex items-center justify-between px-container-margin h-16">
         <div className="flex items-center gap-2 cursor-pointer" onClick={onDetectLocation}>
-          <span className="material-symbols-outlined text-primary text-2xl">location_on</span>
+          <img src="/logo.svg" alt="LocalFind Logo" className="w-7 h-7 rounded-lg shadow-sm object-contain" />
           <div className="flex flex-col">
             <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">YOUR LOCATION</span>
             <span className="font-title-md text-sm text-on-surface line-clamp-1">{userLocationName || 'Detecting Location...'}</span>
@@ -57,12 +57,15 @@ export function Header({
       {/* Desktop TopAppBar */}
       <header className="hidden md:flex bg-surface/90 backdrop-blur-md shadow-sm fixed top-0 w-full z-50 items-center justify-between px-container-margin h-20">
         <div className="flex items-center gap-8">
-          <h1
+          <div
             onClick={() => setActiveView('discover')}
-            className="font-display-lg text-3xl font-bold text-primary tracking-tight cursor-pointer"
+            className="flex items-center gap-2.5 cursor-pointer group"
           >
-            LocalFind
-          </h1>
+            <img src="/logo.svg" alt="LocalFind Logo" className="w-9 h-9 rounded-xl shadow-sm object-contain group-hover:scale-105 transition-transform" />
+            <h1 className="font-display-lg text-3xl font-bold text-primary tracking-tight">
+              LocalFind
+            </h1>
+          </div>
           <button
             onClick={onDetectLocation}
             className="flex items-center gap-2 bg-surface-container-high hover:bg-surface-variant transition-colors rounded-full px-4 py-2 text-left"
