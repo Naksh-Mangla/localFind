@@ -512,17 +512,30 @@ export function MerchantDashboard({
               />
             </div>
 
-            <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <span className="text-xs font-bold text-on-surface">Store GPS Coordinates</span>
-                <button
-                  type="button"
-                  onClick={handleUseGPS}
-                  className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-sm">my_location</span>
-                  <span>Use Current GPS Location</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
+                      window.open(mapsUrl, '_blank')
+                    }}
+                    className="text-xs text-secondary font-bold hover:underline flex items-center gap-1"
+                    title="Open current coordinates in Google Maps"
+                  >
+                    <span className="material-symbols-outlined text-sm">map</span>
+                    <span>Verify on Maps</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleUseGPS}
+                    className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">my_location</span>
+                    <span>Use Current GPS</span>
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
