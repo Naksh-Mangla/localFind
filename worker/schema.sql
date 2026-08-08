@@ -23,5 +23,5 @@ CREATE TABLE IF NOT EXISTS products (
   created_at           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_shops_owner ON shops(owner_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_shops_owner ON shops(owner_id);
 CREATE INDEX IF NOT EXISTS idx_products_shop ON products(shop_id);

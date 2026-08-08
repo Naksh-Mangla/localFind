@@ -81,8 +81,27 @@ async function handleCreateShop(request, env, user) {
 
   const { shop_name, whatsapp_number, lat, lng, address_text } = body
   if (!shop_name || !whatsapp_number) return json({ error: 'shop_name and whatsapp_number are required' }, 400)
-  if (typeof lat !== 'number' || !Number.isFinite(lat)) return json({ error: 'lat must be a number' }, 400)
-  if (typeof lng !== 'number' || !Number.isFinite(lng)) return json({ error: 'lng must be a number' }, 400)
+  if (typeof lat !== 'number' || !Number.isFinite(lat) || lat < -90 || lat > 90) {
+    return json({ error: 'lat must be a number between -90 and 90' }, 400)
+  }
+  if (typeof lng !== 'number' || !Number.isFinite(lng) || lng < -180 || lng > 180) {
+    return json({ error: 'lng must be a number between -180 and 180' }, 400)
+  }
+
+  await env.DB.prepare('PRAGMA foreign_keys = ON;').run()
+
+  // Prevent duplicate shop rows per merchant by updating if shop exists for user.sub
+  const existing = await env.DB.prepare('SELECT id FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (existing) {
+    const res = await env.DB.prepare(
+      `UPDATE shops
+       SET shop_name = ?, whatsapp_number = ?, lat = ?, lng = ?, address_text = ?
+       WHERE id = ? AND owner_id = ?`
+    ).bind(shop_name, whatsapp_number, lat, lng, address_text ?? null, existing.id, user.sub).run()
+
+    if (!res.success) return json({ error: res.error?.message ?? 'Update failed' }, 500)
+    return json({ id: existing.id, updated: true }, 200)
+  }
 
   const id = crypto.randomUUID()
   const res = await env.DB.prepare(
@@ -91,7 +110,7 @@ async function handleCreateShop(request, env, user) {
   ).bind(id, user.sub, shop_name, whatsapp_number, lat, lng, address_text ?? null).run()
 
   if (!res.success) return json({ error: res.error?.message ?? 'Insert failed' }, 500)
-  return json({ id }, 201)
+  return json({ id, created: true }, 201)
 }
 
 async function handleCreateProduct(request, env, user) {
@@ -100,16 +119,19 @@ async function handleCreateProduct(request, env, user) {
 
   const { shop_id, name, price, category, image_url, is_affiliate_fallback, affiliate_link } = body
   if (!shop_id || !name || !category) return json({ error: 'shop_id, name and category are required' }, 400)
-  if (typeof price !== 'number' || !Number.isFinite(price)) return json({ error: 'price must be a number' }, 400)
+  if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) return json({ error: 'price must be a valid positive number' }, 400)
+
+  await env.DB.prepare('PRAGMA foreign_keys = ON;').run()
 
   const shop = await env.DB.prepare('SELECT id, owner_id FROM shops WHERE id = ?').bind(shop_id).first()
   if (!shop) return json({ error: 'Shop not found' }, 404)
   if (shop.owner_id !== user.sub) return json({ error: 'Forbidden: shop belongs to another user' }, 403)
 
   const id = crypto.randomUUID()
+  const now = new Date().toISOString()
   const res = await env.DB.prepare(
-    `INSERT INTO products (id, shop_id, name, price, category, image_url, is_affiliate_fallback, affiliate_link)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO products (id, shop_id, name, price, category, image_url, is_affiliate_fallback, affiliate_link, version, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
   ).bind(
     id,
     shop_id,
@@ -118,7 +140,8 @@ async function handleCreateProduct(request, env, user) {
     category,
     image_url ?? null,
     is_affiliate_fallback ? 1 : 0,
-    affiliate_link ?? null
+    affiliate_link ?? null,
+    now
   ).run()
 
   if (!res.success) return json({ error: res.error?.message ?? 'Insert failed' }, 500)
@@ -131,7 +154,9 @@ async function handleUpdateProduct(request, env, user) {
 
   const { id, name, price, category, image_url, is_affiliate_fallback, affiliate_link } = body
   if (!id || !name || !category) return json({ error: 'id, name and category are required' }, 400)
-  if (typeof price !== 'number' || !Number.isFinite(price)) return json({ error: 'price must be a number' }, 400)
+  if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) return json({ error: 'price must be a valid positive number' }, 400)
+
+  await env.DB.prepare('PRAGMA foreign_keys = ON;').run()
 
   const prod = await env.DB.prepare(
     `SELECT p.id, s.owner_id FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = ?`
@@ -163,6 +188,8 @@ async function handleUpdateProduct(request, env, user) {
 async function handleDeleteProduct(request, env, user, url) {
   const id = url.searchParams.get('id')
   if (!id) return json({ error: 'Product id parameter is required' }, 400)
+
+  await env.DB.prepare('PRAGMA foreign_keys = ON;').run()
 
   const prod = await env.DB.prepare(
     `SELECT p.id, s.owner_id FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = ?`
