@@ -1,6 +1,6 @@
 const corsHeaders = () => ({
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   'Access-Control-Max-Age': '86400'
 })
@@ -125,6 +125,55 @@ async function handleCreateProduct(request, env, user) {
   return json({ id }, 201)
 }
 
+async function handleUpdateProduct(request, env, user) {
+  const body = await request.json().catch(() => null)
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const { id, name, price, category, image_url, is_affiliate_fallback, affiliate_link } = body
+  if (!id || !name || !category) return json({ error: 'id, name and category are required' }, 400)
+  if (typeof price !== 'number' || !Number.isFinite(price)) return json({ error: 'price must be a number' }, 400)
+
+  const prod = await env.DB.prepare(
+    `SELECT p.id, s.owner_id FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = ?`
+  ).bind(id).first()
+
+  if (!prod) return json({ error: 'Product not found' }, 404)
+  if (prod.owner_id !== user.sub) return json({ error: 'Forbidden: product belongs to another shopkeeper' }, 403)
+
+  const res = await env.DB.prepare(
+    `UPDATE products
+     SET name = ?, price = ?, category = ?, image_url = ?, is_affiliate_fallback = ?, affiliate_link = ?
+     WHERE id = ?`
+  ).bind(
+    name,
+    price,
+    category,
+    image_url ?? null,
+    is_affiliate_fallback ? 1 : 0,
+    affiliate_link ?? null,
+    id
+  ).run()
+
+  if (!res.success) return json({ error: res.error?.message ?? 'Update failed' }, 500)
+  return json({ success: true })
+}
+
+async function handleDeleteProduct(request, env, user, url) {
+  const id = url.searchParams.get('id')
+  if (!id) return json({ error: 'Product id parameter is required' }, 400)
+
+  const prod = await env.DB.prepare(
+    `SELECT p.id, s.owner_id FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = ?`
+  ).bind(id).first()
+
+  if (!prod) return json({ error: 'Product not found' }, 404)
+  if (prod.owner_id !== user.sub) return json({ error: 'Forbidden: product belongs to another shopkeeper' }, 403)
+
+  const res = await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id).run()
+  if (!res.success) return json({ error: res.error?.message ?? 'Delete failed' }, 500)
+  return json({ success: true })
+}
+
 async function handleListShops(env) {
   const { results } = await env.DB.prepare('SELECT * FROM shops ORDER BY created_at DESC').all()
   return json({ shops: results })
@@ -186,6 +235,14 @@ export default {
       if (request.method === 'POST' && url.pathname === '/api/products') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
         return await handleCreateProduct(request, env, user)
+      }
+      if (request.method === 'PUT' && url.pathname === '/api/products') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleUpdateProduct(request, env, user)
+      }
+      if (request.method === 'DELETE' && url.pathname === '/api/products') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleDeleteProduct(request, env, user, url)
       }
       if (request.method === 'GET' && url.pathname === '/api/shops') {
         return await handleListShops(env)
