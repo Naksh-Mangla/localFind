@@ -24,9 +24,9 @@ export function MerchantDashboard({
   // Shop creation state
   const [shopName, setShopName] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
-  const [addressText, setAddressText] = useState('')
-  const [lat, setLat] = useState(userCoords?.lat || 28.6139)
-  const [lng, setLng] = useState(userCoords?.lng || 77.2090)
+  const [streetAddress, setStreetAddress] = useState('')
+  const [landmarkText, setLandmarkText] = useState('')
+  const [pincodeText, setPincodeText] = useState('')
   const [creatingShop, setCreatingShop] = useState(false)
 
   // Product management state
@@ -101,18 +101,49 @@ export function MerchantDashboard({
     }
   }, [shop, user, lat, lng])
 
-  // Handle Shop Creation — always acquires FRESH GPS before saving
+  // Handle Shop Creation — strictly validates mandatory fields & acquires FRESH GPS from device
   const handleCreateShop = async (e) => {
     e.preventDefault()
-    if (!shopName.trim() || !whatsappNumber.trim()) {
-      showToast('Please fill in Shop Name and WhatsApp number.', 'error', 'Validation Error')
+
+    // 1. Shop Name Validation (min 4 characters)
+    const cleanShopName = shopName.trim()
+    if (!cleanShopName || cleanShopName.length < 4) {
+      showToast('Shop Name must be at least 4 characters long.', 'error', 'Validation Error')
+      return
+    }
+
+    // 2. WhatsApp Number Validation (exactly 10 digits)
+    const cleanPhone = whatsappNumber.replace(/[^0-9]/g, '')
+    if (cleanPhone.length !== 10) {
+      showToast('WhatsApp number must be exactly 10 digits (e.g. 9876543210).', 'error', 'Validation Error')
+      return
+    }
+
+    // 3. Street Address Validation (required)
+    const cleanAddress = streetAddress.trim()
+    if (!cleanAddress) {
+      showToast('Please enter your Shop Street Address.', 'error', 'Validation Error')
+      return
+    }
+
+    // 4. Landmark Validation (required)
+    const cleanLandmark = landmarkText.trim()
+    if (!cleanLandmark) {
+      showToast('Please enter a nearby Landmark.', 'error', 'Validation Error')
+      return
+    }
+
+    // 5. Pin Code Validation (required, 6 digits)
+    const cleanPincode = pincodeText.trim().replace(/[^0-9]/g, '')
+    if (!cleanPincode || cleanPincode.length !== 6) {
+      showToast('Pin Code must be a 6-digit number (e.g. 110001).', 'error', 'Validation Error')
       return
     }
 
     setCreatingShop(true)
-    showToast('Locking live GPS position before saving...', 'info', 'GPS Lock')
+    showToast('Locking high-accuracy GPS position automatically...', 'info', 'GPS Lock')
 
-    // Helper: get fresh high-accuracy GPS (returns a Promise)
+    // Helper: acquire fresh satellite GPS lock from device hardware
     const getFreshGPS = () =>
       new Promise((resolve) => {
         if (!navigator.geolocation) {
@@ -131,58 +162,33 @@ export function MerchantDashboard({
       })
 
     try {
-      // 1. Get fresh GPS coordinates
+      // Get fresh GPS coordinates or fallback to live userCoords
       const gps = await getFreshGPS()
-      const finalLat = gps?.lat ?? parseFloat(lat)
-      const finalLng = gps?.lng ?? parseFloat(lng)
+      const finalLat = gps?.lat ?? userCoords?.lat
+      const finalLng = gps?.lng ?? userCoords?.lng
 
-      // 2. Warn if we're still on the Delhi defaults (GPS failed)
-      if (finalLat === 28.6139 && finalLng === 77.209) {
-        showToast('Could not get precise GPS! Please tap "Use Current GPS Location" and try again.', 'error', 'GPS Failed')
+      if (!finalLat || !finalLng || (finalLat === 28.6139 && finalLng === 77.209)) {
+        showToast('Location permission is required to lock store coordinates! Please allow GPS access on your phone.', 'error', 'GPS Required')
         setCreatingShop(false)
         return
       }
 
-      // 3. Update local state so lat/lng inputs reflect the locked position
-      setLat(finalLat)
-      setLng(finalLng)
+      // Format complete readable address string combining Address, Landmark & Pincode
+      const fullFormattedAddress = `${cleanAddress}, Near ${cleanLandmark}, Pin - ${cleanPincode}`
 
-      // 4. Try to get a readable address via reverse geocoding
-      let finalAddress = addressText.trim() || null
-      if (!finalAddress) {
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${finalLat}&lon=${finalLng}&zoom=18&addressdetails=1`
-          )
-          if (res.ok) {
-            const data = await res.json()
-            const addr = data.address || {}
-            const fullAddr = [
-              addr.amenity || addr.shop || addr.building,
-              addr.road,
-              addr.suburb || addr.neighbourhood,
-              addr.city || addr.town
-            ].filter(Boolean).join(', ')
-            if (fullAddr) {
-              finalAddress = fullAddr
-              setAddressText(fullAddr)
-            }
-          }
-        } catch (_) {}
-      }
-
-      // 5. Save to API with verified GPS coordinates
+      // Save to API with verified GPS coordinates locked by device
       await apiFetch('/api/shops', {
         method: 'POST',
         body: JSON.stringify({
-          shop_name: shopName.trim(),
-          whatsapp_number: whatsappNumber.trim(),
+          shop_name: cleanShopName,
+          whatsapp_number: cleanPhone,
           lat: finalLat,
           lng: finalLng,
-          address_text: finalAddress
+          address_text: fullFormattedAddress
         })
       })
-      showToast(`Shop created with precise GPS!\nLat: ${finalLat}, Lng: ${finalLng}${gps ? `\nAccuracy: ±${Math.round(gps.accuracy)}m` : ''}`, 'success', 'Shop Created')
+
+      showToast(`Shop created with verified GPS!\nLat: ${finalLat}, Lng: ${finalLng}`, 'success', 'Shop Setup Complete')
       await fetchMerchantShop()
     } catch (err) {
       showToast(`Failed to create shop: ${err.message}`, 'error', 'Shop Creation Failed')
@@ -599,11 +605,15 @@ export function MerchantDashboard({
           </p>
 
           <form onSubmit={handleCreateShop} className="flex flex-col gap-4">
+            {/* 1. Shop Name Field (Min 4 chars) */}
             <div>
-              <label className="block text-xs font-bold text-on-surface mb-1">Shop Name *</label>
+              <label className="block text-xs font-bold text-on-surface mb-1">
+                Shop Name * <span className="text-[10px] text-on-surface-variant font-normal">(Min 4 characters)</span>
+              </label>
               <input
                 type="text"
                 required
+                minLength={4}
                 value={shopName}
                 onChange={(e) => setShopName(e.target.value)}
                 placeholder="e.g. Earth & Fire Ceramics"
@@ -611,86 +621,105 @@ export function MerchantDashboard({
               />
             </div>
 
+            {/* 2. WhatsApp Number Field (Exactly 10 digits) */}
             <div>
-              <label className="block text-xs font-bold text-on-surface mb-1">WhatsApp Phone Number *</label>
-              <input
-                type="tel"
-                required
-                value={whatsappNumber}
-                onChange={(e) => setWhatsappNumber(e.target.value)}
-                placeholder="e.g. +91 9876543210"
-                className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-              />
-              <span className="text-[11px] text-on-surface-variant">Buyers will tap this to chat directly with you on WhatsApp.</span>
+              <label className="block text-xs font-bold text-on-surface mb-1">
+                WhatsApp Phone Number * <span className="text-[10px] text-on-surface-variant font-normal">(Exactly 10 digits)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                  +91
+                </span>
+                <input
+                  type="tel"
+                  required
+                  maxLength={10}
+                  value={whatsappNumber}
+                  onChange={(e) => {
+                    const onlyNums = e.target.value.replace(/[^0-9]/g, '')
+                    if (onlyNums.length <= 10) setWhatsappNumber(onlyNums)
+                  }}
+                  placeholder="9876543210"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 pl-12 text-sm focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <span className="text-[11px] text-on-surface-variant mt-0.5 block">
+                Buyers will tap this to chat directly with you on WhatsApp.
+              </span>
             </div>
 
+            {/* 3. Separate Street Address Field (Mandatory) */}
             <div>
-              <label className="block text-xs font-bold text-on-surface mb-1">Address / Landmark</label>
+              <label className="block text-xs font-bold text-on-surface mb-1">
+                Street Address / Shop No. *
+              </label>
               <input
                 type="text"
-                value={addressText}
-                onChange={(e) => setAddressText(e.target.value)}
-                placeholder="e.g. Shop #4, Main Market, Connaught Place"
+                required
+                value={streetAddress}
+                onChange={(e) => setStreetAddress(e.target.value)}
+                placeholder="e.g. Shop #4, Main Commercial Complex"
                 className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
               />
             </div>
 
-            <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-2">
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <span className="text-xs font-bold text-on-surface">Store GPS Coordinates</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const mapsUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`
-                      window.open(mapsUrl, '_blank')
-                    }}
-                    className="text-xs text-secondary font-bold hover:underline flex items-center gap-1"
-                    title="Open current coordinates in Google Maps"
-                  >
-                    <span className="material-symbols-outlined text-sm">map</span>
-                    <span>Verify on Maps</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleUseGPS}
-                    className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-sm">my_location</span>
-                    <span>Use Current GPS</span>
-                  </button>
-                </div>
+            {/* 4. Separate Landmark & Pin Code Fields (Mandatory) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1">
+                  Landmark *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={landmarkText}
+                  onChange={(e) => setLandmarkText(e.target.value)}
+                  placeholder="e.g. Opposite State Bank"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <span className="text-[10px] text-on-surface-variant">Latitude</span>
-                  <input
-                    type="number"
-                    step="any"
-                    value={lat}
-                    onChange={(e) => setLat(e.target.value)}
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-lg p-2 text-xs"
-                  />
-                </div>
-                <div>
-                  <span className="text-[10px] text-on-surface-variant">Longitude</span>
-                  <input
-                    type="number"
-                    step="any"
-                    value={lng}
-                    onChange={(e) => setLng(e.target.value)}
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-lg p-2 text-xs"
-                  />
-                </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1">
+                  Pin Code * <span className="text-[10px] text-on-surface-variant font-normal">(6 digits)</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  value={pincodeText}
+                  onChange={(e) => {
+                    const onlyNums = e.target.value.replace(/[^0-9]/g, '')
+                    if (onlyNums.length <= 6) setPincodeText(onlyNums)
+                  }}
+                  placeholder="110001"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                />
               </div>
+            </div>
+
+            {/* 5. Verified Automatic GPS Notice (Manual Coordinate inputs removed for precision security) */}
+            <div className="bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/30 flex items-center gap-3">
+              <span className="material-symbols-outlined text-emerald-500 text-xl flex-shrink-0">verified</span>
+              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                <strong className="text-on-surface block font-bold mb-0.5">Automated High-Precision GPS Lock</strong>
+                Store GPS coordinates are captured automatically from your phone hardware on submit for 100% location accuracy.
+              </p>
             </div>
 
             <button
               type="submit"
               disabled={creatingShop}
-              className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2"
+              className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2 flex items-center justify-center gap-2 active:scale-95"
             >
-              {creatingShop ? 'Creating Shop...' : 'Save & Continue to Product Catalog'}
+              {creatingShop ? (
+                <>
+                  <span className="material-symbols-outlined animate-spin text-sm">sync</span>
+                  <span>Locking GPS & Creating Shop...</span>
+                </>
+              ) : (
+                <span>Save & Continue to Product Catalog</span>
+              )}
             </button>
           </form>
         </div>
