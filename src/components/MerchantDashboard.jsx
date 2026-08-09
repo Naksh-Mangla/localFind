@@ -487,24 +487,58 @@ export function MerchantDashboard({
     )
   }
 
-  // Screen 1: Unauthenticated Merchant
+  // Screen 1: Unauthenticated Merchant Onboarding Experience
   if (!user) {
     return (
-      <main className="pt-24 px-container-margin max-w-md mx-auto text-center pb-24">
-        <div className="bg-surface-container-lowest p-8 rounded-2xl border border-surface-variant shadow-lg flex flex-col items-center">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary mb-4">
-            <span className="material-symbols-outlined text-3xl">storefront</span>
+      <main className="pt-20 md:pt-28 px-container-margin max-w-2xl mx-auto text-center pb-24 animate-fadeIn">
+        <div className="bg-surface-container-lowest p-8 md:p-10 rounded-3xl border border-surface-variant/70 shadow-2xl flex flex-col items-center relative overflow-hidden">
+          {/* Subtle Background Glow */}
+          <div className="absolute -top-20 -right-20 w-48 h-48 bg-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -bottom-20 -left-20 w-48 h-48 bg-secondary/10 rounded-full blur-3xl pointer-events-none"></div>
+
+          {/* Animated Header Badge */}
+          <div className="inline-flex items-center gap-2 bg-primary/10 border border-primary/20 text-primary px-4 py-1.5 rounded-full text-xs font-bold mb-6 animate-popIn">
+            <span className="material-symbols-outlined text-sm">rocket_launch</span>
+            <span>Grow Your Local Business Today</span>
           </div>
-          <h2 className="font-headline-lg text-2xl font-bold text-on-surface mb-2">Shopkeeper Portal</h2>
-          <p className="text-sm text-on-surface-variant mb-6">
-            Sign in with Google to display your products to buyers nearby in real-time — 100% free, zero commissions.
+
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center text-primary mb-6 shadow-inner border border-primary/20">
+            <span className="material-symbols-outlined text-4xl">storefront</span>
+          </div>
+
+          <h2 className="font-headline-lg text-3xl font-bold text-on-surface mb-3 tracking-tight">
+            Become a Seller on LocalFind
+          </h2>
+
+          <p className="text-sm md:text-base text-on-surface-variant max-w-lg mb-8 leading-relaxed">
+            Showcase your products to buyers walking or driving within a <span className="font-bold text-primary">2 km radius</span> of your store. Zero commissions, direct customer WhatsApp leads, and 100% free!
           </p>
 
+          {/* 3 Selling Points Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full text-left mb-8">
+            <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-variant/40 flex flex-col items-start">
+              <span className="material-symbols-outlined text-primary mb-2">near_me</span>
+              <h4 className="font-bold text-xs text-on-surface mb-1">Hyperlocal Reach</h4>
+              <p className="text-[11px] text-on-surface-variant">Target customers right around your market block.</p>
+            </div>
+            <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-variant/40 flex flex-col items-start">
+              <span className="material-symbols-outlined text-emerald-500 mb-2">chat</span>
+              <h4 className="font-bold text-xs text-on-surface mb-1">Direct WhatsApp</h4>
+              <p className="text-[11px] text-on-surface-variant">Buyers chat directly with you to buy items.</p>
+            </div>
+            <div className="bg-surface-container-low p-4 rounded-2xl border border-surface-variant/40 flex flex-col items-start">
+              <span className="material-symbols-outlined text-amber-500 mb-2">payments</span>
+              <h4 className="font-bold text-xs text-on-surface mb-1">0% Commission</h4>
+              <p className="text-[11px] text-on-surface-variant">Keep 100% of your earnings. Always free.</p>
+            </div>
+          </div>
+
+          {/* Primary Action Button */}
           <button
             onClick={signInWithGoogle}
-            className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-title-md font-bold shadow-md transition-all flex items-center justify-center gap-3"
+            className="w-full sm:w-auto bg-primary hover:bg-primary-container text-on-primary py-4 px-8 rounded-2xl font-title-md font-bold shadow-xl hover:shadow-2xl transition-all duration-300 flex items-center justify-center gap-3 active:scale-95 text-base border border-white/20"
           >
-            <svg className="w-5 h-5" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -522,8 +556,20 @@ export function MerchantDashboard({
                 d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
               />
             </svg>
-            <span>Sign in with Google</span>
+            <span>Sign In with Google to Start Selling</span>
           </button>
+
+          <p className="text-[11px] text-on-surface-variant mt-4">
+            Takes less than 30 seconds to set up your shop profile.
+          </p>
+
+          {/* Credits footer tag */}
+          <div className="mt-8 pt-4 border-t border-surface-variant/40 w-full flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant">
+            <span>Powered by</span>
+            <span className="font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              NAKSH
+            </span>
+          </div>
         </div>
       </main>
     )
