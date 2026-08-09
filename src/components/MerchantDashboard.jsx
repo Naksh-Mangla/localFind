@@ -23,6 +23,8 @@ export function MerchantDashboard({
 
   // Shop creation state
   const [shopName, setShopName] = useState('')
+  const [ownerName, setOwnerName] = useState(user?.displayName || '')
+  const [shopDescription, setShopDescription] = useState('')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [streetAddress, setStreetAddress] = useState('')
   const [landmarkText, setLandmarkText] = useState('')
@@ -58,6 +60,10 @@ export function MerchantDashboard({
       setShop(myShop || null)
 
       if (myShop) {
+        setShopName(myShop.shop_name || '')
+        setOwnerName(myShop.owner_name || user?.displayName || '')
+        setShopDescription(myShop.description || '')
+        setWhatsappNumber(myShop.whatsapp_number || '')
         // Fetch products for this shop
         const prodData = await apiFetch('/api/products')
         const myProducts = (prodData.products || []).filter(
@@ -181,6 +187,8 @@ export function MerchantDashboard({
         method: 'POST',
         body: JSON.stringify({
           shop_name: cleanShopName,
+          owner_name: ownerName.trim() || user?.displayName || 'Store Owner',
+          description: shopDescription.trim() || null,
           whatsapp_number: cleanPhone,
           lat: finalLat,
           lng: finalLng,
@@ -606,18 +614,48 @@ export function MerchantDashboard({
 
           <form onSubmit={handleCreateShop} className="flex flex-col gap-4">
             {/* 1. Shop Name Field (Min 4 chars) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1">
+                  Shop Name * <span className="text-[10px] text-on-surface-variant font-normal">(Min 4 chars)</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  minLength={4}
+                  value={shopName}
+                  onChange={(e) => setShopName(e.target.value)}
+                  placeholder="e.g. Earth & Fire Ceramics"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1">
+                  Owner Full Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={ownerName}
+                  onChange={(e) => setOwnerName(e.target.value)}
+                  placeholder="e.g. Rajesh Kumar"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
+            {/* Shop About / Description Field */}
             <div>
               <label className="block text-xs font-bold text-on-surface mb-1">
-                Shop Name * <span className="text-[10px] text-on-surface-variant font-normal">(Min 4 characters)</span>
+                About Shop / Business Description (optional)
               </label>
-              <input
-                type="text"
-                required
-                minLength={4}
-                value={shopName}
-                onChange={(e) => setShopName(e.target.value)}
-                placeholder="e.g. Earth & Fire Ceramics"
-                className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+              <textarea
+                rows={2}
+                value={shopDescription}
+                onChange={(e) => setShopDescription(e.target.value)}
+                placeholder="Tell local buyers what makes your shop special..."
+                className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-xs focus:ring-1 focus:ring-primary"
               />
             </div>
 

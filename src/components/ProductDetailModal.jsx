@@ -61,16 +61,28 @@ export function ProductDetailModal({ product, onClose }) {
 
           {/* Shopkeeper Details Box */}
           <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0 mt-0.5">
                 <span className="material-symbols-outlined">storefront</span>
               </div>
-              <div>
-                <h3 className="font-title-md font-semibold text-on-surface text-base">{product.shop_name}</h3>
-                <p className="text-xs text-on-surface-variant flex items-center gap-1">
-                  <span className="material-symbols-outlined text-xs">location_on</span>
-                  {product.address_text || 'Local Shop Address'}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                  <h3 className="font-title-md font-bold text-on-surface text-base">{product.shop_name}</h3>
+                  {product.owner_name && (
+                    <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                      Owner: {product.owner_name}
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-on-surface-variant flex items-center gap-1 mb-1">
+                  <span className="material-symbols-outlined text-xs text-primary">location_on</span>
+                  <span>{product.address_text || 'Local Shop Address'}</span>
                 </p>
+                {product.description && (
+                  <p className="text-xs text-on-surface-variant/90 italic bg-surface p-2.5 rounded-lg border border-surface-variant/40 mt-2">
+                    "{product.description}"
+                  </p>
+                )}
               </div>
             </div>
           </div>
