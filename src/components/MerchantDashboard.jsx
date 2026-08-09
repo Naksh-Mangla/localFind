@@ -21,7 +21,7 @@ export function MerchantDashboard({
     setToast({ message, type, title })
   }
 
-  // Shop creation state
+  // Shop creation / edit state
   const [shopName, setShopName] = useState('')
   const [ownerName, setOwnerName] = useState(user?.displayName || '')
   const [shopDescription, setShopDescription] = useState('')
@@ -32,6 +32,7 @@ export function MerchantDashboard({
   const [lat, setLat] = useState(userCoords?.lat || 28.6139)
   const [lng, setLng] = useState(userCoords?.lng || 77.2090)
   const [creatingShop, setCreatingShop] = useState(false)
+  const [showEditShopModal, setShowEditShopModal] = useState(false)
 
   // Product management state
   const [products, setProducts] = useState([])
@@ -67,6 +68,22 @@ export function MerchantDashboard({
         setOwnerName(myShop.owner_name || user?.displayName || '')
         setShopDescription(myShop.description || '')
         setWhatsappNumber(myShop.whatsapp_number || '')
+        setLat(myShop.lat || userCoords?.lat || 28.6139)
+        setLng(myShop.lng || userCoords?.lng || 77.2090)
+
+        // Parse formatted address string into fields if possible
+        if (myShop.address_text) {
+          const parts = myShop.address_text.split(', Near ')
+          if (parts.length === 2) {
+            setStreetAddress(parts[0].trim())
+            const landmarkParts = parts[1].split(', Pin - ')
+            setLandmarkText(landmarkParts[0]?.trim() || '')
+            setPincodeText(landmarkParts[1]?.trim() || '')
+          } else {
+            setStreetAddress(myShop.address_text)
+          }
+        }
+
         // Fetch products for this shop
         const prodData = await apiFetch('/api/products')
         const myProducts = (prodData.products || []).filter(
@@ -199,10 +216,11 @@ export function MerchantDashboard({
         })
       })
 
-      showToast(`Shop created with verified GPS!\nLat: ${finalLat}, Lng: ${finalLng}`, 'success', 'Shop Setup Complete')
+      showToast(shop ? 'Shop profile updated successfully!' : `Shop created with verified GPS!\nLat: ${finalLat}, Lng: ${finalLng}`, 'success', shop ? 'Profile Updated' : 'Shop Setup Complete')
+      setShowEditShopModal(false)
       await fetchMerchantShop()
     } catch (err) {
-      showToast(`Failed to create shop: ${err.message}`, 'error', 'Shop Creation Failed')
+      showToast(`Failed to save shop details: ${err.message}`, 'error', 'Save Failed')
     } finally {
       setCreatingShop(false)
     }
@@ -792,6 +810,13 @@ export function MerchantDashboard({
 
         <div className="flex flex-wrap items-center gap-3">
           <button
+            onClick={() => setShowEditShopModal(true)}
+            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant flex items-center gap-1.5 shadow-sm"
+          >
+            <span className="material-symbols-outlined text-primary text-base">edit_note</span>
+            <span>Edit Shop Profile</span>
+          </button>
+          <button
             onClick={handleUpdateShopGPS}
             title="Update shop location to your current high-precision GPS position"
             className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border border-surface-variant flex items-center gap-1.5 shadow-sm"
@@ -1081,6 +1106,165 @@ export function MerchantDashboard({
           </div>
         </div>
       )}
+      {/* Edit Shop Profile Modal */}
+      {showEditShopModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-headline-lg text-xl font-bold text-on-surface">Edit Shop Profile</h3>
+                <p className="text-xs text-on-surface-variant">Update your store details displayed to nearby buyers.</p>
+              </div>
+              <button
+                onClick={() => setShowEditShopModal(false)}
+                className="text-on-surface-variant hover:text-on-surface p-1 rounded-lg"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateShop} className="flex flex-col gap-4">
+              {/* 1. Shop Name Field (Min 4 chars) & Owner Name */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Shop Name * <span className="text-[10px] text-on-surface-variant font-normal">(Min 4 chars)</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    minLength={4}
+                    value={shopName}
+                    onChange={(e) => setShopName(e.target.value)}
+                    placeholder="e.g. Earth & Fire Ceramics"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Owner Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={ownerName}
+                    onChange={(e) => setOwnerName(e.target.value)}
+                    placeholder="e.g. Rajesh Kumar"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Shop About / Description Field */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1">
+                  About Shop / Business Description (optional)
+                </label>
+                <textarea
+                  rows={2}
+                  value={shopDescription}
+                  onChange={(e) => setShopDescription(e.target.value)}
+                  placeholder="Tell local buyers what makes your shop special..."
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-xs focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* 2. WhatsApp Number Field (Exactly 10 digits) */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1">
+                  WhatsApp Phone Number * <span className="text-[10px] text-on-surface-variant font-normal">(Exactly 10 digits)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                    +91
+                  </span>
+                  <input
+                    type="tel"
+                    required
+                    maxLength={10}
+                    value={whatsappNumber}
+                    onChange={(e) => {
+                      const onlyNums = e.target.value.replace(/[^0-9]/g, '')
+                      if (onlyNums.length <= 10) setWhatsappNumber(onlyNums)
+                    }}
+                    placeholder="9876543210"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 pl-12 text-sm focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              {/* 3. Separate Street Address Field (Mandatory) */}
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1">
+                  Street Address / Shop No. *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={streetAddress}
+                  onChange={(e) => setStreetAddress(e.target.value)}
+                  placeholder="e.g. Shop #4, Main Commercial Complex"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                />
+              </div>
+
+              {/* 4. Separate Landmark & Pin Code Fields (Mandatory) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Landmark *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={landmarkText}
+                    onChange={(e) => setLandmarkText(e.target.value)}
+                    placeholder="e.g. Opposite State Bank"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Pin Code * <span className="text-[10px] text-on-surface-variant font-normal">(6 digits)</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={6}
+                    value={pincodeText}
+                    onChange={(e) => {
+                      const onlyNums = e.target.value.replace(/[^0-9]/g, '')
+                      if (onlyNums.length <= 6) setPincodeText(onlyNums)
+                    }}
+                    placeholder="110001"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 mt-3">
+                <button
+                  type="button"
+                  onClick={() => setShowEditShopModal(false)}
+                  className="w-1/3 bg-surface-container-high text-on-surface py-3 rounded-xl font-bold text-xs hover:bg-surface-variant"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={creatingShop}
+                  className="w-2/3 bg-primary text-on-primary py-3 rounded-xl font-bold text-xs hover:bg-primary-container shadow-md flex items-center justify-center gap-2"
+                >
+                  {creatingShop ? 'Saving Profile...' : 'Save Profile Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Custom Toast Notifications */}
       <Toast toast={toast} onClose={() => setToast(null)} />
 
