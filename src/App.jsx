@@ -164,24 +164,28 @@ export default function App() {
         refreshing={loadingProducts}
       />
 
-      {/* View Router */}
-      <div className="flex-1">
+      {/* View Router with Smooth Transitions */}
+      <div className="flex-1 transition-all duration-300">
         {activeView === 'discover' ? (
-          <BuyerDiscover
-            products={products}
-            userCoords={userCoords}
-            onSelectProduct={(p) => setSelectedProduct(p)}
-            loading={loadingProducts}
-            onRefreshProducts={fetchProducts}
-            refreshing={loadingProducts}
-          />
+          <div className="animate-fadeIn">
+            <BuyerDiscover
+              products={products}
+              userCoords={userCoords}
+              onSelectProduct={(p) => setSelectedProduct(p)}
+              loading={loadingProducts}
+              onRefreshProducts={fetchProducts}
+              refreshing={loadingProducts}
+            />
+          </div>
         ) : (
-          <MerchantDashboard
-            user={user}
-            signInWithGoogle={signInWithGoogle}
-            signOut={signOut}
-            userCoords={userCoords}
-          />
+          <div className="animate-fadeIn">
+            <MerchantDashboard
+              user={user}
+              signInWithGoogle={signInWithGoogle}
+              signOut={signOut}
+              userCoords={userCoords}
+            />
+          </div>
         )}
       </div>
 
