@@ -956,16 +956,21 @@ export function MerchantDashboard({
                   <input
                     type="file"
                     accept="image/*"
-                    onChange={(e) => {
+                    onChange={async (e) => {
                       const file = e.target.files?.[0]
                       if (file) {
-                        // Revoke old object URL if present to prevent memory leaks
-                        if (productImageUrl && productImageUrl.startsWith('blob:')) {
-                          URL.revokeObjectURL(productImageUrl)
+                        try {
+                          showToast('Compressing photo instantly...', 'info', 'Image Compression')
+                          const compressedBase64 = await compressImageToBase64(file)
+                          setImageFile(file)
+                          setProductImageUrl(compressedBase64)
+                          const origKB = Math.round(file.size / 1024)
+                          const newKB = Math.round((compressedBase64.length * 0.75) / 1024)
+                          showToast(`Photo compressed by ${Math.round((1 - newKB / origKB) * 100)}% (${origKB} KB ➔ ${newKB} KB)!`, 'success', 'Photo Compressed')
+                        } catch (err) {
+                          setImageFile(file)
+                          setProductImageUrl(URL.createObjectURL(file))
                         }
-                        setImageFile(file)
-                        // Local preview URL
-                        setProductImageUrl(URL.createObjectURL(file))
                       }
                     }}
                     className="w-full text-xs text-on-surface-variant file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
@@ -1013,12 +1018,17 @@ export function MerchantDashboard({
                         e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&auto=format&fit=crop&q=80'
                       }}
                     />
-                    <div className="text-[11px] text-on-surface-variant overflow-hidden">
-                      <span className="font-bold text-on-surface block mb-0.5">
-                        {imageFile ? 'Selected Photo from Phone' : 'Image Link Preview'}
+                    <div className="text-[11px] text-on-surface-variant overflow-hidden flex-1">
+                      <span className="font-bold text-on-surface flex items-center justify-between gap-1 mb-0.5">
+                        <span>{imageFile ? 'Compressed Photo Preview' : 'Image Link Preview'}</span>
+                        {imageFile && (
+                          <span className="text-[9px] bg-emerald-500/15 text-emerald-600 font-bold px-1.5 py-0.2 rounded border border-emerald-500/30">
+                            ~{Math.round((productImageUrl.length * 0.75) / 1024)} KB
+                          </span>
+                        )}
                       </span>
                       <span className="truncate block opacity-75">
-                        {imageFile ? `${imageFile.name} (${Math.round(imageFile.size / 1024)} KB)` : cleanGoogleImageUrl(productImageUrl)}
+                        {imageFile ? `${imageFile.name} (Original: ${Math.round(imageFile.size / 1024)} KB)` : cleanGoogleImageUrl(productImageUrl)}
                       </span>
                     </div>
                   </div>
