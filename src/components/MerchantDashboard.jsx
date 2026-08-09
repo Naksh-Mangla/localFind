@@ -322,8 +322,12 @@ export function MerchantDashboard({
           const ctx = canvas.getContext('2d')
           ctx.drawImage(img, 0, 0, width, height)
 
-          // 75% JPEG quality yields tiny ~80-120KB string
-          const base64Data = canvas.toDataURL('image/jpeg', 0.75)
+          // WebP format offers 25-35% smaller file sizes than JPEG at identical quality
+          let base64Data = canvas.toDataURL('image/webp', 0.75)
+          // Fallback to JPEG if browser canvas doesn't support WebP export
+          if (!base64Data.startsWith('data:image/webp')) {
+            base64Data = canvas.toDataURL('image/jpeg', 0.75)
+          }
           resolve(base64Data)
         }
         img.src = event.target.result
