@@ -53,27 +53,38 @@ export function Header({
   return (
     <>
       {/* Mobile TopAppBar */}
-      <header className="md:hidden bg-surface/90 backdrop-blur-md shadow-sm fixed top-0 w-full z-50 flex items-center justify-between px-container-margin h-16">
-        <div className="flex items-center gap-2 cursor-pointer" onClick={onDetectLocation}>
-          <img src="/logo.svg" alt="LocalFind Logo" className="w-7 h-7 rounded-lg shadow-sm object-contain" />
-          <div className="flex flex-col">
-            <div className="flex items-center gap-1.5">
-              <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">YOUR LOCATION</span>
-              <span className={`w-2 h-2 rounded-full ${statusColors.dotColor} animate-pulse`}></span>
-              <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded">v1.9.0</span>
-              <span className="text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded border border-amber-500/30">Built by NAKSH</span>
+      <header className="md:hidden bg-surface/95 backdrop-blur-md shadow-sm fixed top-0 w-full z-50 flex items-center justify-between px-3 h-16 border-b border-surface-variant/40">
+        {/* Left: Brand logo & Location bar */}
+        <div
+          className="flex items-center gap-2.5 cursor-pointer max-w-[65%] overflow-hidden"
+          onClick={onDetectLocation}
+          title="Tap to refresh location"
+        >
+          <img src="/logo.svg" alt="LocalFind Logo" className="w-8 h-8 rounded-xl shadow-xs object-contain flex-shrink-0" />
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-center gap-1.5 leading-none mb-1">
+              <span className={`w-2 h-2 rounded-full ${statusColors.dotColor} animate-pulse flex-shrink-0`}></span>
+              <span className="text-[9px] font-bold text-on-surface-variant tracking-wider uppercase truncate">
+                LOCATION
+              </span>
+              <span className="text-[8px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 px-1 py-0.2 rounded border border-amber-500/30 flex-shrink-0">
+                NAKSH
+              </span>
             </div>
-            <span className="font-title-md text-sm text-on-surface line-clamp-1">{userLocationName || 'Detecting Location...'}</span>
+            <span className="font-title-md text-xs font-semibold text-on-surface truncate">
+              {userLocationName || 'Detecting Location...'}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Right: Action Buttons */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {onRefreshProducts && (
             <button
               onClick={onRefreshProducts}
               disabled={refreshing}
               title="Quickly refresh products"
-              className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant flex items-center justify-center transition-all active:scale-90 border border-surface-variant"
+              className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant flex items-center justify-center transition-transform active:scale-90 border border-surface-variant/60"
             >
               <span className={`material-symbols-outlined text-base ${refreshing ? 'animate-spin text-primary' : ''}`}>
                 refresh
@@ -84,7 +95,7 @@ export function Header({
           {user ? (
             <button
               onClick={() => setActiveView('merchant')}
-              className="flex items-center gap-2 bg-primary-container text-on-primary-container px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm"
+              className="flex items-center gap-1.5 bg-primary text-on-primary px-2.5 py-1.5 rounded-full text-xs font-bold shadow-sm active:scale-95 transition-transform"
             >
               <img
                 src={getAvatarUrl(user)}
@@ -92,17 +103,17 @@ export function Header({
                 onError={(e) => {
                   e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || 'User')}&background=9c3e20&color=fff`
                 }}
-                className="w-6 h-6 rounded-full object-cover border border-white/40"
+                className="w-5 h-5 rounded-full object-cover border border-white/40"
               />
-              <span>Shop Dashboard</span>
+              <span className="text-[11px] whitespace-nowrap">Dashboard</span>
             </button>
           ) : (
             <button
               onClick={onOpenSignIn}
-              className="bg-primary text-on-primary px-3.5 py-1.5 rounded-full text-xs font-semibold shadow-sm flex items-center gap-1.5"
+              className="bg-primary text-on-primary px-3 py-1.5 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-transform"
             >
-              <span className="material-symbols-outlined text-base">account_circle</span>
-              <span>Sign In</span>
+              <span className="material-symbols-outlined text-sm">account_circle</span>
+              <span className="text-[11px]">Sign In</span>
             </button>
           )}
         </div>
