@@ -29,6 +29,8 @@ export function MerchantDashboard({
   const [streetAddress, setStreetAddress] = useState('')
   const [landmarkText, setLandmarkText] = useState('')
   const [pincodeText, setPincodeText] = useState('')
+  const [lat, setLat] = useState(userCoords?.lat || 28.6139)
+  const [lng, setLng] = useState(userCoords?.lng || 77.2090)
   const [creatingShop, setCreatingShop] = useState(false)
 
   // Product management state
@@ -56,7 +58,8 @@ export function MerchantDashboard({
       setShopError('')
       const data = await apiFetch('/api/shops')
       // Find shop owned by current user
-      const myShop = (data.shops || []).find((s) => s.owner_id === user.uid)
+      const currentUid = user.uid || user.sub
+      const myShop = (data.shops || []).find((s) => s.owner_id === currentUid)
       setShop(myShop || null)
 
       if (myShop) {
@@ -432,7 +435,7 @@ export function MerchantDashboard({
                 addr.suburb || addr.neighbourhood,
                 addr.city || addr.town
               ].filter(Boolean).join(', ')
-              if (fullAddr) setAddressText(fullAddr)
+              if (fullAddr) setStreetAddress(fullAddr)
             }
           } catch (e) {
             console.warn('Reverse geocode failed:', e)
