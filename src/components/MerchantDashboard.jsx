@@ -840,6 +840,10 @@ export function MerchantDashboard({
                     onChange={(e) => {
                       const file = e.target.files?.[0]
                       if (file) {
+                        // Revoke old object URL if present to prevent memory leaks
+                        if (productImageUrl && productImageUrl.startsWith('blob:')) {
+                          URL.revokeObjectURL(productImageUrl)
+                        }
                         setImageFile(file)
                         // Local preview URL
                         setProductImageUrl(URL.createObjectURL(file))
