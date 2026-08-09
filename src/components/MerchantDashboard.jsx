@@ -237,6 +237,40 @@ export function MerchantDashboard({
     }
   }
 
+  // Helper to convert Google Search / Google Images viewer URLs to direct raw image URLs
+  const cleanGoogleImageUrl = (url) => {
+    if (!url) return ''
+    let cleaned = url.trim()
+
+    // 1. Handle Google Images viewer search page links (e.g. google.com/imgres?imgurl=...)
+    if (cleaned.includes('google.com/imgres') || cleaned.includes('google.co.in/imgres')) {
+      try {
+        const parsed = new URL(cleaned)
+        const directImgUrl = parsed.searchParams.get('imgurl')
+        if (directImgUrl) return decodeURIComponent(directImgUrl)
+      } catch (_) {}
+    }
+
+    // 2. Handle Google Search result links (e.g. google.com/url?url=... or google.com/url?q=...)
+    if (cleaned.includes('google.com/url') || cleaned.includes('google.co.in/url')) {
+      try {
+        const parsed = new URL(cleaned)
+        const targetUrl = parsed.searchParams.get('url') || parsed.searchParams.get('q')
+        if (targetUrl) return decodeURIComponent(targetUrl)
+      } catch (_) {}
+    }
+
+    // 3. Handle Google Drive view links (drive.google.com/file/d/XYZ/view)
+    if (cleaned.includes('drive.google.com/file/d/')) {
+      const match = cleaned.match(/\/file\/d\/([^\/]+)/)
+      if (match && match[1]) {
+        return `https://lh3.googleusercontent.com/d/${match[1]}`
+      }
+    }
+
+    return cleaned
+  }
+
   // Handle Product Creation / Editing
   const handleSaveProduct = async (e) => {
     e.preventDefault()
@@ -247,7 +281,7 @@ export function MerchantDashboard({
 
     try {
       setSavingProduct(true)
-      let finalImageUrl = productImageUrl.trim()
+      let finalImageUrl = cleanGoogleImageUrl(productImageUrl)
 
       if (imageFile) {
         setUploadProgress('Uploading image to Cloudflare R2...')
@@ -752,19 +786,43 @@ export function MerchantDashboard({
 
               {/* Image URL (optional) */}
               <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
-                <span className="text-xs font-bold text-on-surface">Product Photo (optional)</span>
+                <span className="text-xs font-bold text-on-surface">Product Photo URL (optional)</span>
                 <p className="text-[11px] text-on-surface-variant">
-                  Paste a photo link from the internet. If you skip this, a placeholder image will be shown automatically.
+                  Paste any image link from Google, Unsplash, or direct URL. Google Search page links will be auto-converted!
                 </p>
                 <div>
                   <input
                     type="url"
                     value={productImageUrl}
                     onChange={(e) => setProductImageUrl(e.target.value)}
-                    placeholder="https://example.com/item.jpg"
+                    onBlur={(e) => {
+                      const cleaned = cleanGoogleImageUrl(e.target.value)
+                      if (cleaned !== e.target.value) {
+                        setProductImageUrl(cleaned)
+                        showToast('Extracted direct image URL from Google link!', 'info', 'URL Cleaned')
+                      }
+                    }}
+                    placeholder="https://images.unsplash.com/... or Google Image Link"
                     className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-2.5 text-xs"
                   />
                 </div>
+                {productImageUrl && (
+                  <div className="flex items-center gap-3 bg-surface p-2 rounded-lg border border-surface-variant/40">
+                    <img
+                      src={cleanGoogleImageUrl(productImageUrl)}
+                      alt="Preview"
+                      className="w-16 h-16 object-cover rounded-md bg-surface-variant flex-shrink-0"
+                      onError={(e) => {
+                        e.target.onerror = null
+                        e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&auto=format&fit=crop&q=80'
+                      }}
+                    />
+                    <div className="text-[11px] text-on-surface-variant overflow-hidden">
+                      <span className="font-bold text-on-surface block mb-0.5">Image Preview</span>
+                      <span className="truncate block opacity-75">{cleanGoogleImageUrl(productImageUrl)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Affiliate Link Toggle */}

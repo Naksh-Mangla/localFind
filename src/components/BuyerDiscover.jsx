@@ -224,6 +224,10 @@ export function BuyerDiscover({
                     <img
                       src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'}
                       alt={product.name}
+                      onError={(e) => {
+                        e.target.onerror = null
+                        e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'
+                      }}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
                     {product.distanceKm !== null && (
