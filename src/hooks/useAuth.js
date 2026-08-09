@@ -4,11 +4,17 @@ import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
-  signOut as firebaseSignOut
+  signOut as firebaseSignOut,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth'
 import { firebaseApp } from '../lib/firebase'
 
 const auth = getAuth(firebaseApp)
+// Enforce permanent local persistence so sellers stay signed in across browser & phone app restarts
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn('Failed to set auth persistence:', err)
+})
 
 export function useAuth() {
   const [user, setUser] = useState(null)

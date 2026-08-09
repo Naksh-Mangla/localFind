@@ -8,8 +8,16 @@ import { MerchantDashboard } from './components/MerchantDashboard'
 
 export default function App() {
   const { user, signInWithGoogle, signOut } = useAuth()
-  const [activeView, setActiveView] = useState('discover') // 'discover' | 'merchant'
+  // Remember active view preference in localStorage so sellers return directly to their dashboard when opening the app
+  const [activeView, setActiveView] = useState(() => {
+    return localStorage.getItem('localfind_active_view') || 'discover'
+  })
   const [selectedProduct, setSelectedProduct] = useState(null)
+
+  // Save active view tab to localStorage when changed
+  useEffect(() => {
+    localStorage.setItem('localfind_active_view', activeView)
+  }, [activeView])
 
   // Geolocation state
   const [userCoords, setUserCoords] = useState(null)
