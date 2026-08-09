@@ -62,7 +62,15 @@ export default function App() {
           // Phase 2: HIGH accuracy failed → try LOW accuracy (cell tower / Wi-Fi)
           console.warn('High-accuracy GPS failed, trying low-accuracy fallback...')
           navigator.geolocation.getCurrentPosition(
-            (pos) => resolve({ pos, mode: 'low' }),
+            (pos) => {
+              // Ignore low-accuracy positions if accuracy radius is unrealistically huge (> 50,000 meters / 50 km)
+              if (pos.coords.accuracy > 50000) {
+                console.warn(`Low-accuracy GPS rejected due to huge accuracy radius: ±${Math.round(pos.coords.accuracy)}m`)
+                resolve({ pos: null, mode: null })
+              } else {
+                resolve({ pos, mode: 'low' })
+              }
+            },
             () => resolve({ pos: null, mode: null }), // Both failed
             { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
           )

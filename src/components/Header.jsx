@@ -60,7 +60,7 @@ export function Header({
             <div className="flex items-center gap-1.5">
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">YOUR LOCATION</span>
               <span className={`w-2 h-2 rounded-full ${statusColors.dotColor} animate-pulse`}></span>
-              <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded">v1.8.0</span>
+              <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded">v1.9.0</span>
               <span className="text-[9px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-1.5 py-0.2 rounded border border-amber-500/30">Built by NAKSH</span>
             </div>
             <span className="font-title-md text-sm text-on-surface line-clamp-1">{userLocationName || 'Detecting Location...'}</span>
@@ -121,7 +121,7 @@ export function Header({
                 LocalFind
               </h1>
               <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                v1.8.0
+                v1.9.0
               </span>
               <span className="text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1 shadow-sm">
                 <span className="material-symbols-outlined text-[12px]">code</span>
