@@ -2,6 +2,8 @@ CREATE TABLE IF NOT EXISTS shops (
   id              TEXT PRIMARY KEY,
   owner_id        TEXT NOT NULL,
   shop_name       TEXT NOT NULL,
+  owner_name      TEXT,
+  description     TEXT,
   whatsapp_number TEXT NOT NULL,
   lat             REAL NOT NULL,
   lng             REAL NOT NULL,
