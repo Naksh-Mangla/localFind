@@ -8,7 +8,8 @@ export function MerchantDashboard({
   user,
   signInWithGoogle,
   signOut,
-  userCoords
+  userCoords,
+  onRefreshProducts
 }) {
   const [shop, setShop] = useState(null)
   const [loadingShop, setLoadingShop] = useState(true)
@@ -232,6 +233,7 @@ export function MerchantDashboard({
       })
       showToast('Product successfully removed from catalog.', 'success', 'Product Deleted')
       await fetchMerchantShop()
+      if (onRefreshProducts) onRefreshProducts()
     } catch (err) {
       showToast(`Failed to delete product: ${err.message}`, 'error', 'Delete Error')
     }
@@ -383,6 +385,7 @@ export function MerchantDashboard({
       setAffiliateLink('')
       setShowAddProductModal(false)
       await fetchMerchantShop()
+      if (onRefreshProducts) onRefreshProducts()
     } catch (err) {
       showToast(`Failed to save product: ${err.message}`, 'error', 'Save Error')
     } finally {

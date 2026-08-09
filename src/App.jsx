@@ -192,6 +192,7 @@ export default function App() {
               signInWithGoogle={signInWithGoogle}
               signOut={signOut}
               userCoords={userCoords}
+              onRefreshProducts={fetchProducts}
             />
           </div>
         )}
