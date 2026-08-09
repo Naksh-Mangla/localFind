@@ -14,6 +14,7 @@ export default function App() {
   // Geolocation state
   const [userCoords, setUserCoords] = useState(null)
   const [userLocationName, setUserLocationName] = useState('Detecting Location...')
+  const [locationStatus, setLocationStatus] = useState('loading') // 'success' | 'approx' | 'error' | 'loading'
 
   // Products state
   const [products, setProducts] = useState([])
@@ -74,6 +75,7 @@ export default function App() {
   // Main location detection — auto-runs on app launch
   const detectLocation = useCallback(async () => {
     setUserLocationName('📍 Getting your location...')
+    setLocationStatus('loading')
 
     const { pos, mode } = await getGPSPosition()
 
@@ -85,8 +87,10 @@ export default function App() {
       let statusMsg = ''
       if (mode === 'high' && accuracy <= 100) {
         statusMsg = 'Success'
+        setLocationStatus('success')
       } else {
         statusMsg = 'Low accuracy, approximate location'
+        setLocationStatus('approx')
       }
       setUserLocationName(statusMsg)
       
@@ -95,6 +99,7 @@ export default function App() {
       // GPS completely unavailable — show exact failure message requested
       console.error('GPS completely unavailable')
       setUserLocationName("Can't get your location")
+      setLocationStatus('error')
     }
   }, [getGPSPosition, fetchAddressName])
 
@@ -112,6 +117,7 @@ export default function App() {
         console.log(`📍 GPS refined: ${lat}, ${lng} (±${Math.round(accuracy)}m)`)
         setUserCoords({ lat, lng, accuracy })
         const statusMsg = accuracy <= 100 ? 'Success' : 'Low accuracy, approximate location'
+        setLocationStatus(accuracy <= 100 ? 'success' : 'approx')
         fetchAddressName(lat, lng, statusMsg)
       },
       () => {}, // Silently ignore watch errors — initial detectLocation already handled the user-facing error
@@ -146,6 +152,7 @@ export default function App() {
         setActiveView={setActiveView}
         user={user}
         userLocationName={userLocationName}
+        locationStatus={locationStatus}
         onDetectLocation={detectLocation}
         onOpenSignIn={() => {
           if (!user) {

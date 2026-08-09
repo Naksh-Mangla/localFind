@@ -5,6 +5,7 @@ export function Header({
   setActiveView,
   user,
   userLocationName,
+  locationStatus = 'loading', // 'success' | 'approx' | 'error' | 'loading'
   onDetectLocation,
   onOpenSignIn,
   onRefreshProducts,
@@ -16,6 +17,39 @@ export function Header({
     return `https://ui-avatars.com/api/?name=${name}&background=9c3e20&color=ffffff&bold=true`
   }
 
+  // Dynamic status color classes for GPS location indicator
+  // Green = success, Orange = approx, Red = cant get / error
+  const getStatusColorClasses = () => {
+    switch (locationStatus) {
+      case 'success':
+        return {
+          badgeBg: 'bg-emerald-500/15 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
+          iconColor: 'text-emerald-500',
+          dotColor: 'bg-emerald-500'
+        }
+      case 'approx':
+        return {
+          badgeBg: 'bg-amber-500/15 border-amber-500/30 text-amber-600 dark:text-amber-400',
+          iconColor: 'text-amber-500',
+          dotColor: 'bg-amber-500'
+        }
+      case 'error':
+        return {
+          badgeBg: 'bg-rose-500/15 border-rose-500/30 text-rose-600 dark:text-rose-400',
+          iconColor: 'text-rose-500',
+          dotColor: 'bg-rose-500'
+        }
+      default:
+        return {
+          badgeBg: 'bg-primary/10 border-primary/20 text-primary',
+          iconColor: 'text-primary',
+          dotColor: 'bg-primary'
+        }
+    }
+  }
+
+  const statusColors = getStatusColorClasses()
+
   return (
     <>
       {/* Mobile TopAppBar */}
@@ -23,8 +57,9 @@ export function Header({
         <div className="flex items-center gap-2 cursor-pointer" onClick={onDetectLocation}>
           <img src="/logo.svg" alt="LocalFind Logo" className="w-7 h-7 rounded-lg shadow-sm object-contain" />
           <div className="flex flex-col">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
               <span className="font-label-caps text-[10px] text-on-surface-variant uppercase tracking-wider">YOUR LOCATION</span>
+              <span className={`w-2 h-2 rounded-full ${statusColors.dotColor} animate-pulse`}></span>
               <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.2 rounded">v1.8.0</span>
             </div>
             <span className="font-title-md text-sm text-on-surface line-clamp-1">{userLocationName || 'Detecting Location...'}</span>
@@ -91,12 +126,12 @@ export function Header({
           </div>
           <button
             onClick={onDetectLocation}
-            className="flex items-center gap-2 bg-surface-container-high hover:bg-surface-variant transition-colors rounded-full px-4 py-2 text-left"
+            className={`flex items-center gap-2 border transition-all rounded-full px-4 py-2 text-left ${statusColors.badgeBg}`}
           >
-            <span className="material-symbols-outlined text-primary text-lg">location_on</span>
+            <span className={`material-symbols-outlined text-lg ${statusColors.iconColor}`}>location_on</span>
             <div className="flex flex-col">
-              <span className="font-label-caps text-[10px] text-on-surface-variant">LOCATION</span>
-              <span className="font-title-md text-xs font-semibold text-on-surface max-w-[180px] truncate">{userLocationName}</span>
+              <span className="font-label-caps text-[10px] text-on-surface-variant font-bold">LOCATION</span>
+              <span className="font-title-md text-xs font-semibold max-w-[200px] truncate">{userLocationName}</span>
             </div>
           </button>
 
