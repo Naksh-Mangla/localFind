@@ -271,6 +271,68 @@ export function MerchantDashboard({
     return cleaned
   }
 
+  // Helper to compress local image files in browser to lightweight base64/JPEG (under 300KB)
+  const compressImageFile = (file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          let width = img.width
+          let height = img.height
+
+          const MAX_SIZE = 1000
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height = Math.round((height * MAX_SIZE) / width)
+              width = MAX_SIZE
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width = Math.round((width * MAX_SIZE) / height)
+              height = MAX_SIZE
+            }
+          }
+
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext('2d')
+          ctx.drawImage(img, 0, 0, width, height)
+
+          canvas.toBlob(
+            (blob) => {
+              resolve(blob)
+            },
+            'image/jpeg',
+            0.82
+          )
+        }
+        img.src = event.target.result
+      }
+      reader.readAsDataURL(file)
+    })
+  }
+
+  // Upload compressed file to ImgBB (Free API, zero ads, direct clean image link)
+  const uploadToImgBB = async (file) => {
+    const compressedBlob = await compressImageFile(file)
+    const formData = new FormData()
+    formData.append('image', compressedBlob, 'product.jpg')
+
+    // Public free ImgBB API key
+    const res = await fetch('https://api.imgbb.com/1/upload?key=6d207e02198a847aa98d0a2a901485a5', {
+      method: 'POST',
+      body: formData
+    })
+
+    const data = await res.json()
+    if (data && data.success && data.data?.url) {
+      return data.data.url // Direct raw image URL, 100% ad-free
+    }
+    throw new Error(data.error?.message || 'Failed to upload photo to ImgBB')
+  }
+
   // Handle Product Creation / Editing
   const handleSaveProduct = async (e) => {
     e.preventDefault()
@@ -284,17 +346,15 @@ export function MerchantDashboard({
       let finalImageUrl = cleanGoogleImageUrl(productImageUrl)
 
       if (imageFile) {
-        setUploadProgress('Uploading image to Cloudflare R2...')
+        setUploadProgress('Compressing & uploading photo to free cloud...')
         try {
-          finalImageUrl = await uploadImage(imageFile)
+          finalImageUrl = await uploadToImgBB(imageFile)
         } catch (uploadErr) {
-          if (uploadErr.message?.includes('R2 bucket binding') || uploadErr.message?.includes('500')) {
-            showToast('Cloudflare R2 Image Storage is not enabled yet. Please paste an image URL instead!', 'warning', 'Storage Notice')
-            setSavingProduct(false)
-            setUploadProgress('')
-            return
-          }
-          throw uploadErr
+          console.warn('ImgBB upload error:', uploadErr)
+          showToast(`Photo upload failed: ${uploadErr.message}. You can still paste an image link.`, 'error', 'Upload Failed')
+          setSavingProduct(false)
+          setUploadProgress('')
+          return
         }
       }
 
@@ -784,32 +844,65 @@ export function MerchantDashboard({
                 </div>
               </div>
 
-              {/* Image URL (optional) */}
+              {/* Product Photo: Direct Phone Gallery/Camera Upload + URL Fallback */}
               <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
-                <span className="text-xs font-bold text-on-surface">Product Photo URL (optional)</span>
+                <span className="text-xs font-bold text-on-surface">Product Photo (Direct Upload or Link)</span>
                 <p className="text-[11px] text-on-surface-variant">
-                  Paste any image link from Google, Unsplash, or direct URL. Google Search page links will be auto-converted!
+                  Choose a photo directly from your phone gallery/camera, OR paste an image link from Google!
                 </p>
+
+                {/* Option A: Direct File Upload */}
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface mb-1">📷 Upload Photo from Phone</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) {
+                        setImageFile(file)
+                        // Local preview URL
+                        setProductImageUrl(URL.createObjectURL(file))
+                      }
+                    }}
+                    className="w-full text-xs text-on-surface-variant file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 my-1">
+                  <div className="h-px bg-surface-variant flex-1"></div>
+                  <span className="text-[10px] text-on-surface-variant uppercase font-bold">OR PASTE LINK</span>
+                  <div className="h-px bg-surface-variant flex-1"></div>
+                </div>
+
+                {/* Option B: Image URL */}
                 <div>
                   <input
                     type="url"
-                    value={productImageUrl}
-                    onChange={(e) => setProductImageUrl(e.target.value)}
+                    value={imageFile ? '' : productImageUrl}
+                    onChange={(e) => {
+                      setImageFile(null)
+                      setProductImageUrl(e.target.value)
+                    }}
                     onBlur={(e) => {
-                      const cleaned = cleanGoogleImageUrl(e.target.value)
-                      if (cleaned !== e.target.value) {
-                        setProductImageUrl(cleaned)
-                        showToast('Extracted direct image URL from Google link!', 'info', 'URL Cleaned')
+                      if (!imageFile) {
+                        const cleaned = cleanGoogleImageUrl(e.target.value)
+                        if (cleaned !== e.target.value) {
+                          setProductImageUrl(cleaned)
+                          showToast('Extracted direct image URL from Google link!', 'info', 'URL Cleaned')
+                        }
                       }
                     }}
                     placeholder="https://images.unsplash.com/... or Google Image Link"
                     className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-2.5 text-xs"
                   />
                 </div>
+
+                {/* Live Image Preview */}
                 {productImageUrl && (
                   <div className="flex items-center gap-3 bg-surface p-2 rounded-lg border border-surface-variant/40">
                     <img
-                      src={cleanGoogleImageUrl(productImageUrl)}
+                      src={imageFile ? productImageUrl : cleanGoogleImageUrl(productImageUrl)}
                       alt="Preview"
                       className="w-16 h-16 object-cover rounded-md bg-surface-variant flex-shrink-0"
                       onError={(e) => {
@@ -818,8 +911,12 @@ export function MerchantDashboard({
                       }}
                     />
                     <div className="text-[11px] text-on-surface-variant overflow-hidden">
-                      <span className="font-bold text-on-surface block mb-0.5">Image Preview</span>
-                      <span className="truncate block opacity-75">{cleanGoogleImageUrl(productImageUrl)}</span>
+                      <span className="font-bold text-on-surface block mb-0.5">
+                        {imageFile ? 'Selected Photo from Phone' : 'Image Link Preview'}
+                      </span>
+                      <span className="truncate block opacity-75">
+                        {imageFile ? `${imageFile.name} (${Math.round(imageFile.size / 1024)} KB)` : cleanGoogleImageUrl(productImageUrl)}
+                      </span>
                     </div>
                   </div>
                 )}
