@@ -397,32 +397,32 @@ export function BuyerDiscover({
       {/* Hyperlocal 2km Product Feed */}
       {!loading && (
         <section className="mb-stack-lg">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3 px-1">
             <div className="flex items-center gap-2">
-              <h2 className="font-headline-lg-mobile text-xl font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">store</span>
-                <span>
-                  {maxRadiusKm === 'all'
-                    ? 'Available in Offline Stores'
-                    : `Available Nearby (Within ${maxRadiusKm} km)`}
-                </span>
+              <span className="material-symbols-outlined text-primary text-xl">store</span>
+              <h2 className="font-headline-lg-mobile text-base sm:text-lg font-bold text-on-surface">
+                {maxRadiusKm === 'all'
+                  ? 'All Stores'
+                  : `Nearby Stores (${maxRadiusKm} km)`}
               </h2>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-on-surface-variant font-semibold">
+                {hyperlocalProducts.length} items
+              </span>
               {onRefreshProducts && (
                 <button
                   onClick={onRefreshProducts}
                   disabled={refreshing}
                   title="Refresh products list"
-                  className="p-1.5 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors flex items-center justify-center border border-surface-variant active:scale-95"
+                  className="w-7 h-7 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors flex items-center justify-center border border-surface-variant/70 active:scale-95 shadow-2xs"
                 >
-                  <span className={`material-symbols-outlined text-base ${refreshing ? 'animate-spin text-primary' : ''}`}>
+                  <span className={`material-symbols-outlined text-sm ${refreshing ? 'animate-spin text-primary' : ''}`}>
                     refresh
                   </span>
                 </button>
               )}
             </div>
-            <span className="text-xs text-on-surface-variant font-medium">
-              {hyperlocalProducts.length} local items
-            </span>
           </div>
 
           {hyperlocalProducts.length === 0 ? (
@@ -463,31 +463,34 @@ export function BuyerDiscover({
                       }}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
-                    {product.distanceKm !== null && (
-                      <div className="absolute top-3 right-3 bg-secondary text-on-secondary px-2.5 py-1 rounded-full font-label-caps text-[11px] flex items-center gap-1 shadow-sm backdrop-blur-md bg-opacity-95 font-semibold">
-                        <span className="material-symbols-outlined text-[14px]">directions_walk</span>
-                        <span>{formatDistance(product.distanceKm)}</span>
-                      </div>
-                    )}
-                    {/* Live RAG Update Status Pill on Product Photo */}
-                    {(() => {
-                      const itemRAG = getRAGStatus(product.updated_at || product.created_at)
-                      const flashInfo = getFlashDealInfo(product)
-                      return (
-                        <div className="absolute top-3 left-3 flex flex-col gap-1">
-                          {flashInfo.isLive && (
-                            <div className="bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2 py-0.5 rounded-full text-[9px] font-black flex items-center gap-1 shadow-md border border-white/40">
+                    {/* Compact Image Overlay Badges - Clean & Symmetrical */}
+                    <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none gap-1">
+                      {(() => {
+                        const itemRAG = getRAGStatus(product.updated_at || product.created_at)
+                        const flashInfo = getFlashDealInfo(product)
+                        if (flashInfo.isLive) {
+                          return (
+                            <span className="bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2 py-0.5 rounded-full text-[9px] font-black shadow-xs flex items-center gap-0.5 pointer-events-auto">
                               <span>⚡</span>
                               <span>{flashInfo.discountPercent}% OFF</span>
-                            </div>
-                          )}
-                          <div className="bg-surface/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-sm border border-surface-variant/40">
+                            </span>
+                          )
+                        }
+                        return (
+                          <span className="bg-surface/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold shadow-2xs border border-surface-variant/40 flex items-center gap-1 pointer-events-auto">
                             <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
                             <span className={itemRAG.textClass}>{itemRAG.label}</span>
-                          </div>
-                        </div>
-                      )
-                    })()}
+                          </span>
+                        )
+                      })()}
+
+                      {product.distanceKm !== null && (
+                        <span className="bg-surface/90 backdrop-blur-md text-on-surface px-2 py-0.5 rounded-full text-[9px] font-bold shadow-2xs border border-surface-variant/40 flex items-center gap-0.5 ml-auto pointer-events-auto">
+                          <span className="material-symbols-outlined text-[12px] text-primary">directions_walk</span>
+                          <span>{formatDistance(product.distanceKm)}</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="p-3 sm:p-4 flex flex-col flex-grow">
                     <div className="flex justify-between items-start mb-0.5">

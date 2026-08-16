@@ -871,67 +871,70 @@ export function MerchantDashboard({
   // Screen 3: Authenticated Merchant with Active Shop Dashboard
   return (
     <main className="pt-20 md:pt-24 px-container-margin max-w-6xl mx-auto pb-24">
-      {/* Merchant Header Bar */}
-      <div className="bg-surface-container-lowest p-6 rounded-2xl border border-surface-variant shadow-md mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="font-headline-lg text-2xl font-bold text-on-surface">{shop.shop_name}</h2>
-            <span className="bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full text-xs font-semibold">
-              Live Shop Window
-            </span>
-            {(() => {
-              const openStatus = getStoreOpenStatus(shop.opening_time, shop.closing_time)
-              return (
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${openStatus.badgeClass}`}>
-                  <span className={`w-2 h-2 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
-                  <span>{openStatus.badgeLabel || `${openStatus.label} (${openStatus.timingText || '9 AM – 9 PM'})`}</span>
+      {/* Merchant Header Bar - Clean Structured Card */}
+      <div className="bg-surface-container-lowest p-5 sm:p-6 rounded-3xl border border-surface-variant/70 shadow-sm mb-8">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap mb-1">
+              <h2 className="font-headline-lg text-xl sm:text-2xl font-bold text-on-surface tracking-tight">{shop.shop_name}</h2>
+              <span className="bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                Live Window
+              </span>
+              {(() => {
+                const openStatus = getStoreOpenStatus(shop.opening_time, shop.closing_time)
+                return (
+                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${openStatus.badgeClass}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
+                    <span>{openStatus.badgeLabel || `${openStatus.label} (${openStatus.timingText || '9 AM – 9 PM'})`}</span>
+                  </span>
+                )
+              })()}
+            </div>
+
+            <div className="flex flex-col gap-1 text-xs text-on-surface-variant mt-2">
+              <p className="flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm text-primary flex-shrink-0">location_on</span>
+                <span className="line-clamp-1">{shop.address_text || 'Local Address'}</span>
+              </p>
+              <div className="flex items-center gap-3 flex-wrap text-[11px] mt-0.5">
+                <span className="flex items-center gap-1 font-semibold text-on-surface">
+                  <span className="material-symbols-outlined text-[13px] text-emerald-600">call</span>
+                  <span>WhatsApp: {shop.whatsapp_number}</span>
                 </span>
-              )
-            })()}
+                <span>•</span>
+                <span className={`inline-flex items-center gap-1 px-2 py-0.2 rounded-full font-bold border ${syncRAG.colorClass}`}>
+                  <span className={`w-1 h-1 rounded-full ${syncRAG.dotClass}`}></span>
+                  <span>Synced {syncRAG.label}</span>
+                </span>
+              </div>
+            </div>
           </div>
-          <p className="text-xs text-on-surface-variant flex items-center gap-2 mt-1 flex-wrap">
-            <span className="flex items-center gap-1">
-              <span className="material-symbols-outlined text-xs text-primary">location_on</span>
-              <span>{shop.address_text || 'Local Address'}</span>
-            </span>
-            <span>•</span>
-            <span>WhatsApp: {shop.whatsapp_number}</span>
-            <span>•</span>
-            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${syncRAG.colorClass}`}>
-              <span className={`w-1.5 h-1.5 rounded-full ${syncRAG.dotClass}`}></span>
-              <span>Catalog Synced: {syncRAG.label}</span>
-            </span>
-          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2.5">
+        {/* Structured Action Bar Grid */}
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 mt-5 pt-4 border-t border-surface-variant/40">
           <button
-            onClick={() => setShowEditShopModal(true)}
-            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant flex items-center gap-2 shadow-xs active:scale-95 hover:border-primary/40"
+            onClick={() => setShowAddProductModal(true)}
+            className="col-span-2 sm:col-span-1 bg-primary hover:bg-primary/90 text-on-primary px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 active:scale-95 border border-white/20"
           >
-            <span className="material-symbols-outlined text-primary text-base">edit_note</span>
-            <span>Edit Profile</span>
-          </button>
-          <button
-            onClick={handleUpdateShopGPS}
-            title="Update shop location to your current high-precision GPS position"
-            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant flex items-center gap-2 shadow-xs active:scale-95 hover:border-primary/40"
-          >
-            <span className="material-symbols-outlined text-primary text-base">my_location</span>
-            <span>Update Location</span>
-          </button>
-          <button
-            onClick={handleOpenAddModal}
-            className="bg-primary hover:bg-primary-container text-on-primary px-4.5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2 active:scale-95 border border-white/20"
-          >
-            <span className="material-symbols-outlined text-lg">add_circle</span>
+            <span className="material-symbols-outlined text-sm">add_circle</span>
             <span>Add Product</span>
           </button>
+
+          <button
+            onClick={() => setShowEditShopModal(true)}
+            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant/70 flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 hover:border-primary/40"
+          >
+            <span className="material-symbols-outlined text-sm text-primary">edit_square</span>
+            <span>Edit Profile</span>
+          </button>
+
           <button
             onClick={signOut}
-            className="bg-surface-container-high text-on-surface hover:bg-rose-500/10 hover:text-rose-600 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant hover:border-rose-500/30 active:scale-95"
+            className="col-span-2 sm:col-span-1 bg-surface-container-high hover:bg-rose-500/10 text-on-surface hover:text-rose-600 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant/70 flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 sm:ml-auto"
           >
-            Sign Out
+            <span className="material-symbols-outlined text-sm">logout</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </div>
