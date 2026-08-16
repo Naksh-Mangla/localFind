@@ -22,8 +22,8 @@ export function ProductDetailModal({ product, onClose }) {
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${product.lat},${product.lng}`
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-surface rounded-2xl shadow-2xl overflow-hidden my-auto border border-surface-variant max-h-[85vh] flex flex-col mt-16 md:mt-20">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
+      <div className="relative w-full max-w-2xl bg-surface rounded-2xl shadow-2xl overflow-hidden my-auto border border-surface-variant max-h-[92vh] flex flex-col">
         {/* Floating Action Buttons */}
         <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
           <button
