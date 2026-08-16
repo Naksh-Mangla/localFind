@@ -75,6 +75,12 @@ export function BuyerDiscover({
       }
 
       recognitionRef.current = recognition
+
+      return () => {
+        try {
+          recognition.abort()
+        } catch (_) {}
+      }
     }
   }, [speechLanguage])
 
