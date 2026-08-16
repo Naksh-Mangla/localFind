@@ -137,7 +137,7 @@ export function Header({
                 LocalFind
               </h1>
               <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                v1.9.0
+                v2.0.0
               </span>
               <span className="text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1 shadow-xs">
                 <span className="material-symbols-outlined text-[12px]">code</span>

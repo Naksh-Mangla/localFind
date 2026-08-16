@@ -244,7 +244,7 @@ async function handleListProducts(env) {
   ).all()
 
   // Return response with 15-second Cloudflare CDN Edge Cache to reduce DB reads by ~85%
-  return new Response(JSON.stringify({ products: results, app_version: '1.9.0' }), {
+  return new Response(JSON.stringify({ products: results, app_version: '2.0.0' }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
