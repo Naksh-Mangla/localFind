@@ -27,6 +27,19 @@ export function BuyerDiscover({
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [maxRadiusKm, setMaxRadiusKm] = useState(2) // Default to 2km Hyperlocal radius
+  const [showFiltersDropdown, setShowFiltersDropdown] = useState(false)
+  const dropdownRef = useRef(null)
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowFiltersDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   // Voice Search States (Hindi & Hinglish Web Speech API)
   const [isListening, setIsListening] = useState(false)
@@ -186,9 +199,10 @@ export function BuyerDiscover({
 
   return (
     <main className="pt-20 md:pt-28 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
-      {/* Search and Category Filter Section - Modern Mobile First */}
-      <section className="mb-stack-lg sticky top-16 md:top-20 bg-surface z-20 py-2.5">
-        <div className="relative w-full mb-2.5 flex items-center gap-1.5 sm:gap-2">
+      {/* Search and Filter Dropdown Section - Ultra Minimal */}
+      <section className="mb-4 sticky top-16 md:top-20 bg-surface z-20 py-2.5">
+        <div className="relative w-full flex items-center gap-1.5 sm:gap-2">
+          {/* Main Search Input */}
           <div className="relative flex-1">
             <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">
               search
@@ -234,11 +248,121 @@ export function BuyerDiscover({
             <span className="material-symbols-outlined text-[13px] text-primary">translate</span>
             <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
           </button>
+
+          {/* 🔘 Minimal Filter Dropdown Trigger Button */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setShowFiltersDropdown((prev) => !prev)}
+              title="Filter Categories & Radius"
+              className={`flex-shrink-0 flex items-center justify-center gap-1 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all shadow-2xs active:scale-90 border ${
+                showFiltersDropdown || selectedCategory !== 'All' || maxRadiusKm !== 2
+                  ? 'bg-secondary text-on-secondary border-secondary ring-2 ring-secondary/20 font-bold'
+                  : 'bg-surface-container-high hover:bg-surface-variant text-on-surface border-surface-variant/70'
+              }`}
+            >
+              <span className="material-symbols-outlined text-lg sm:text-xl">
+                tune
+              </span>
+              {(selectedCategory !== 'All' || maxRadiusKm !== 2) && (
+                <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
+              )}
+            </button>
+
+            {/* 📋 Popover Dropdown Menu for Categories & Radius */}
+            {showFiltersDropdown && (
+              <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-surface-container-lowest border border-surface-variant/80 rounded-2xl shadow-xl p-4 z-50 animate-popIn">
+                {/* Header with Active Filter Count & Reset */}
+                <div className="flex items-center justify-between pb-3 mb-3 border-b border-surface-variant/40">
+                  <div className="flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-primary text-sm">tune</span>
+                    <span className="font-title-md text-xs font-bold text-on-surface">Filter Products</span>
+                  </div>
+                  {(selectedCategory !== 'All' || maxRadiusKm !== 2) && (
+                    <button
+                      onClick={() => {
+                        setSelectedCategory('All')
+                        setMaxRadiusKm(2)
+                      }}
+                      className="text-[10px] font-bold text-primary hover:underline"
+                    >
+                      Reset All
+                    </button>
+                  )}
+                </div>
+
+                {/* Section 1: Categories */}
+                <div className="mb-3">
+                  <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
+                    Category ({selectedCategory})
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {CATEGORIES.map((cat) => {
+                      const isActive = selectedCategory === cat.label
+                      return (
+                        <button
+                          key={cat.label}
+                          onClick={() => setSelectedCategory(cat.label)}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-label-caps text-[11px] transition-all text-left ${
+                            isActive
+                              ? 'bg-primary text-on-primary font-bold shadow-2xs'
+                              : 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant/40'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[14px]">{cat.icon}</span>
+                          <span className="truncate">{cat.label}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Section 2: Hyperlocal Radius */}
+                <div>
+                  <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
+                    Search Radius
+                  </label>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {[
+                      { label: '2 km (Nearby)', value: 2 },
+                      { label: '5 km', value: 5 },
+                      { label: '10 km', value: 10 },
+                      { label: 'All Distances', value: 'all' }
+                    ].map((rad) => {
+                      const isActive = maxRadiusKm === rad.value
+                      return (
+                        <button
+                          key={rad.label}
+                          onClick={() => setMaxRadiusKm(rad.value)}
+                          className={`px-2.5 py-1.5 rounded-xl text-[11px] font-bold transition-all text-center ${
+                            isActive
+                              ? 'bg-primary text-on-primary shadow-2xs'
+                              : 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant/40'
+                          }`}
+                        >
+                          {rad.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Done / Apply Button */}
+                <div className="mt-4 pt-3 border-t border-surface-variant/40">
+                  <button
+                    onClick={() => setShowFiltersDropdown(false)}
+                    className="w-full bg-primary hover:bg-primary/90 text-on-primary py-2 rounded-xl text-xs font-bold transition-all shadow-2xs active:scale-95 text-center"
+                  >
+                    Apply Filters
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Live Voice Status Feedback Banner */}
         {voiceToast && (
-          <div className="mb-3 p-2.5 px-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between text-xs font-semibold text-primary animate-fadeIn">
+          <div className="mt-2.5 p-2.5 px-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between text-xs font-semibold text-primary animate-fadeIn">
             <div className="flex items-center gap-2">
               <span className={`w-2 h-2 rounded-full bg-primary ${isListening ? 'animate-ping' : ''}`}></span>
               <span>{voiceToast}</span>
@@ -254,55 +378,24 @@ export function BuyerDiscover({
           </div>
         )}
 
-        {/* Category Filter Chips - Compact Mobile Scrolling with Micro-interactions */}
-        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1.5 pt-0.5">
-          {CATEGORIES.map((cat) => {
-            const isActive = selectedCategory === cat.label
-            return (
-              <button
-                key={cat.label}
-                onClick={() => setSelectedCategory(cat.label)}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl font-label-caps text-[11px] sm:text-xs shadow-2xs whitespace-nowrap touch-press transition-all duration-200 ${
-                  isActive
-                    ? 'bg-primary text-on-primary font-bold shadow-xs ring-2 ring-primary/20 scale-[1.02]'
-                    : 'bg-surface-container-high border border-surface-variant/70 text-on-surface hover:bg-surface-variant hover:scale-[1.01]'
-                }`}
-              >
-                <span className={`material-symbols-outlined text-[15px] sm:text-[18px] ${isActive ? 'animate-bounceSubtle' : ''}`}>{cat.icon}</span>
-                <span>{cat.label}</span>
-              </button>
-            )
-          })}
-        </div>
-
-        {/* Hyperlocal Distance Radius Filter Bar - Compact Pill Segment */}
-        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-surface-variant/40 overflow-x-auto hide-scrollbar">
-          <span className="text-[10px] sm:text-xs font-bold text-on-surface-variant flex items-center gap-0.5 shrink-0">
-            <span className="material-symbols-outlined text-[13px] text-primary">near_me</span>
-            <span>Radius:</span>
-          </span>
-          {[
-            { label: '2 km (Nearby)', value: 2 },
-            { label: '5 km', value: 5 },
-            { label: '10 km', value: 10 },
-            { label: 'All', value: 'all' }
-          ].map((rad) => {
-            const isActive = maxRadiusKm === rad.value
-            return (
-              <button
-                key={rad.label}
-                onClick={() => setMaxRadiusKm(rad.value)}
-                className={`px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold whitespace-nowrap transition-all active:scale-95 ${
-                  isActive
-                    ? 'bg-primary text-on-primary shadow-2xs font-extrabold'
-                    : 'bg-surface-container-high border border-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
-                }`}
-              >
-                {rad.label}
-              </button>
-            )
-          })}
-        </div>
+        {/* Active Filter Summary Indicator (Minimal Pill when filters active) */}
+        {(selectedCategory !== 'All' || maxRadiusKm !== 2) && (
+          <div className="flex items-center gap-1.5 mt-2 overflow-x-auto hide-scrollbar text-[11px]">
+            <span className="text-[10px] text-on-surface-variant font-bold">Active:</span>
+            {selectedCategory !== 'All' && (
+              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold border border-primary/20 flex items-center gap-1">
+                <span>{selectedCategory}</span>
+                <button onClick={() => setSelectedCategory('All')} className="hover:text-primary-container">×</button>
+              </span>
+            )}
+            {maxRadiusKm !== 2 && (
+              <span className="bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold border border-primary/20 flex items-center gap-1">
+                <span>{maxRadiusKm === 'all' ? 'All Distances' : `${maxRadiusKm} km`}</span>
+                <button onClick={() => setMaxRadiusKm(2)} className="hover:text-primary-container">×</button>
+              </span>
+            )}
+          </div>
+        )}
       </section>
 
       {/* ⚡ 24-Hour Flash Deals / "Aaj Ka Offer" Carousel Banner - Compact Mobile */}
