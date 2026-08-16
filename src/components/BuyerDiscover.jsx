@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import { calculateDistanceKm, formatDistance } from '../utils/haversine'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
+import { matchesQueryWithHinglish, normalizeVoiceQuery } from '../utils/hinglishSearch'
 
 const CATEGORIES = [
   { label: 'All', icon: 'interests' },
@@ -26,6 +27,80 @@ export function BuyerDiscover({
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [maxRadiusKm, setMaxRadiusKm] = useState(2) // Default to 2km Hyperlocal radius
 
+  // Voice Search States (Hindi & Hinglish Web Speech API)
+  const [isListening, setIsListening] = useState(false)
+  const [speechLanguage, setSpeechLanguage] = useState('hi-IN') // 'hi-IN' or 'en-IN'
+  const [voiceToast, setVoiceToast] = useState('')
+  const recognitionRef = useRef(null)
+
+  // Initialize Web Speech Recognition
+  useEffect(() => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (SpeechRecognition) {
+      const recognition = new SpeechRecognition()
+      recognition.continuous = false
+      recognition.interimResults = true
+      recognition.lang = speechLanguage
+
+      recognition.onstart = () => {
+        setIsListening(true)
+        setVoiceToast(speechLanguage === 'hi-IN' ? 'सुन रहे हैं... बोलिए (Listening in Hindi/Hinglish)' : 'Listening... Speak now')
+      }
+
+      recognition.onresult = (event) => {
+        let transcript = ''
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript
+        }
+        if (transcript) {
+          setSearchQuery(transcript)
+          setVoiceToast(`" ${transcript} "`)
+        }
+      }
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error)
+        setIsListening(false)
+        if (event.error === 'not-allowed') {
+          setVoiceToast('Microphone access denied. Please allow mic permission.')
+        } else {
+          setVoiceToast('Could not hear clearly. Please tap mic again.')
+        }
+        setTimeout(() => setVoiceToast(''), 4000)
+      }
+
+      recognition.onend = () => {
+        setIsListening(false)
+        setTimeout(() => setVoiceToast(''), 2500)
+      }
+
+      recognitionRef.current = recognition
+    }
+  }, [speechLanguage])
+
+  // Toggle Voice Recognition
+  const toggleVoiceSearch = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SpeechRecognition) {
+      alert('Voice Search is not supported on this browser. Please use Chrome, Edge, or Safari.')
+      return
+    }
+
+    if (isListening) {
+      recognitionRef.current?.stop()
+      setIsListening(false)
+    } else {
+      try {
+        if (recognitionRef.current) {
+          recognitionRef.current.lang = speechLanguage
+          recognitionRef.current.start()
+        }
+      } catch (err) {
+        console.warn('Recognition start error:', err)
+      }
+    }
+  }
+
   // Calculate distance for all products and sort by distance
   const productsWithDistance = useMemo(() => {
     return products.map((prod) => {
@@ -37,18 +112,14 @@ export function BuyerDiscover({
     })
   }, [products, userCoords])
 
-  // Filter products by search and category
+  // Filter products by smart Hindi/Hinglish search and category
   const filteredProducts = useMemo(() => {
     return productsWithDistance.filter((item) => {
       const matchesCategory =
         selectedCategory === 'All' ||
         item.category?.toLowerCase() === selectedCategory.toLowerCase()
 
-      const matchesSearch =
-        !searchQuery.trim() ||
-        item.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.shop_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        item.category?.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesSearch = matchesQueryWithHinglish(item, searchQuery)
 
       return matchesCategory && matchesSearch
     })
@@ -86,26 +157,71 @@ export function BuyerDiscover({
     <main className="pt-20 md:pt-28 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
       {/* Search and Category Filter Section */}
       <section className="mb-stack-lg sticky top-16 md:top-20 bg-surface z-30 py-3">
-        <div className="relative w-full mb-4">
-          <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">
-            search
-          </span>
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search for local goods, shops, or categories..."
-            className="w-full bg-surface-container-high border border-surface-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-xl py-3 pl-12 pr-10 font-body-lg text-on-surface placeholder-on-surface-variant transition-all shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface"
-            >
-              <span className="material-symbols-outlined text-sm">close</span>
-            </button>
-          )}
+        <div className="relative w-full mb-3 flex items-center gap-2">
+          <div className="relative flex-1">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">
+              search
+            </span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search or tap mic for 'Cheeni chahiye', 'Charger'..."
+              className="w-full bg-surface-container-high border border-surface-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-2xl py-3 pl-12 pr-10 font-body-lg text-on-surface placeholder-on-surface-variant transition-all shadow-xs"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            )}
+          </div>
+
+          {/* Hindi / English Voice Search Button */}
+          <button
+            onClick={toggleVoiceSearch}
+            title={isListening ? 'Stop listening' : `Tap to speak (${speechLanguage === 'hi-IN' ? 'Hindi / Hinglish' : 'English'})`}
+            className={`flex-shrink-0 flex items-center justify-center p-3 rounded-2xl transition-all shadow-sm active:scale-90 border ${
+              isListening
+                ? 'bg-rose-500 text-white animate-pulse ring-4 ring-rose-500/30 border-rose-600'
+                : 'bg-primary text-on-primary hover:bg-primary/90 border-white/20'
+            }`}
+          >
+            <span className="material-symbols-outlined text-xl">
+              {isListening ? 'graphic_eq' : 'mic'}
+            </span>
+          </button>
+
+          {/* Language Toggle (हिन्दी / Eng) */}
+          <button
+            onClick={() => setSpeechLanguage((prev) => (prev === 'hi-IN' ? 'en-IN' : 'hi-IN'))}
+            title="Switch voice search language"
+            className="flex-shrink-0 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant px-2.5 py-2.5 rounded-2xl text-[11px] font-bold transition-all shadow-2xs active:scale-95 flex items-center gap-1"
+          >
+            <span className="material-symbols-outlined text-sm text-primary">translate</span>
+            <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
+          </button>
         </div>
+
+        {/* Live Voice Status Feedback Banner */}
+        {voiceToast && (
+          <div className="mb-3 p-2.5 px-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between text-xs font-semibold text-primary animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full bg-primary ${isListening ? 'animate-ping' : ''}`}></span>
+              <span>{voiceToast}</span>
+            </div>
+            {isListening && (
+              <button
+                onClick={toggleVoiceSearch}
+                className="text-[10px] bg-primary text-on-primary px-2 py-0.5 rounded-full font-bold"
+              >
+                Done
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Category Filter Chips */}
         <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
