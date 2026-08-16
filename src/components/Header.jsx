@@ -1,4 +1,5 @@
 import React from 'react'
+import { getRAGStatus } from '../utils/syncRAG'
 
 export function Header({
   activeView,
@@ -9,8 +10,10 @@ export function Header({
   onDetectLocation,
   onOpenSignIn,
   onRefreshProducts,
-  refreshing
+  refreshing,
+  lastSyncedAt
 }) {
+  const syncRAG = getRAGStatus(lastSyncedAt)
   const getAvatarUrl = (userObj) => {
     if (userObj?.photoURL) return userObj.photoURL
     const name = encodeURIComponent(userObj?.displayName || userObj?.email || 'User')
@@ -83,12 +86,14 @@ export function Header({
             <button
               onClick={onRefreshProducts}
               disabled={refreshing}
-              title="Quickly refresh products"
-              className="w-8 h-8 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant flex items-center justify-center transition-transform active:scale-90 border border-surface-variant/60"
+              title={`Sync status: ${syncRAG.tooltip} (Last synced: ${syncRAG.label})`}
+              className={`flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold border transition-transform active:scale-90 ${syncRAG.colorClass}`}
             >
-              <span className={`material-symbols-outlined text-base ${refreshing ? 'animate-spin text-primary' : ''}`}>
-                refresh
+              <span className={`w-1.5 h-1.5 rounded-full ${syncRAG.dotClass} ${refreshing ? 'animate-ping' : ''}`}></span>
+              <span className={`material-symbols-outlined text-[13px] ${refreshing ? 'animate-spin' : ''}`}>
+                sync
               </span>
+              <span className="truncate max-w-[55px]">{refreshing ? 'Syncing' : syncRAG.label}</span>
             </button>
           )}
 
@@ -151,17 +156,19 @@ export function Header({
             </div>
           </button>
 
+          {/* Desktop Live Sync Teller with RAG Badge */}
           {onRefreshProducts && (
             <button
               onClick={onRefreshProducts}
               disabled={refreshing}
-              title="Refresh available products"
-              className="flex items-center gap-1.5 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant px-3.5 py-2 rounded-full text-xs font-semibold shadow-sm transition-all active:scale-95"
+              title={`Sync status: ${syncRAG.tooltip} (Last synced: ${syncRAG.label})`}
+              className={`flex items-center gap-2 border px-3.5 py-2 rounded-full text-xs font-bold shadow-sm transition-all active:scale-95 ${syncRAG.colorClass}`}
             >
-              <span className={`material-symbols-outlined text-base ${refreshing ? 'animate-spin text-primary' : ''}`}>
-                refresh
+              <span className={`w-2 h-2 rounded-full ${syncRAG.dotClass} ${refreshing ? 'animate-ping' : ''}`}></span>
+              <span className={`material-symbols-outlined text-base ${refreshing ? 'animate-spin' : ''}`}>
+                sync
               </span>
-              <span>Refresh</span>
+              <span>{refreshing ? 'Syncing...' : `Synced ${syncRAG.label}`}</span>
             </button>
           )}
         </div>

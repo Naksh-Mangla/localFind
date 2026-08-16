@@ -47,9 +47,15 @@ export function ProductDetailModal({ product, onClose }) {
         <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <span className="inline-block bg-primary-container/20 text-primary px-3 py-1 rounded-full text-xs font-semibold mb-2">
-                {product.category || 'General'}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap mb-2">
+                <span className="inline-block bg-primary-container/20 text-primary px-3 py-1 rounded-full text-xs font-semibold">
+                  {product.category || 'General'}
+                </span>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${productRAG.colorClass}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${productRAG.dotClass}`}></span>
+                  <span>Updated {productRAG.label}</span>
+                </span>
+              </div>
               <h2 className="font-headline-lg text-2xl font-bold text-on-surface leading-tight">
                 {product.name}
               </h2>

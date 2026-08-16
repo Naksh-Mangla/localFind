@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { calculateDistanceKm, formatDistance } from '../utils/haversine'
+import { getRAGStatus } from '../utils/syncRAG'
 
 const CATEGORIES = [
   { label: 'All', icon: 'interests' },
@@ -16,8 +17,10 @@ export function BuyerDiscover({
   onSelectProduct,
   loading,
   onRefreshProducts,
-  refreshing
+  refreshing,
+  lastSyncedAt
 }) {
+  const syncRAG = getRAGStatus(lastSyncedAt)
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [maxRadiusKm, setMaxRadiusKm] = useState(2) // Default to 2km Hyperlocal radius
@@ -236,6 +239,16 @@ export function BuyerDiscover({
                         <span>{formatDistance(product.distanceKm)}</span>
                       </div>
                     )}
+                    {/* Live RAG Update Status Pill on Product Photo */}
+                    {(() => {
+                      const itemRAG = getRAGStatus(product.updated_at || product.created_at)
+                      return (
+                        <div className="absolute top-3 left-3 bg-surface/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-sm border border-surface-variant/40">
+                          <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
+                          <span className={itemRAG.textClass}>{itemRAG.label}</span>
+                        </div>
+                      )
+                    })()}
                   </div>
                   <div className="p-4 flex flex-col flex-grow">
                     <div className="flex justify-between items-start mb-1">

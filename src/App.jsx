@@ -24,9 +24,10 @@ export default function App() {
   const [userLocationName, setUserLocationName] = useState('Detecting Location...')
   const [locationStatus, setLocationStatus] = useState('loading') // 'success' | 'approx' | 'error' | 'loading'
 
-  // Products state
+  // Products state & sync tracking
   const [products, setProducts] = useState([])
   const [loadingProducts, setLoadingProducts] = useState(true)
+  const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now())
 
   // Reverse geocode coordinates to human-readable street/neighborhood name
   const fetchAddressName = useCallback(async (lat, lng, statusPrefix = '') => {
@@ -149,6 +150,7 @@ export default function App() {
       setLoadingProducts(true)
       const data = await apiFetch('/api/products')
       setProducts(data.products || [])
+      setLastSyncedAt(Date.now())
     } catch (err) {
       console.error('Failed to fetch products from worker:', err)
     } finally {
@@ -158,6 +160,25 @@ export default function App() {
 
   useEffect(() => {
     fetchProducts()
+  }, [fetchProducts])
+
+  // Periodic background sync (every 60s) + Sync on tab visibility focus
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchProducts()
+    }, 60000)
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchProducts()
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }
   }, [fetchProducts])
 
   return (
@@ -175,6 +196,7 @@ export default function App() {
         }}
         onRefreshProducts={fetchProducts}
         refreshing={loadingProducts}
+        lastSyncedAt={lastSyncedAt}
       />
 
       {/* View Router with Smooth Transitions */}
@@ -188,6 +210,7 @@ export default function App() {
               loading={loadingProducts}
               onRefreshProducts={fetchProducts}
               refreshing={loadingProducts}
+              lastSyncedAt={lastSyncedAt}
             />
           </div>
         ) : (
@@ -198,6 +221,7 @@ export default function App() {
               signOut={signOut}
               userCoords={userCoords}
               onRefreshProducts={fetchProducts}
+              lastSyncedAt={lastSyncedAt}
             />
           </div>
         )}

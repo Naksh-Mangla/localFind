@@ -3,14 +3,17 @@ import { apiFetch } from '../lib/api'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { CustomSelect } from './CustomSelect'
+import { getRAGStatus } from '../utils/syncRAG'
 
 export function MerchantDashboard({
   user,
   signInWithGoogle,
   signOut,
   userCoords,
-  onRefreshProducts
+  onRefreshProducts,
+  lastSyncedAt
 }) {
+  const syncRAG = getRAGStatus(lastSyncedAt)
   const [shop, setShop] = useState(null)
   const [loadingShop, setLoadingShop] = useState(true)
   const [shopError, setShopError] = useState('')
@@ -802,9 +805,18 @@ export function MerchantDashboard({
               Live Shop Window
             </span>
           </div>
-          <p className="text-xs text-on-surface-variant flex items-center gap-1 mt-1">
-            <span className="material-symbols-outlined text-xs">location_on</span>
-            {shop.address_text || 'Local Address'} | WhatsApp: {shop.whatsapp_number}
+          <p className="text-xs text-on-surface-variant flex items-center gap-2 mt-1 flex-wrap">
+            <span className="flex items-center gap-1">
+              <span className="material-symbols-outlined text-xs text-primary">location_on</span>
+              <span>{shop.address_text || 'Local Address'}</span>
+            </span>
+            <span>•</span>
+            <span>WhatsApp: {shop.whatsapp_number}</span>
+            <span>•</span>
+            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border ${syncRAG.colorClass}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${syncRAG.dotClass}`}></span>
+              <span>Catalog Synced: {syncRAG.label}</span>
+            </span>
           </p>
         </div>
 
