@@ -147,6 +147,15 @@ export function BuyerDiscover({
       })
   }, [filteredProducts, maxRadiusKm])
 
+  // Local products beyond the selected radius (e.g. 16 km away)
+  const distantLocalProducts = useMemo(() => {
+    if (maxRadiusKm === 'all') return []
+    return filteredProducts
+      .filter((p) => !p.is_affiliate_fallback)
+      .filter((p) => p.distanceKm !== null && p.distanceKm > maxRadiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm)
+  }, [filteredProducts, maxRadiusKm])
+
   // Timer ticker to keep flash deal countdowns updating live every second
   const [, setTimerTick] = useState(0)
   useEffect(() => {
