@@ -141,7 +141,7 @@ async function handleCreateProduct(request, env, user) {
   const body = await request.json().catch(() => null)
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
-  const { shop_id, name, price, category, image_url, is_affiliate_fallback, affiliate_link } = body
+  const { shop_id, name, price, category, image_url, is_affiliate_fallback, affiliate_link, is_flash_deal, flash_deal_discount, flash_deal_ends_at } = body
   if (!shop_id || !name || !category) return json({ error: 'shop_id, name and category are required' }, 400)
   if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) return json({ error: 'price must be a valid positive number' }, 400)
 
@@ -154,8 +154,8 @@ async function handleCreateProduct(request, env, user) {
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
   const res = await env.DB.prepare(
-    `INSERT INTO products (id, shop_id, name, price, category, image_url, is_affiliate_fallback, affiliate_link, version, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
+    `INSERT INTO products (id, shop_id, name, price, category, image_url, is_affiliate_fallback, affiliate_link, is_flash_deal, flash_deal_discount, flash_deal_ends_at, version, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
   ).bind(
     id,
     shop_id,
@@ -165,6 +165,9 @@ async function handleCreateProduct(request, env, user) {
     image_url ?? null,
     is_affiliate_fallback ? 1 : 0,
     affiliate_link ?? null,
+    is_flash_deal ? 1 : 0,
+    flash_deal_discount ? parseInt(flash_deal_discount, 10) : 0,
+    flash_deal_ends_at ?? null,
     now
   ).run()
 
@@ -176,7 +179,7 @@ async function handleUpdateProduct(request, env, user) {
   const body = await request.json().catch(() => null)
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
-  const { id, name, price, category, image_url, is_affiliate_fallback, affiliate_link } = body
+  const { id, name, price, category, image_url, is_affiliate_fallback, affiliate_link, is_flash_deal, flash_deal_discount, flash_deal_ends_at } = body
   if (!id || !name || !category) return json({ error: 'id, name and category are required' }, 400)
   if (typeof price !== 'number' || !Number.isFinite(price) || price < 0) return json({ error: 'price must be a valid positive number' }, 400)
 
@@ -192,6 +195,7 @@ async function handleUpdateProduct(request, env, user) {
   const res = await env.DB.prepare(
     `UPDATE products
      SET name = ?, price = ?, category = ?, image_url = ?, is_affiliate_fallback = ?, affiliate_link = ?,
+         is_flash_deal = ?, flash_deal_discount = ?, flash_deal_ends_at = ?,
          version = COALESCE(version, 1) + 1,
          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
      WHERE id = ?`
@@ -202,6 +206,9 @@ async function handleUpdateProduct(request, env, user) {
     image_url ?? null,
     is_affiliate_fallback ? 1 : 0,
     affiliate_link ?? null,
+    is_flash_deal ? 1 : 0,
+    flash_deal_discount ? parseInt(flash_deal_discount, 10) : 0,
+    flash_deal_ends_at ?? null,
     id
   ).run()
 
@@ -235,7 +242,8 @@ async function handleListShops(env) {
 async function handleListProducts(env) {
   const { results } = await env.DB.prepare(
     `SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
-            p.is_affiliate_fallback, p.affiliate_link, p.version, p.updated_at, p.created_at,
+            p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
+            p.version, p.updated_at, p.created_at,
             s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text
      FROM products p
      JOIN shops s ON s.id = p.shop_id

@@ -49,8 +49,9 @@ export function MerchantDashboard({
   const [productCategory, setProductCategory] = useState('General')
   const [productImageUrl, setProductImageUrl] = useState('')
   const [imageFile, setImageFile] = useState(null)
-  const [isAffiliate, setIsAffiliate] = useState(false)
-  const [affiliateLink, setAffiliateLink] = useState('')
+  const [isFlashDeal, setIsFlashDeal] = useState(false)
+  const [flashDiscount, setFlashDiscount] = useState(20) // Default 20% OFF
+  const [flashDurationHours, setFlashDurationHours] = useState(6) // Default 6 hours
   const [savingProduct, setSavingProduct] = useState(false)
   const [uploadProgress, setUploadProgress] = useState('')
 
@@ -247,8 +248,9 @@ export function MerchantDashboard({
     setProductCategory('General')
     setProductImageUrl('')
     setImageFile(null)
-    setIsAffiliate(false)
-    setAffiliateLink('')
+    setIsFlashDeal(false)
+    setFlashDiscount(20)
+    setFlashDurationHours(6)
     setShowAddProductModal(true)
   }
 
@@ -260,8 +262,9 @@ export function MerchantDashboard({
     setProductCategory(product.category || 'General')
     setProductImageUrl(product.image_url || '')
     setImageFile(null)
-    setIsAffiliate(Boolean(product.is_affiliate_fallback))
-    setAffiliateLink(product.affiliate_link || '')
+    setIsFlashDeal(Boolean(product.is_flash_deal))
+    setFlashDiscount(product.flash_deal_discount || 20)
+    setFlashDurationHours(6)
     setShowAddProductModal(true)
   }
 
@@ -394,6 +397,13 @@ export function MerchantDashboard({
 
       setUploadProgress('Saving product...')
 
+      // Calculate flash deal expiration timestamp
+      let flashEndsAt = null
+      if (isFlashDeal) {
+        const expires = new Date(Date.now() + (Number(flashDurationHours) || 6) * 60 * 60 * 1000)
+        flashEndsAt = expires.toISOString()
+      }
+
       if (editingProduct) {
         // PUT update product
         await apiFetch('/api/products', {
@@ -404,11 +414,12 @@ export function MerchantDashboard({
             price: parseFloat(productPrice),
             category: productCategory,
             image_url: finalImageUrl || null,
-            is_affiliate_fallback: isAffiliate ? 1 : 0,
-            affiliate_link: isAffiliate ? affiliateLink.trim() : null
+            is_flash_deal: isFlashDeal ? 1 : 0,
+            flash_deal_discount: isFlashDeal ? Number(flashDiscount) : 0,
+            flash_deal_ends_at: flashEndsAt
           })
         })
-        showToast('Product updated successfully!', 'success', 'Product Updated')
+        showToast(isFlashDeal ? '⚡ Flash Deal activated successfully!' : 'Product updated successfully!', 'success', isFlashDeal ? 'Flash Deal Live!' : 'Product Updated')
       } else {
         // POST create product
         await apiFetch('/api/products', {
@@ -419,11 +430,12 @@ export function MerchantDashboard({
             price: parseFloat(productPrice),
             category: productCategory,
             image_url: finalImageUrl || null,
-            is_affiliate_fallback: isAffiliate ? 1 : 0,
-            affiliate_link: isAffiliate ? affiliateLink.trim() : null
+            is_flash_deal: isFlashDeal ? 1 : 0,
+            flash_deal_discount: isFlashDeal ? Number(flashDiscount) : 0,
+            flash_deal_ends_at: flashEndsAt
           })
         })
-        showToast('Product published to live showcase!', 'success', 'Product Published')
+        showToast(isFlashDeal ? '⚡ Flash Deal published to neighborhood!' : 'Product published to live showcase!', 'success', isFlashDeal ? 'Flash Deal Live!' : 'Product Published')
       }
 
       // Reset form and reload products
@@ -433,8 +445,9 @@ export function MerchantDashboard({
       setProductCategory('General')
       setProductImageUrl('')
       setImageFile(null)
-      setIsAffiliate(false)
-      setAffiliateLink('')
+      setIsFlashDeal(false)
+      setFlashDiscount(20)
+      setFlashDurationHours(6)
       setShowAddProductModal(false)
       await fetchMerchantShop()
       if (onRefreshProducts) onRefreshProducts()
@@ -938,6 +951,12 @@ export function MerchantDashboard({
                   alt={product.name}
                   className="w-full h-full object-cover"
                 />
+                {Boolean(product.is_flash_deal) && (
+                  <div className="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2.5 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-md border border-white/40">
+                    <span>⚡</span>
+                    <span>{product.flash_deal_discount}% OFF FLASH DEAL</span>
+                  </div>
+                )}
               </div>
               <div className="p-4 flex flex-col flex-1 justify-between">
                 <div>
@@ -950,7 +969,20 @@ export function MerchantDashboard({
                   <h4 className="font-title-md text-sm font-semibold text-on-surface line-clamp-1">{product.name}</h4>
                 </div>
                 <div className="mt-3 flex items-center justify-between">
-                  <span className="font-bold text-primary text-base">₹{product.price}</span>
+                  <div>
+                    {Boolean(product.is_flash_deal) ? (
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="font-bold text-rose-600 text-base">
+                          ₹{Math.round(product.price * (1 - (product.flash_deal_discount || 0) / 100))}
+                        </span>
+                        <span className="text-xs text-on-surface-variant line-through opacity-70">
+                          ₹{product.price}
+                        </span>
+                      </div>
+                    ) : (
+                      <span className="font-bold text-primary text-base">₹{product.price}</span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-1.5">
                     <button
                       onClick={() => handleOpenEditModal(product)}
@@ -1125,10 +1157,85 @@ export function MerchantDashboard({
                 )}
               </div>
 
+              {/* ⚡ 24-Hour Flash Deal / "Aaj Ka Offer" Settings Box */}
+              <div className={`p-4 rounded-2xl border transition-all ${
+                isFlashDeal
+                  ? 'bg-amber-500/10 border-amber-500/40 shadow-xs'
+                  : 'bg-surface-container-high/50 border-surface-variant/60'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xl">⚡</span>
+                    <div>
+                      <h4 className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                        <span>Aaj Ka Offer / Flash Deal</span>
+                        <span className="text-[9px] bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/30">
+                          BOOST SALES
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-on-surface-variant">
+                        Feature this item with a countdown timer & discount banner!
+                      </p>
+                    </div>
+                  </div>
+                  <input
+                    type="checkbox"
+                    id="flashDealToggle"
+                    checked={isFlashDeal}
+                    onChange={(e) => setIsFlashDeal(e.target.checked)}
+                    className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                  />
+                </div>
+
+                {isFlashDeal && (
+                  <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fadeIn">
+                    <div>
+                      <label className="block text-[11px] font-bold text-on-surface mb-1">
+                        Discount Percentage (%)
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          min="5"
+                          max="90"
+                          value={flashDiscount}
+                          onChange={(e) => setFlashDiscount(e.target.value)}
+                          className="w-full bg-surface border border-surface-variant rounded-xl p-2.5 pl-3 pr-8 text-xs font-bold text-primary"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                          %
+                        </span>
+                      </div>
+                      {productPrice && (
+                        <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
+                          Offer Price: ₹{Math.round(parseFloat(productPrice || 0) * (1 - (Number(flashDiscount) || 0) / 100))}
+                        </span>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-on-surface mb-1">
+                        Deal Duration (Hours)
+                      </label>
+                      <select
+                        value={flashDurationHours}
+                        onChange={(e) => setFlashDurationHours(Number(e.target.value))}
+                        className="w-full bg-surface border border-surface-variant rounded-xl p-2.5 text-xs font-semibold text-on-surface"
+                      >
+                        <option value="3">3 Hours (Urgent)</option>
+                        <option value="6">6 Hours (Half Day)</option>
+                        <option value="12">12 Hours (Full Day)</option>
+                        <option value="24">24 Hours (Aaj Ka Offer)</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button
                 type="submit"
                 disabled={savingProduct}
-                className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2"
+                className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2 active:scale-95"
               >
                 {savingProduct
                   ? 'Saving Product...'

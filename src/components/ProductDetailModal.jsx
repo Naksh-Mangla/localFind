@@ -2,16 +2,21 @@ import React from 'react'
 import { formatDistance } from '../utils/haversine'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
+import { getFlashDealInfo } from '../utils/flashDeals'
 
 export function ProductDetailModal({ product, onClose }) {
   if (!product) return null
 
   const productRAG = getRAGStatus(product.updated_at || product.created_at)
   const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
+  const flashInfo = getFlashDealInfo(product)
 
+  const finalPrice = flashInfo.isLive ? flashInfo.discountedPrice : product.price
   const cleanWhatsapp = (product.whatsapp_number || '').replace(/[^0-9]/g, '')
   const whatsappMsg = encodeURIComponent(
-    `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
+    flashInfo.isLive
+      ? `Hi! I saw your ⚡ Flash Deal for "${product.name}" at ₹${finalPrice} (${flashInfo.discountPercent}% OFF) on LocalFind. Is it available for pickup today?`
+      : `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
   )
   const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}`
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${product.lat},${product.lng}`
@@ -46,6 +51,12 @@ export function ProductDetailModal({ product, onClose }) {
             }}
             className="w-full h-full object-cover"
           />
+          {flashInfo.isLive && (
+            <div className="absolute bottom-3 left-3 bg-gradient-to-r from-amber-500 to-rose-600 text-white px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 shadow-lg border border-white/40">
+              <span className="animate-bounce">⚡</span>
+              <span>AAJ KA OFFER: {flashInfo.discountPercent}% OFF ({flashInfo.countdownText})</span>
+            </div>
+          )}
         </div>
 
         {/* Product Information Body */}
@@ -66,7 +77,14 @@ export function ProductDetailModal({ product, onClose }) {
               </h2>
             </div>
             <div className="text-right flex-shrink-0">
-              <span className="font-display-lg text-3xl font-bold text-primary">₹{product.price}</span>
+              {flashInfo.isLive ? (
+                <div className="flex flex-col items-end">
+                  <span className="font-display-lg text-3xl font-bold text-rose-600">₹{flashInfo.discountedPrice}</span>
+                  <span className="text-sm text-on-surface-variant line-through opacity-75 font-semibold">₹{flashInfo.originalPrice}</span>
+                </div>
+              ) : (
+                <span className="font-display-lg text-3xl font-bold text-primary">₹{product.price}</span>
+              )}
             </div>
           </div>
 

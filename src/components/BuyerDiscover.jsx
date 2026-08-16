@@ -3,6 +3,7 @@ import { calculateDistanceKm, formatDistance } from '../utils/haversine'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
 import { matchesQueryWithHinglish, normalizeVoiceQuery } from '../utils/hinglishSearch'
+import { getFlashDealInfo } from '../utils/flashDeals'
 
 const CATEGORIES = [
   { label: 'All', icon: 'interests' },
@@ -146,14 +147,29 @@ export function BuyerDiscover({
       })
   }, [filteredProducts, maxRadiusKm])
 
-  // Local products beyond the selected radius (e.g. 16 km away)
-  const distantLocalProducts = useMemo(() => {
-    if (maxRadiusKm === 'all') return []
-    return filteredProducts
-      .filter((p) => !p.is_affiliate_fallback)
-      .filter((p) => p.distanceKm !== null && p.distanceKm > maxRadiusKm)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-  }, [filteredProducts, maxRadiusKm])
+  // Timer ticker to keep flash deal countdowns updating live every second
+  const [, setTimerTick] = useState(0)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTimerTick((t) => t + 1)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
+
+  // Active Flash Deals (sorted by nearest store)
+  const activeFlashDeals = useMemo(() => {
+    return productsWithDistance
+      .filter((p) => {
+        if (!p.is_flash_deal || !p.flash_deal_ends_at) return false
+        const info = getFlashDealInfo(p)
+        return info.isLive
+      })
+      .sort((a, b) => {
+        if (a.distanceKm === null) return 1
+        if (b.distanceKm === null) return -1
+        return a.distanceKm - b.distanceKm
+      })
+  }, [productsWithDistance])
 
   const fallbackProducts = useMemo(() => {
     return filteredProducts.filter((p) => p.is_affiliate_fallback)
@@ -280,13 +296,94 @@ export function BuyerDiscover({
         </div>
       </section>
 
-      {/* Loading Skeleton */}
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
-          {[1, 2, 3, 4].map((n) => (
-            <div key={n} className="bg-surface-container-lowest rounded-xl h-80 animate-pulse border border-surface-variant/40"></div>
-          ))}
-        </div>
+      {/* ⚡ 24-Hour Flash Deals / "Aaj Ka Offer" Carousel Banner */}
+      {!loading && activeFlashDeals.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-3 w-3 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              <h2 className="font-headline-lg-mobile text-lg font-bold text-on-surface flex items-center gap-1.5">
+                <span>Aaj Ka Offer • Flash Deals</span>
+                <span className="text-[10px] bg-gradient-to-r from-amber-500 to-rose-500 text-white font-black px-2 py-0.5 rounded-full shadow-xs">
+                  LIMITED TIME
+                </span>
+              </h2>
+            </div>
+            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
+              {activeFlashDeals.length} Deal{activeFlashDeals.length > 1 ? 's' : ''} Live Nearby
+            </span>
+          </div>
+
+          {/* Flash Deal Horizontal Slider */}
+          <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2 pt-1">
+            {activeFlashDeals.map((deal) => {
+              const info = getFlashDealInfo(deal)
+              const openStatus = getStoreOpenStatus(deal.opening_time, deal.closing_time)
+              return (
+                <div
+                  key={`flash-${deal.id}`}
+                  onClick={() => onSelectProduct(deal)}
+                  className="flex-shrink-0 w-72 sm:w-80 bg-gradient-to-br from-amber-500/10 via-surface-container-lowest to-surface-container-lowest rounded-2xl border-2 border-amber-500/40 p-3 shadow-md hover:shadow-lg transition-all cursor-pointer group active:scale-[0.98]"
+                >
+                  <div className="flex gap-3">
+                    <div className="w-24 h-24 rounded-xl overflow-hidden bg-surface-variant relative flex-shrink-0">
+                      <img
+                        src={deal.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop&q=80'}
+                        alt={deal.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-1 left-1 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                        {info.discountPercent}% OFF
+                      </span>
+                    </div>
+
+                    <div className="flex-1 min-w-0 flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-black uppercase tracking-wider truncate">
+                            {deal.shop_name}
+                          </span>
+                          <span className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded shrink-0">
+                            {formatDistance(deal.distanceKm)}
+                          </span>
+                        </div>
+                        <h4 className="font-title-md text-xs font-bold text-on-surface line-clamp-2 mt-0.5">
+                          {deal.name}
+                        </h4>
+                      </div>
+
+                      <div>
+                        <div className="flex items-baseline gap-1.5 mt-1">
+                          <span className="font-black text-rose-600 text-base">
+                            ₹{info.discountedPrice}
+                          </span>
+                          <span className="text-xs text-on-surface-variant line-through opacity-75 font-semibold">
+                            ₹{info.originalPrice}
+                          </span>
+                        </div>
+
+                        {/* Live Countdown Badge */}
+                        <div className="mt-1 flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
+                            <span className="material-symbols-outlined text-[12px] animate-spin">timer</span>
+                            <span>{info.countdownText}</span>
+                          </span>
+                          <span className="text-[10px] font-bold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                            <span>Grab</span>
+                            <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </section>
       )}
 
       {/* Hyperlocal 2km Product Feed */}
@@ -365,10 +462,19 @@ export function BuyerDiscover({
                     {/* Live RAG Update Status Pill on Product Photo */}
                     {(() => {
                       const itemRAG = getRAGStatus(product.updated_at || product.created_at)
+                      const flashInfo = getFlashDealInfo(product)
                       return (
-                        <div className="absolute top-3 left-3 bg-surface/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-sm border border-surface-variant/40">
-                          <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
-                          <span className={itemRAG.textClass}>{itemRAG.label}</span>
+                        <div className="absolute top-3 left-3 flex flex-col gap-1">
+                          {flashInfo.isLive && (
+                            <div className="bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2 py-0.5 rounded-full text-[9px] font-black flex items-center gap-1 shadow-md border border-white/40">
+                              <span>⚡</span>
+                              <span>{flashInfo.discountPercent}% OFF</span>
+                            </div>
+                          )}
+                          <div className="bg-surface/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 shadow-sm border border-surface-variant/40">
+                            <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
+                            <span className={itemRAG.textClass}>{itemRAG.label}</span>
+                          </div>
                         </div>
                       )
                     })()}
@@ -398,9 +504,32 @@ export function BuyerDiscover({
                     </div>
                     <div className="mt-auto flex items-end justify-between pt-2">
                       <div>
-                        <span className="font-headline-lg-mobile text-xl font-bold text-primary">
-                          ₹{product.price}
-                        </span>
+                        {(() => {
+                          const flashInfo = getFlashDealInfo(product)
+                          if (flashInfo.isLive) {
+                            return (
+                              <div className="flex flex-col">
+                                <span className="text-[10px] text-rose-600 font-bold flex items-center gap-1">
+                                  <span>⚡ Deal:</span>
+                                  <span>{flashInfo.countdownText}</span>
+                                </span>
+                                <div className="flex items-baseline gap-1.5">
+                                  <span className="font-headline-lg-mobile text-xl font-bold text-rose-600">
+                                    ₹{flashInfo.discountedPrice}
+                                  </span>
+                                  <span className="text-xs text-on-surface-variant line-through opacity-75 font-semibold">
+                                    ₹{flashInfo.originalPrice}
+                                  </span>
+                                </div>
+                              </div>
+                            )
+                          }
+                          return (
+                            <span className="font-headline-lg-mobile text-xl font-bold text-primary">
+                              ₹{product.price}
+                            </span>
+                          )
+                        })()}
                       </div>
                       <button className="bg-primary hover:bg-primary-container text-on-primary px-3.5 py-1.5 rounded-xl font-label-caps text-xs font-bold transition-all shadow-xs hover:shadow-sm flex items-center gap-1 active:scale-95">
                         <span>View Details</span>

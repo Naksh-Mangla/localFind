@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS products (
   image_url            TEXT,
   is_affiliate_fallback INTEGER NOT NULL DEFAULT 0,
   affiliate_link       TEXT,
+  is_flash_deal        INTEGER NOT NULL DEFAULT 0,
+  flash_deal_discount  INTEGER NOT NULL DEFAULT 0,
+  flash_deal_ends_at   TEXT,
   version              INTEGER NOT NULL DEFAULT 1,
   updated_at           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   created_at           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
