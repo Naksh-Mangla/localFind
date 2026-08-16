@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { apiFetch } from './lib/api'
 import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
-import { ProductDetailModal } from './components/ProductDetailModal'
-import { MerchantDashboard } from './components/MerchantDashboard'
+
+// Performance optimization: Lazy load heavy Seller Dashboard & Modals
+const MerchantDashboard = lazy(() => import('./components/MerchantDashboard').then(m => ({ default: m.MerchantDashboard })))
+const ProductDetailModal = lazy(() => import('./components/ProductDetailModal').then(m => ({ default: m.ProductDetailModal })))
 
 export default function App() {
   const { user, signInWithGoogle, signOut } = useAuth()
@@ -215,24 +217,35 @@ export default function App() {
           </div>
         ) : (
           <div className="animate-fadeIn">
-            <MerchantDashboard
-              user={user}
-              signInWithGoogle={signInWithGoogle}
-              signOut={signOut}
-              userCoords={userCoords}
-              onRefreshProducts={fetchProducts}
-              lastSyncedAt={lastSyncedAt}
-            />
+            <Suspense
+              fallback={
+                <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin mb-3"></div>
+                  <span className="text-xs font-bold text-on-surface-variant">Opening Shop Dashboard...</span>
+                </div>
+              }
+            >
+              <MerchantDashboard
+                user={user}
+                signInWithGoogle={signInWithGoogle}
+                signOut={signOut}
+                userCoords={userCoords}
+                onRefreshProducts={fetchProducts}
+                lastSyncedAt={lastSyncedAt}
+              />
+            </Suspense>
           </div>
         )}
       </div>
 
       {/* Product Detail Modal */}
       {selectedProduct && (
-        <ProductDetailModal
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-        />
+        <Suspense fallback={null}>
+          <ProductDetailModal
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+          />
+        </Suspense>
       )}
 
       {/* Mobile Bottom Navigation Bar - Structured Floating Dock */}
