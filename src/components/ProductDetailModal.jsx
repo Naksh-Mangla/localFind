@@ -85,9 +85,9 @@ export function ProductDetailModal({ product, onClose }) {
                     </span>
                   )}
                   {!product.is_affiliate_fallback && (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}>
+                    <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
-                      <span>{openStatus.label} ({openStatus.timingText})</span>
+                      <span>{openStatus.badgeLabel || `${openStatus.label} (${openStatus.timingText || '9 AM – 9 PM'})`}</span>
                     </span>
                   )}
                 </div>

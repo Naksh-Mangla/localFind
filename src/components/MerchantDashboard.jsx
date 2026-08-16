@@ -854,7 +854,7 @@ export function MerchantDashboard({
               return (
                 <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${openStatus.badgeClass}`}>
                   <span className={`w-2 h-2 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
-                  <span>{openStatus.label} ({openStatus.timingText})</span>
+                  <span>{openStatus.badgeLabel || `${openStatus.label} (${openStatus.timingText || '9 AM – 9 PM'})`}</span>
                 </span>
               )
             })()}
@@ -952,11 +952,6 @@ export function MerchantDashboard({
                 <div className="mt-3 flex items-center justify-between">
                   <span className="font-bold text-primary text-base">₹{product.price}</span>
                   <div className="flex items-center gap-1.5">
-                    {product.is_affiliate_fallback ? (
-                      <span className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-md font-semibold">Affiliate</span>
-                    ) : (
-                      <span className="text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-semibold border border-surface-variant/40">Local</span>
-                    )}
                     <button
                       onClick={() => handleOpenEditModal(product)}
                       title="Edit Product"
@@ -1129,33 +1124,6 @@ export function MerchantDashboard({
                   </div>
                 )}
               </div>
-
-              {/* Affiliate Link Toggle */}
-              <div className="flex items-center gap-2 border-t border-surface-variant pt-3">
-                <input
-                  type="checkbox"
-                  id="affiliateToggle"
-                  checked={isAffiliate}
-                  onChange={(e) => setIsAffiliate(e.target.checked)}
-                  className="rounded text-primary focus:ring-primary"
-                />
-                <label htmlFor="affiliateToggle" className="text-xs font-bold text-on-surface cursor-pointer">
-                  Is this an Online Affiliate Fallback Product?
-                </label>
-              </div>
-
-              {isAffiliate && (
-                <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">Affiliate Product Link</label>
-                  <input
-                    type="url"
-                    value={affiliateLink}
-                    onChange={(e) => setAffiliateLink(e.target.value)}
-                    placeholder="https://amazon.in/dp/..."
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm"
-                  />
-                </div>
-              )}
 
               <button
                 type="submit"
