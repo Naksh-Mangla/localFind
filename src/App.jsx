@@ -171,9 +171,6 @@ export default function App() {
         locationStatus={locationStatus}
         onDetectLocation={detectLocation}
         onOpenSignIn={() => {
-          if (!user) {
-            signInWithGoogle()
-          }
           setActiveView('merchant')
         }}
         onRefreshProducts={fetchProducts}

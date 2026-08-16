@@ -112,8 +112,8 @@ export function Header({
               onClick={onOpenSignIn}
               className="bg-primary text-on-primary px-3 py-1.5 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 active:scale-95 transition-transform"
             >
-              <span className="material-symbols-outlined text-sm">account_circle</span>
-              <span className="text-[11px]">Sign In</span>
+              <span className="material-symbols-outlined text-sm">storefront</span>
+              <span className="text-[11px]">Become Seller</span>
             </button>
           )}
         </div>
