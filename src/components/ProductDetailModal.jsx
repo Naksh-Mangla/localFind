@@ -32,12 +32,46 @@ export function ProductDetailModal({ product, onClose }) {
           >
             <span className="material-symbols-outlined">arrow_back</span>
           </button>
-          {product.distanceKm !== null && product.distanceKm !== undefined && (
-            <div className="pointer-events-auto bg-secondary text-on-secondary px-3 py-1.5 rounded-full text-xs font-semibold shadow-md flex items-center gap-1">
-              <span className="material-symbols-outlined text-sm">directions_walk</span>
-              <span>{formatDistance(product.distanceKm)}</span>
-            </div>
-          )}
+          
+          <div className="flex items-center gap-2 pointer-events-auto">
+            {product.distanceKm !== null && product.distanceKm !== undefined && (
+              <div className="bg-secondary text-on-secondary px-3 py-1.5 rounded-full text-xs font-semibold shadow-md flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">directions_walk</span>
+                <span>{formatDistance(product.distanceKm)}</span>
+              </div>
+            )}
+            {/* Wishlist Heart Button inside Modal */}
+            <button
+              onClick={() => {
+                try {
+                  const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
+                  const next = saved.includes(product.id)
+                    ? saved.filter((id) => id !== product.id)
+                    : [...saved, product.id]
+                  localStorage.setItem('localfind_wishlist', JSON.stringify(next))
+                  // trigger custom storage event for sync
+                  window.dispatchEvent(new Event('storage'))
+                } catch (e) {
+                  console.warn(e)
+                }
+              }}
+              title="Save to Wishlist"
+              className="w-10 h-10 rounded-full bg-surface/90 backdrop-blur-md shadow-md flex items-center justify-center text-rose-500 hover:bg-surface-variant transition-transform active:scale-95 border border-surface-variant"
+            >
+              <span className={`material-symbols-outlined text-xl ${
+                (() => {
+                  try {
+                    const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
+                    return saved.includes(product.id) ? 'fill-current' : ''
+                  } catch {
+                    return ''
+                  }
+                })()
+              }`}>
+                favorite
+              </span>
+            </button>
+          </div>
         </div>
 
         {/* Hero Product Image */}

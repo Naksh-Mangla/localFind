@@ -28,7 +28,33 @@ export function BuyerDiscover({
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [maxRadiusKm, setMaxRadiusKm] = useState(2) // Default to 2km Hyperlocal radius
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false)
+  const [showOnlyWishlist, setShowOnlyWishlist] = useState(false)
   const dropdownRef = useRef(null)
+
+  // 100% Offline LocalStorage Wishlist State
+  const [wishlistIds, setWishlistIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem('localfind_wishlist')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Sync wishlist changes to LocalStorage
+  const toggleWishlist = (productId, e) => {
+    if (e) e.stopPropagation()
+    setWishlistIds((prev) => {
+      const isSaved = prev.includes(productId)
+      const next = isSaved ? prev.filter((id) => id !== productId) : [...prev, productId]
+      try {
+        localStorage.setItem('localfind_wishlist', JSON.stringify(next))
+      } catch (err) {
+        console.warn('Could not save wishlist to localStorage', err)
+      }
+      return next
+    })
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -135,6 +161,11 @@ export function BuyerDiscover({
   // Filter products by smart Hindi/Hinglish search and category
   const filteredProducts = useMemo(() => {
     return productsWithDistance.filter((item) => {
+      // Wishlist Only filter
+      if (showOnlyWishlist && !wishlistIds.includes(item.id)) {
+        return false
+      }
+
       const matchesCategory =
         selectedCategory === 'All' ||
         item.category?.toLowerCase() === selectedCategory.toLowerCase()
@@ -143,7 +174,7 @@ export function BuyerDiscover({
 
       return matchesCategory && matchesSearch
     })
-  }, [productsWithDistance, selectedCategory, searchQuery])
+  }, [productsWithDistance, selectedCategory, searchQuery, showOnlyWishlist, wishlistIds])
 
   // Local products strictly within the selected radius (Default: 2 km)
   const hyperlocalProducts = useMemo(() => {
@@ -247,6 +278,26 @@ export function BuyerDiscover({
           >
             <span className="material-symbols-outlined text-[13px] text-primary">translate</span>
             <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
+          </button>
+
+          {/* ❤️ Wishlist Quick Toggle Button */}
+          <button
+            onClick={() => setShowOnlyWishlist((prev) => !prev)}
+            title={showOnlyWishlist ? 'Show all products' : `View saved wishlist (${wishlistIds.length} items)`}
+            className={`flex-shrink-0 flex items-center justify-center gap-1 p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all shadow-2xs active:scale-90 border ${
+              showOnlyWishlist
+                ? 'bg-rose-500 text-white border-rose-600 ring-2 ring-rose-500/30 font-bold'
+                : 'bg-surface-container-high hover:bg-surface-variant text-on-surface border-surface-variant/70'
+            }`}
+          >
+            <span className={`material-symbols-outlined text-lg sm:text-xl ${showOnlyWishlist ? 'fill-current' : 'text-rose-500'}`}>
+              favorite
+            </span>
+            {wishlistIds.length > 0 && !showOnlyWishlist && (
+              <span className="text-[10px] font-extrabold bg-rose-500 text-white px-1.5 py-0.2 rounded-full">
+                {wishlistIds.length}
+              </span>
+            )}
           </button>
 
           {/* 🔘 Minimal Filter Dropdown Trigger Button */}
@@ -577,12 +628,29 @@ export function BuyerDiscover({
                         )
                       })()}
 
-                      {product.distanceKm !== null && (
-                        <span className="bg-surface/90 backdrop-blur-md text-on-surface px-2 py-0.5 rounded-full text-[9px] font-bold shadow-2xs border border-surface-variant/40 flex items-center gap-0.5 ml-auto pointer-events-auto">
-                          <span className="material-symbols-outlined text-[12px] text-primary">directions_walk</span>
-                          <span>{formatDistance(product.distanceKm)}</span>
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1 ml-auto pointer-events-auto">
+                        {product.distanceKm !== null && (
+                          <span className="bg-surface/90 backdrop-blur-md text-on-surface px-2 py-0.5 rounded-full text-[9px] font-bold shadow-2xs border border-surface-variant/40 flex items-center gap-0.5">
+                            <span className="material-symbols-outlined text-[12px] text-primary">directions_walk</span>
+                            <span>{formatDistance(product.distanceKm)}</span>
+                          </span>
+                        )}
+
+                        {/* ❤️ 1-Tap Wishlist Heart Button */}
+                        <button
+                          onClick={(e) => toggleWishlist(product.id, e)}
+                          title={wishlistIds.includes(product.id) ? 'Remove from Saved Wishlist' : 'Save to Wishlist'}
+                          className={`w-6 h-6 rounded-full flex items-center justify-center shadow-2xs transition-all active:scale-75 ${
+                            wishlistIds.includes(product.id)
+                              ? 'bg-rose-500 text-white'
+                              : 'bg-surface/90 backdrop-blur-md text-on-surface-variant hover:text-rose-500 border border-surface-variant/40'
+                          }`}
+                        >
+                          <span className={`material-symbols-outlined text-[14px] ${wishlistIds.includes(product.id) ? 'fill-current' : ''}`}>
+                            favorite
+                          </span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div className="p-3 sm:p-4 flex flex-col flex-grow">
