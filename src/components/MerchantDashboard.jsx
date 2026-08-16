@@ -1033,8 +1033,8 @@ export function MerchantDashboard({
 
       {/* Add / Edit Product Modal */}
       {showAddProductModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-inverse-surface/60 backdrop-blur-sm">
-          <div className="bg-surface rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-surface-variant max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 pt-20 md:pt-24 pb-8 bg-inverse-surface/70 backdrop-blur-sm overflow-y-auto">
+          <div className="bg-surface rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-surface-variant max-h-[85vh] overflow-y-auto my-auto animate-fadeIn">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-headline-lg text-xl font-bold text-on-surface">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
@@ -1274,8 +1274,8 @@ export function MerchantDashboard({
       )}
       {/* Edit Shop Profile Modal */}
       {showEditShopModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fadeIn">
-          <div className="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 pt-20 md:pt-24 pb-8 z-[70] overflow-y-auto animate-fadeIn">
+          <div className="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-xl w-full max-h-[85vh] overflow-y-auto my-auto">
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-headline-lg text-xl font-bold text-on-surface">Edit Shop Profile</h3>
