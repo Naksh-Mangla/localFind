@@ -122,6 +122,55 @@ export function ProductDetailModal({ product, onClose }) {
             </div>
           </div>
 
+          {/* 💬 1-Tap Hinglish WhatsApp Quick Inquiry Templates */}
+          {!product.is_affiliate_fallback && (
+            <div className="pt-2">
+              <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm text-[#25D366]">bolt</span>
+                <span>1-Tap WhatsApp Quick Inquiries (Hinglish):</span>
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  {
+                    icon: '📦',
+                    chipText: 'Stock me hai?',
+                    fullMsg: `Namaste! Kya "${product.name}" abhi aapki shop (${product.shop_name}) par stock me available hai? Maine LocalFind par dekha.`
+                  },
+                  {
+                    icon: '🏷️',
+                    chipText: '2 item pe discount?',
+                    fullMsg: `Namaste! Agar main 2 pieces "${product.name}" khareedun toh kya kuch extra discount ya best rate mil sakta hai? (LocalFind price: ₹${finalPrice})`
+                  },
+                  {
+                    icon: '🛵',
+                    chipText: 'Home delivery milegi?',
+                    fullMsg: `Namaste! Kya "${product.name}" ke liye mere address par nearby home delivery available hai? Main LocalFind se contact kar raha hoon.`
+                  }
+                ].map((template) => {
+                  const queryUrl = `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(template.fullMsg)}`
+                  return (
+                    <a
+                      key={template.chipText}
+                      href={queryUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bg-surface-container-high hover:bg-[#25D366]/15 hover:border-[#25D366]/50 text-on-surface hover:text-emerald-700 dark:hover:text-emerald-400 p-2.5 rounded-xl text-xs font-semibold border border-surface-variant/70 flex items-center gap-2 transition-all shadow-2xs active:scale-95 group text-left"
+                    >
+                      <span className="text-base">{template.icon}</span>
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-bold text-[11px] truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                          {template.chipText}
+                        </span>
+                        <span className="text-[9px] text-on-surface-variant truncate">Tap to send on WhatsApp</span>
+                      </div>
+                    </a>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Zero-Cost Direct Connect Buttons */}
           <div className="flex flex-col gap-3 pt-2">
             {product.is_affiliate_fallback && product.affiliate_link ? (
@@ -143,7 +192,7 @@ export function ProductDetailModal({ product, onClose }) {
                   className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20"
                 >
                   <span className="material-symbols-outlined text-lg">chat</span>
-                  <span>Ask on WhatsApp</span>
+                  <span>Ask Custom on WhatsApp</span>
                 </a>
                 <a
                   href={mapsUrl}
