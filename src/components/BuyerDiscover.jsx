@@ -259,14 +259,15 @@ export function BuyerDiscover({
                     <p className="font-body-sm text-xs text-on-surface-variant mb-3 line-clamp-1">
                       {product.shop_name}
                     </p>
-                    <div className="mt-auto flex items-end justify-between">
+                    <div className="mt-auto flex items-end justify-between pt-2">
                       <div>
                         <span className="font-headline-lg-mobile text-xl font-bold text-primary">
                           ₹{product.price}
                         </span>
                       </div>
-                      <button className="bg-primary text-on-primary px-3 py-1.5 rounded-lg font-label-caps text-xs hover:bg-primary-container transition-colors shadow-sm flex items-center gap-1">
+                      <button className="bg-primary hover:bg-primary-container text-on-primary px-3.5 py-1.5 rounded-xl font-label-caps text-xs font-bold transition-all shadow-xs hover:shadow-sm flex items-center gap-1 active:scale-95">
                         <span>View Details</span>
+                        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
                       </button>
                     </div>
                   </div>
@@ -324,20 +325,21 @@ export function BuyerDiscover({
                   <p className="font-body-sm text-xs text-on-surface-variant mb-3 line-clamp-1">
                     {product.shop_name}
                   </p>
-                  <div className="mt-auto flex items-end justify-between">
-                    <div>
-                      <span className="font-headline-lg-mobile text-xl font-bold text-primary">
-                        ₹{product.price}
-                      </span>
+                    <div className="mt-auto flex items-end justify-between pt-2">
+                      <div>
+                        <span className="font-headline-lg-mobile text-xl font-bold text-primary">
+                          ₹{product.price}
+                        </span>
+                      </div>
+                      <button className="bg-surface-container-high hover:bg-surface-variant text-on-surface px-3.5 py-1.5 rounded-xl font-label-caps text-xs font-bold transition-all shadow-xs flex items-center gap-1 border border-surface-variant active:scale-95">
+                        <span>View Details</span>
+                        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                      </button>
                     </div>
-                    <button className="bg-surface-container-high text-on-surface px-3 py-1.5 rounded-lg font-label-caps text-xs hover:bg-surface-variant transition-colors shadow-sm flex items-center gap-1 border border-surface-variant">
-                      <span>View Details</span>
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
         </section>
       )}
 

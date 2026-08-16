@@ -820,32 +820,32 @@ export function MerchantDashboard({
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             onClick={() => setShowEditShopModal(true)}
-            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant flex items-center gap-1.5 shadow-sm"
+            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant flex items-center gap-2 shadow-xs active:scale-95 hover:border-primary/40"
           >
             <span className="material-symbols-outlined text-primary text-base">edit_note</span>
-            <span>Edit Shop Profile</span>
+            <span>Edit Profile</span>
           </button>
           <button
             onClick={handleUpdateShopGPS}
             title="Update shop location to your current high-precision GPS position"
-            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all border border-surface-variant flex items-center gap-1.5 shadow-sm"
+            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-4 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant flex items-center gap-2 shadow-xs active:scale-95 hover:border-primary/40"
           >
             <span className="material-symbols-outlined text-primary text-base">my_location</span>
-            <span>Update Shop Location</span>
+            <span>Update Location</span>
           </button>
           <button
             onClick={handleOpenAddModal}
-            className="bg-primary hover:bg-primary-container text-on-primary px-4 py-2.5 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-2"
+            className="bg-primary hover:bg-primary-container text-on-primary px-4.5 py-2.5 rounded-xl text-sm font-bold shadow-sm hover:shadow-md transition-all flex items-center gap-2 active:scale-95 border border-white/20"
           >
-            <span className="material-symbols-outlined">add</span>
-            <span>Add New Product</span>
+            <span className="material-symbols-outlined text-lg">add_circle</span>
+            <span>Add Product</span>
           </button>
           <button
             onClick={signOut}
-            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3 py-2.5 rounded-xl text-xs font-semibold transition-all border border-surface-variant"
+            className="bg-surface-container-high text-on-surface hover:bg-rose-500/10 hover:text-rose-600 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant hover:border-rose-500/30 active:scale-95"
           >
             Sign Out
           </button>
@@ -901,21 +901,21 @@ export function MerchantDashboard({
                     {product.is_affiliate_fallback ? (
                       <span className="text-[10px] bg-secondary-container text-on-secondary-container px-2 py-0.5 rounded-md font-semibold">Affiliate</span>
                     ) : (
-                      <span className="text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-semibold">Local</span>
+                      <span className="text-[10px] bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded-md font-semibold border border-surface-variant/40">Local</span>
                     )}
                     <button
                       onClick={() => handleOpenEditModal(product)}
                       title="Edit Product"
-                      className="p-1.5 rounded-lg bg-surface-container-high hover:bg-primary/10 text-on-surface hover:text-primary transition-colors flex items-center justify-center"
+                      className="p-2 rounded-xl bg-surface-container-high hover:bg-primary/15 text-on-surface hover:text-primary transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
                     >
-                      <span className="material-symbols-outlined text-sm">edit</span>
+                      <span className="material-symbols-outlined text-[15px]">edit</span>
                     </button>
                     <button
                       onClick={() => handleDeleteProduct(product.id)}
                       title="Delete Product"
-                      className="p-1.5 rounded-lg bg-surface-container-high hover:bg-red-500/10 text-on-surface hover:text-red-500 transition-colors flex items-center justify-center"
+                      className="p-2 rounded-xl bg-surface-container-high hover:bg-rose-500/15 text-on-surface hover:text-rose-600 transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
                     >
-                      <span className="material-symbols-outlined text-sm">delete</span>
+                      <span className="material-symbols-outlined text-[15px]">delete</span>
                     </button>
                   </div>
                 </div>

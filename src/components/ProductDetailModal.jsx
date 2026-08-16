@@ -100,9 +100,9 @@ export function ProductDetailModal({ product, onClose }) {
                 href={product.affiliate_link}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full bg-secondary text-on-secondary hover:bg-secondary/90 py-3.5 px-6 rounded-xl font-title-md text-center font-bold transition-all shadow-md flex items-center justify-center gap-2"
+                className="w-full bg-secondary text-on-secondary hover:bg-secondary/90 py-3.5 px-6 rounded-2xl font-title-md text-center font-bold transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 active:scale-98 border border-white/20"
               >
-                <span className="material-symbols-outlined">shopping_cart</span>
+                <span className="material-symbols-outlined text-xl">shopping_cart</span>
                 <span>Buy Online (Affiliate Fallback)</span>
               </a>
             ) : (
@@ -111,19 +111,19 @@ export function ProductDetailModal({ product, onClose }) {
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-xl font-bold text-center transition-all shadow-md flex items-center justify-center gap-2 text-sm"
+                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20"
                 >
-                  <span className="material-symbols-outlined">chat</span>
-                  <span>Ask Seller on WhatsApp</span>
+                  <span className="material-symbols-outlined text-lg">chat</span>
+                  <span>Ask on WhatsApp</span>
                 </a>
                 <a
                   href={mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full bg-primary text-on-primary hover:bg-primary-container py-3.5 px-4 rounded-xl font-bold text-center transition-all shadow-md flex items-center justify-center gap-2 text-sm"
+                  className="w-full bg-primary text-on-primary hover:bg-primary/90 py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20"
                 >
-                  <span className="material-symbols-outlined">near_me</span>
-                  <span>Get Store Directions</span>
+                  <span className="material-symbols-outlined text-lg">near_me</span>
+                  <span>Get Directions</span>
                 </a>
               </div>
             )}
