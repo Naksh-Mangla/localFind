@@ -55,52 +55,52 @@ export function Header({
 
   return (
     <>
-      {/* Mobile TopAppBar */}
-      <header className="md:hidden bg-surface/95 backdrop-blur-md shadow-sm fixed top-0 w-full z-30 flex items-center justify-between px-3 h-16 border-b border-surface-variant/40">
-        {/* Left: Brand logo & Location bar */}
+      {/* Mobile TopAppBar - Modern Structured Layout */}
+      <header className="md:hidden bg-surface/95 backdrop-blur-lg shadow-xs fixed top-0 w-full z-30 flex items-center justify-between px-3.5 h-16 border-b border-surface-variant/50">
+        {/* Left: Brand logo & Compact Location Pill */}
         <div
-          className="flex items-center gap-2.5 cursor-pointer max-w-[65%] overflow-hidden"
+          className="flex items-center gap-2.5 cursor-pointer max-w-[58%] overflow-hidden"
           onClick={onDetectLocation}
           title="Tap to refresh location"
         >
-          <img src="/logo.svg" alt="LocalFind Logo" className="w-8 h-8 rounded-xl shadow-xs object-contain flex-shrink-0" />
+          <img src="/logo.svg" alt="LocalFind Logo" className="w-8 h-8 rounded-xl shadow-2xs object-contain flex-shrink-0" />
           <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1.5 leading-none mb-1">
-              <span className={`w-2 h-2 rounded-full ${statusColors.dotColor} animate-pulse flex-shrink-0`}></span>
+            <div className="flex items-center gap-1.5 leading-none mb-0.5">
+              <span className={`w-1.5 h-1.5 rounded-full ${statusColors.dotColor} animate-pulse flex-shrink-0`}></span>
               <span className="text-[9px] font-bold text-on-surface-variant tracking-wider uppercase truncate">
                 LOCATION
               </span>
-              <span className="text-[8px] font-bold bg-amber-500/15 text-amber-700 dark:text-amber-300 px-1 py-0.2 rounded border border-amber-500/30 flex-shrink-0">
-                NAKSH
+              <span className="text-[8px] font-extrabold bg-primary/10 text-primary px-1 py-0.2 rounded border border-primary/20 flex-shrink-0">
+                v2.0
               </span>
             </div>
-            <span className="font-title-md text-xs font-semibold text-on-surface truncate">
+            <span className="font-title-md text-[11px] font-bold text-on-surface truncate leading-tight">
               {userLocationName || 'Detecting Location...'}
             </span>
           </div>
         </div>
 
-        {/* Right: Action Buttons */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        {/* Right: Action Buttons (Structured & Symmetrical) */}
+        <div className="flex items-center gap-1.5 flex-shrink-0">
           {onRefreshProducts && (
             <button
               onClick={onRefreshProducts}
               disabled={refreshing}
               title={`Sync status: ${syncRAG.tooltip} (Last synced: ${syncRAG.label})`}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold border shadow-xs transition-all active:scale-90 hover:brightness-105 ${syncRAG.colorClass}`}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border shadow-2xs transition-all active:scale-90 ${syncRAG.colorClass}`}
             >
-              <span className={`w-2 h-2 rounded-full ${syncRAG.dotClass} ${refreshing ? 'animate-ping' : ''}`}></span>
-              <span className={`material-symbols-outlined text-[14px] ${refreshing ? 'animate-spin' : ''}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${syncRAG.dotClass} ${refreshing ? 'animate-ping' : ''}`}></span>
+              <span className={`material-symbols-outlined text-[13px] ${refreshing ? 'animate-spin' : ''}`}>
                 sync
               </span>
-              <span className="truncate max-w-[65px]">{refreshing ? 'Syncing...' : syncRAG.label}</span>
+              <span className="truncate max-w-[50px]">{refreshing ? 'Syncing' : syncRAG.label}</span>
             </button>
           )}
 
           {user ? (
             <button
               onClick={() => setActiveView('merchant')}
-              className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-on-primary px-3 py-1.5 rounded-full text-xs font-bold shadow-sm active:scale-95 transition-all border border-white/20"
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-on-primary px-2.5 py-1.5 rounded-xl text-[11px] font-bold shadow-2xs active:scale-95 transition-all border border-white/20"
             >
               <img
                 src={getAvatarUrl(user)}
@@ -108,17 +108,17 @@ export function Header({
                 onError={(e) => {
                   e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || 'User')}&background=9c3e20&color=fff`
                 }}
-                className="w-5 h-5 rounded-full object-cover border border-white/40"
+                className="w-4 h-4 rounded-full object-cover border border-white/40"
               />
-              <span className="text-[11px] font-semibold whitespace-nowrap">Dashboard</span>
+              <span className="text-[10px] font-bold whitespace-nowrap">Shop</span>
             </button>
           ) : (
             <button
               onClick={onOpenSignIn}
-              className="bg-primary hover:bg-primary/90 text-on-primary px-3 py-1.5 rounded-full text-xs font-bold shadow-sm flex items-center gap-1.5 active:scale-95 transition-all border border-white/20"
+              className="bg-primary hover:bg-primary/90 text-on-primary px-2.5 py-1.5 rounded-xl text-[10px] font-bold shadow-2xs flex items-center gap-1 active:scale-95 transition-all border border-white/20"
             >
-              <span className="material-symbols-outlined text-sm">storefront</span>
-              <span className="text-[11px] font-semibold">Become Seller</span>
+              <span className="material-symbols-outlined text-[14px]">storefront</span>
+              <span className="text-[10px] font-bold">Sell</span>
             </button>
           )}
         </div>

@@ -186,26 +186,26 @@ export function BuyerDiscover({
 
   return (
     <main className="pt-20 md:pt-28 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
-      {/* Search and Category Filter Section */}
-      <section className="mb-stack-lg sticky top-16 md:top-20 bg-surface z-20 py-3">
-        <div className="relative w-full mb-3 flex items-center gap-2">
+      {/* Search and Category Filter Section - Modern Mobile First */}
+      <section className="mb-stack-lg sticky top-16 md:top-20 bg-surface z-20 py-2.5">
+        <div className="relative w-full mb-2.5 flex items-center gap-1.5 sm:gap-2">
           <div className="relative flex-1">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">
+            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg">
               search
             </span>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search or tap mic for 'Cheeni chahiye', 'Charger'..."
-              className="w-full bg-surface-container-high border border-surface-variant focus:border-primary focus:ring-1 focus:ring-primary rounded-2xl py-3 pl-12 pr-10 font-body-lg text-on-surface placeholder-on-surface-variant transition-all shadow-xs"
+              placeholder="Search 'Cheeni', 'Charger'..."
+              className="w-full bg-surface-container-high border border-surface-variant/70 focus:border-primary focus:ring-1 focus:ring-primary rounded-xl sm:rounded-2xl py-2.5 sm:py-3 pl-10 sm:pl-12 pr-8 sm:pr-10 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-2xs"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface"
               >
-                <span className="material-symbols-outlined text-sm">close</span>
+                <span className="material-symbols-outlined text-xs sm:text-sm">close</span>
               </button>
             )}
           </div>
@@ -214,13 +214,13 @@ export function BuyerDiscover({
           <button
             onClick={toggleVoiceSearch}
             title={isListening ? 'Stop listening' : `Tap to speak (${speechLanguage === 'hi-IN' ? 'Hindi / Hinglish' : 'English'})`}
-            className={`flex-shrink-0 flex items-center justify-center p-3 rounded-2xl transition-all shadow-sm active:scale-90 border ${
+            className={`flex-shrink-0 flex items-center justify-center p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all shadow-2xs active:scale-90 border ${
               isListening
                 ? 'bg-rose-500 text-white animate-pulse ring-4 ring-rose-500/30 border-rose-600'
                 : 'bg-primary text-on-primary hover:bg-primary/90 border-white/20'
             }`}
           >
-            <span className="material-symbols-outlined text-xl">
+            <span className="material-symbols-outlined text-lg sm:text-xl">
               {isListening ? 'graphic_eq' : 'mic'}
             </span>
           </button>
@@ -229,9 +229,9 @@ export function BuyerDiscover({
           <button
             onClick={() => setSpeechLanguage((prev) => (prev === 'hi-IN' ? 'en-IN' : 'hi-IN'))}
             title="Switch voice search language"
-            className="flex-shrink-0 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant px-2.5 py-2.5 rounded-2xl text-[11px] font-bold transition-all shadow-2xs active:scale-95 flex items-center gap-1"
+            className="flex-shrink-0 bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant/70 px-2 sm:px-2.5 py-2.5 rounded-xl sm:rounded-2xl text-[10px] sm:text-[11px] font-bold transition-all shadow-2xs active:scale-95 flex items-center gap-0.5 sm:gap-1"
           >
-            <span className="material-symbols-outlined text-sm text-primary">translate</span>
+            <span className="material-symbols-outlined text-[13px] text-primary">translate</span>
             <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
           </button>
         </div>
@@ -445,12 +445,12 @@ export function BuyerDiscover({
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-gutter">
               {hyperlocalProducts.map((product) => (
                 <div
                   key={product.id}
                   onClick={() => onSelectProduct(product)}
-                  className="bg-surface-container-lowest rounded-xl shadow-[0px_4px_20px_rgba(31,27,23,0.04)] overflow-hidden border border-surface-variant/50 flex flex-col group cursor-pointer hover:shadow-[0px_8px_24px_rgba(156,62,32,0.12)] hover:border-primary/40 transition-all duration-300"
+                  className="bg-surface-container-lowest rounded-2xl shadow-xs overflow-hidden border border-surface-variant/60 flex flex-col group cursor-pointer hover:shadow-md hover:border-primary/40 transition-all duration-300 active:scale-[0.98]"
                 >
                   <div className="relative w-full aspect-square overflow-hidden bg-surface-variant">
                     <img
@@ -488,14 +488,14 @@ export function BuyerDiscover({
                       )
                     })()}
                   </div>
-                  <div className="p-4 flex flex-col flex-grow">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="font-title-md text-base font-semibold text-on-surface line-clamp-1">
+                  <div className="p-3 sm:p-4 flex flex-col flex-grow">
+                    <div className="flex justify-between items-start mb-0.5">
+                      <h3 className="font-title-md text-xs sm:text-sm md:text-base font-bold text-on-surface line-clamp-1">
                         {product.name}
                       </h3>
                     </div>
-                    <div className="flex items-center justify-between gap-2 mb-3">
-                      <p className="font-body-sm text-xs text-on-surface-variant line-clamp-1 flex-1">
+                    <div className="flex items-center justify-between gap-1 mb-2">
+                      <p className="font-body-sm text-[11px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1">
                         {product.shop_name}
                       </p>
                       {(() => {
@@ -503,30 +503,30 @@ export function BuyerDiscover({
                         return (
                           <span
                             title={openStatus.detail}
-                            className={`flex-shrink-0 text-[9px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}
+                            className={`flex-shrink-0 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-0.5 sm:gap-1 ${openStatus.badgeClass}`}
                           >
                             <span className={`w-1 h-1 rounded-full ${openStatus.dotClass}`}></span>
-                            <span>{openStatus.label}</span>
+                            <span className="truncate max-w-[48px] sm:max-w-none">{openStatus.label}</span>
                           </span>
                         )
                       })()}
                     </div>
-                    <div className="mt-auto flex items-end justify-between pt-2">
+                    <div className="mt-auto flex items-end justify-between pt-1.5">
                       <div>
                         {(() => {
                           const flashInfo = getFlashDealInfo(product)
                           if (flashInfo.isLive) {
                             return (
                               <div className="flex flex-col">
-                                <span className="text-[10px] text-rose-600 font-bold flex items-center gap-1">
-                                  <span>⚡ Deal:</span>
-                                  <span>{flashInfo.countdownText}</span>
+                                <span className="text-[9px] sm:text-[10px] text-rose-600 font-bold flex items-center gap-0.5">
+                                  <span>⚡</span>
+                                  <span className="truncate max-w-[60px] sm:max-w-none">{flashInfo.countdownText}</span>
                                 </span>
-                                <div className="flex items-baseline gap-1.5">
-                                  <span className="font-headline-lg-mobile text-xl font-bold text-rose-600">
+                                <div className="flex items-baseline gap-1">
+                                  <span className="font-headline-lg-mobile text-sm sm:text-lg md:text-xl font-bold text-rose-600">
                                     ₹{flashInfo.discountedPrice}
                                   </span>
-                                  <span className="text-xs text-on-surface-variant line-through opacity-75 font-semibold">
+                                  <span className="text-[10px] sm:text-xs text-on-surface-variant line-through opacity-75 font-semibold">
                                     ₹{flashInfo.originalPrice}
                                   </span>
                                 </div>
@@ -534,15 +534,16 @@ export function BuyerDiscover({
                             )
                           }
                           return (
-                            <span className="font-headline-lg-mobile text-xl font-bold text-primary">
+                            <span className="font-headline-lg-mobile text-sm sm:text-lg md:text-xl font-bold text-primary">
                               ₹{product.price}
                             </span>
                           )
                         })()}
                       </div>
-                      <button className="bg-primary hover:bg-primary-container text-on-primary px-3.5 py-1.5 rounded-xl font-label-caps text-xs font-bold transition-all shadow-xs hover:shadow-sm flex items-center gap-1 active:scale-95">
-                        <span>View Details</span>
-                        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+                      <button className="bg-primary hover:bg-primary-container text-on-primary px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-2xs hover:shadow-xs flex items-center gap-0.5 sm:gap-1 active:scale-95">
+                        <span className="hidden sm:inline">Details</span>
+                        <span className="sm:hidden">View</span>
+                        <span className="material-symbols-outlined text-[12px] sm:text-[14px]">arrow_forward</span>
                       </button>
                     </div>
                   </div>

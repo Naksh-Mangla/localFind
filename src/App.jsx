@@ -235,18 +235,18 @@ export default function App() {
         />
       )}
 
-      {/* Mobile Bottom Navigation Bar */}
-      <nav className="md:hidden bg-surface/90 backdrop-blur-md shadow-[0px_-4px_20px_rgba(0,0,0,0.06)] fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-4 pb-4 pt-2 border-t border-surface-variant/40">
+      {/* Mobile Bottom Navigation Bar - Structured Floating Dock */}
+      <nav className="md:hidden bg-surface/95 backdrop-blur-xl shadow-[0px_-4px_24px_rgba(0,0,0,0.08)] fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-6 pb-4 pt-2.5 border-t border-surface-variant/50">
         <button
           onClick={() => setActiveView('discover')}
-          className={`flex flex-col items-center justify-center px-4 py-1 rounded-full transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center py-1.5 px-6 rounded-2xl transition-all duration-200 active:scale-90 ${
             activeView === 'discover'
-              ? 'bg-secondary-container text-on-secondary-container font-bold shadow-sm'
+              ? 'bg-primary text-on-primary font-bold shadow-sm'
               : 'text-on-surface-variant hover:text-primary'
           }`}
         >
-          <span className="material-symbols-outlined">explore</span>
-          <span className="font-label-caps text-[10px] mt-0.5">Discover</span>
+          <span className="material-symbols-outlined text-[22px]">explore</span>
+          <span className="font-label-caps text-[10px] font-bold mt-0.5">Explore</span>
         </button>
 
         <button
@@ -256,14 +256,14 @@ export default function App() {
             }
             setActiveView('merchant')
           }}
-          className={`flex flex-col items-center justify-center px-4 py-1 rounded-full transition-all duration-200 ${
+          className={`flex flex-col items-center justify-center py-1.5 px-6 rounded-2xl transition-all duration-200 active:scale-90 ${
             activeView === 'merchant'
-              ? 'bg-secondary-container text-on-secondary-container font-bold shadow-sm'
+              ? 'bg-primary text-on-primary font-bold shadow-sm'
               : 'text-on-surface-variant hover:text-primary'
           }`}
         >
-          <span className="material-symbols-outlined">storefront</span>
-          <span className="font-label-caps text-[10px] mt-0.5">My Shop</span>
+          <span className="material-symbols-outlined text-[22px]">storefront</span>
+          <span className="font-label-caps text-[10px] font-bold mt-0.5">My Shop</span>
         </button>
       </nav>
     </div>
