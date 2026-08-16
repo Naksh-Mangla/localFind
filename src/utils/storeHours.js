@@ -32,6 +32,19 @@ export function getStoreOpenStatus(openingTime = '09:00', closingTime = '21:00')
   const openStr = formatTime12h(openH || 9, openM || 0)
   const closeStr = formatTime12h(closeH || 21, closeM || 0)
 
+  // Check if store is open 24 hours (or same open/close times)
+  if (openingTime === closingTime) {
+    return {
+      isOpen: true,
+      label: 'Open 24 Hours',
+      detail: 'Open all day and night',
+      timingText: 'Open 24 Hours',
+      badgeClass: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30',
+      dotClass: 'bg-emerald-500',
+      textColor: 'text-emerald-600 dark:text-emerald-400'
+    }
+  }
+
   let isOpen = false
   if (closeMinutes > openMinutes) {
     // Regular daytime hours (e.g. 09:00 to 21:00)

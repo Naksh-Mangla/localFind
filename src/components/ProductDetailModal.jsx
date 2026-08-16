@@ -84,10 +84,12 @@ export function ProductDetailModal({ product, onClose }) {
                       Owner: {product.owner_name}
                     </span>
                   )}
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}>
-                    <span className={`w-1.5 h-1.5 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
-                    <span>{openStatus.label} ({openStatus.timingText})</span>
-                  </span>
+                  {!product.is_affiliate_fallback && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
+                      <span>{openStatus.label} ({openStatus.timingText})</span>
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-on-surface-variant flex items-center gap-1 mb-1">
                   <span className="material-symbols-outlined text-xs text-primary">location_on</span>
