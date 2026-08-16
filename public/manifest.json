@@ -1,0 +1,19 @@
+{
+  "name": "LocalFind - Hyperlocal Store Window",
+  "short_name": "LocalFind",
+  "description": "Discover live products in nearby local shops within a 2 km radius. 0% commission direct WhatsApp buying.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf8f5",
+  "theme_color": "#9c3e20",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "lifestyle", "business"]
+}
