@@ -196,12 +196,12 @@ export function MerchantDashboard({
       })
 
     try {
-      // Get fresh GPS coordinates or fallback to live userCoords
+      // Get fresh GPS coordinates or fallback to existing shop coords or live userCoords
       const gps = await getFreshGPS()
-      const finalLat = gps?.lat ?? userCoords?.lat
-      const finalLng = gps?.lng ?? userCoords?.lng
+      const finalLat = gps?.lat ?? (shop?.lat || userCoords?.lat)
+      const finalLng = gps?.lng ?? (shop?.lng || userCoords?.lng)
 
-      if (!finalLat || !finalLng || (finalLat === 28.6139 && finalLng === 77.209)) {
+      if (!finalLat || !finalLng || (finalLat === 28.6139 && finalLng === 77.209 && !shop?.lat)) {
         showToast('Location permission is required to lock store coordinates! Please allow GPS access on your phone.', 'error', 'GPS Required')
         setCreatingShop(false)
         return
@@ -229,6 +229,9 @@ export function MerchantDashboard({
       showToast(shop ? 'Shop profile updated successfully!' : `Shop created with verified GPS!\nLat: ${finalLat}, Lng: ${finalLng}`, 'success', shop ? 'Profile Updated' : 'Shop Setup Complete')
       setShowEditShopModal(false)
       await fetchMerchantShop()
+      if (onRefreshProducts) {
+        onRefreshProducts()
+      }
     } catch (err) {
       showToast(`Failed to save shop details: ${err.message}`, 'error', 'Save Failed')
     } finally {
@@ -522,6 +525,10 @@ export function MerchantDashboard({
             method: 'POST',
             body: JSON.stringify({
               shop_name: shop.shop_name,
+              owner_name: shop.owner_name || null,
+              description: shop.description || null,
+              opening_time: shop.opening_time || '09:00',
+              closing_time: shop.closing_time || '21:00',
               whatsapp_number: shop.whatsapp_number,
               lat: latitude,
               lng: longitude,
@@ -530,6 +537,7 @@ export function MerchantDashboard({
           })
           showToast(`Shop GPS location updated to your exact position!\nLat: ${latitude}, Lng: ${longitude}\nPrecision: ±${Math.round(pos.coords.accuracy || 10)}m`, 'success', 'GPS Updated')
           await fetchMerchantShop()
+          if (onRefreshProducts) onRefreshProducts()
         } catch (err) {
           showToast(`Failed to update shop location: ${err.message}`, 'error', 'Update Failed')
         }
