@@ -63,14 +63,14 @@ export function Header({
           onClick={onDetectLocation}
           title="Tap to refresh location"
         >
-          <img src="/logo.svg" alt="LocalFind Logo" className="w-8 h-8 rounded-xl shadow-2xs object-contain flex-shrink-0" />
+          <img src="/logo.svg" alt="LocalFind Logo" className="w-8 h-8 rounded-xl shadow-2xs object-contain flex-shrink-0 animate-bounceSubtle" />
           <div className="flex flex-col min-w-0">
             <div className="flex items-center gap-1.5 leading-none mb-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${statusColors.dotColor} animate-pulse flex-shrink-0`}></span>
+              <span className={`w-1.5 h-1.5 rounded-full ${statusColors.dotColor} animate-ping flex-shrink-0`}></span>
               <span className="text-[9px] font-bold text-on-surface-variant tracking-wider uppercase truncate">
                 LOCATION
               </span>
-              <span className="text-[8px] font-extrabold bg-primary/10 text-primary px-1 py-0.2 rounded border border-primary/20 flex-shrink-0">
+              <span className="text-[8px] font-extrabold bg-primary/10 text-primary px-1 py-0.2 rounded border border-primary/20 flex-shrink-0 animate-pulse">
                 v2.0
               </span>
             </div>

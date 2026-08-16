@@ -254,7 +254,7 @@ export function BuyerDiscover({
           </div>
         )}
 
-        {/* Category Filter Chips - Compact Mobile Scrolling */}
+        {/* Category Filter Chips - Compact Mobile Scrolling with Micro-interactions */}
         <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1.5 pt-0.5">
           {CATEGORIES.map((cat) => {
             const isActive = selectedCategory === cat.label
@@ -262,13 +262,13 @@ export function BuyerDiscover({
               <button
                 key={cat.label}
                 onClick={() => setSelectedCategory(cat.label)}
-                className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl font-label-caps text-[11px] sm:text-xs shadow-2xs whitespace-nowrap active:scale-95 transition-all ${
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl font-label-caps text-[11px] sm:text-xs shadow-2xs whitespace-nowrap touch-press transition-all duration-200 ${
                   isActive
-                    ? 'bg-primary text-on-primary font-bold shadow-xs ring-2 ring-primary/20'
-                    : 'bg-surface-container-high border border-surface-variant/70 text-on-surface hover:bg-surface-variant'
+                    ? 'bg-primary text-on-primary font-bold shadow-xs ring-2 ring-primary/20 scale-[1.02]'
+                    : 'bg-surface-container-high border border-surface-variant/70 text-on-surface hover:bg-surface-variant hover:scale-[1.01]'
                 }`}
               >
-                <span className="material-symbols-outlined text-[15px] sm:text-[18px]">{cat.icon}</span>
+                <span className={`material-symbols-outlined text-[15px] sm:text-[18px] ${isActive ? 'animate-bounceSubtle' : ''}`}>{cat.icon}</span>
                 <span>{cat.label}</span>
               </button>
             )
@@ -449,7 +449,7 @@ export function BuyerDiscover({
                 <div
                   key={product.id}
                   onClick={() => onSelectProduct(product)}
-                  className="bg-surface-container-lowest rounded-2xl shadow-xs overflow-hidden border border-surface-variant/60 flex flex-col group cursor-pointer hover:shadow-md hover:border-primary/40 transition-all duration-300 active:scale-[0.98]"
+                  className="bg-surface-container-lowest rounded-2xl shadow-xs overflow-hidden border border-surface-variant/60 flex flex-col group cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/40 transition-all duration-300 touch-press"
                 >
                   <div className="relative w-full aspect-square overflow-hidden bg-surface-variant">
                     <img
