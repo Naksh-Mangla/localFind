@@ -254,48 +254,48 @@ export function BuyerDiscover({
           </div>
         )}
 
-        {/* Category Filter Chips */}
-        <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2">
+        {/* Category Filter Chips - Compact Mobile Scrolling */}
+        <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1.5 pt-0.5">
           {CATEGORIES.map((cat) => {
             const isActive = selectedCategory === cat.label
             return (
               <button
                 key={cat.label}
                 onClick={() => setSelectedCategory(cat.label)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-full font-label-caps text-xs shadow-sm whitespace-nowrap active:scale-95 transition-all ${
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl sm:rounded-2xl font-label-caps text-[11px] sm:text-xs shadow-2xs whitespace-nowrap active:scale-95 transition-all ${
                   isActive
-                    ? 'bg-secondary-container text-on-secondary-container font-bold ring-2 ring-secondary'
-                    : 'bg-surface-container-high border border-surface-variant text-on-surface hover:bg-surface-variant'
+                    ? 'bg-primary text-on-primary font-bold shadow-xs ring-2 ring-primary/20'
+                    : 'bg-surface-container-high border border-surface-variant/70 text-on-surface hover:bg-surface-variant'
                 }`}
               >
-                <span className="material-symbols-outlined text-[18px]">{cat.icon}</span>
+                <span className="material-symbols-outlined text-[15px] sm:text-[18px]">{cat.icon}</span>
                 <span>{cat.label}</span>
               </button>
             )
           })}
         </div>
 
-        {/* Hyperlocal Distance Radius Filter Bar */}
-        <div className="flex items-center gap-2 mt-3 pt-3 border-t border-surface-variant/40 overflow-x-auto hide-scrollbar">
-          <span className="text-xs font-bold text-on-surface-variant flex items-center gap-1 shrink-0">
-            <span className="material-symbols-outlined text-sm text-primary">near_me</span>
-            <span>Hyperlocal Radius:</span>
+        {/* Hyperlocal Distance Radius Filter Bar - Compact Pill Segment */}
+        <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-surface-variant/40 overflow-x-auto hide-scrollbar">
+          <span className="text-[10px] sm:text-xs font-bold text-on-surface-variant flex items-center gap-0.5 shrink-0">
+            <span className="material-symbols-outlined text-[13px] text-primary">near_me</span>
+            <span>Radius:</span>
           </span>
           {[
-            { label: '2 km (Hyperlocal)', value: 2 },
+            { label: '2 km (Nearby)', value: 2 },
             { label: '5 km', value: 5 },
             { label: '10 km', value: 10 },
-            { label: 'All Distances', value: 'all' }
+            { label: 'All', value: 'all' }
           ].map((rad) => {
             const isActive = maxRadiusKm === rad.value
             return (
               <button
                 key={rad.label}
                 onClick={() => setMaxRadiusKm(rad.value)}
-                className={`px-3.5 py-1 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
+                className={`px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold whitespace-nowrap transition-all active:scale-95 ${
                   isActive
-                    ? 'bg-primary text-on-primary shadow-sm font-bold'
-                    : 'bg-surface-container-high border border-surface-variant text-on-surface-variant hover:bg-surface-variant'
+                    ? 'bg-primary text-on-primary shadow-2xs font-extrabold'
+                    : 'bg-surface-container-high border border-surface-variant/70 text-on-surface-variant hover:bg-surface-variant'
                 }`}
               >
                 {rad.label}
@@ -305,46 +305,45 @@ export function BuyerDiscover({
         </div>
       </section>
 
-      {/* ⚡ 24-Hour Flash Deals / "Aaj Ka Offer" Carousel Banner */}
+      {/* ⚡ 24-Hour Flash Deals / "Aaj Ka Offer" Carousel Banner - Compact Mobile */}
       {!loading && activeFlashDeals.length > 0 && (
-        <section className="mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="flex h-3 w-3 relative">
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-2 px-1">
+            <div className="flex items-center gap-1.5">
+              <span className="flex h-2.5 w-2.5 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
               </span>
-              <h2 className="font-headline-lg-mobile text-lg font-bold text-on-surface flex items-center gap-1.5">
-                <span>Aaj Ka Offer • Flash Deals</span>
-                <span className="text-[10px] bg-gradient-to-r from-amber-500 to-rose-500 text-white font-black px-2 py-0.5 rounded-full shadow-xs">
-                  LIMITED TIME
+              <h2 className="font-headline-lg-mobile text-sm sm:text-base md:text-lg font-bold text-on-surface flex items-center gap-1">
+                <span>Aaj Ka Offer • Deals</span>
+                <span className="text-[9px] bg-gradient-to-r from-amber-500 to-rose-500 text-white font-black px-1.5 py-0.2 rounded-full shadow-2xs">
+                  HOT
                 </span>
               </h2>
             </div>
-            <span className="text-xs font-bold text-amber-600 dark:text-amber-400">
-              {activeFlashDeals.length} Deal{activeFlashDeals.length > 1 ? 's' : ''} Live Nearby
+            <span className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400">
+              {activeFlashDeals.length} Live
             </span>
           </div>
 
           {/* Flash Deal Horizontal Slider */}
-          <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-2 pt-1">
+          <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 pt-0.5">
             {activeFlashDeals.map((deal) => {
               const info = getFlashDealInfo(deal)
-              const openStatus = getStoreOpenStatus(deal.opening_time, deal.closing_time)
               return (
                 <div
                   key={`flash-${deal.id}`}
                   onClick={() => onSelectProduct(deal)}
-                  className="flex-shrink-0 w-72 sm:w-80 bg-gradient-to-br from-amber-500/10 via-surface-container-lowest to-surface-container-lowest rounded-2xl border-2 border-amber-500/40 p-3 shadow-md hover:shadow-lg transition-all cursor-pointer group active:scale-[0.98]"
+                  className="flex-shrink-0 w-64 sm:w-72 bg-gradient-to-br from-amber-500/10 via-surface-container-lowest to-surface-container-lowest rounded-2xl border-2 border-amber-500/40 p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all cursor-pointer group active:scale-[0.98]"
                 >
-                  <div className="flex gap-3">
-                    <div className="w-24 h-24 rounded-xl overflow-hidden bg-surface-variant relative flex-shrink-0">
+                  <div className="flex gap-2.5">
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-surface-variant relative flex-shrink-0">
                       <img
                         src={deal.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop&q=80'}
                         alt={deal.name}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
-                      <span className="absolute top-1 left-1 bg-rose-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
+                      <span className="absolute top-1 left-1 bg-rose-600 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-2xs">
                         {info.discountPercent}% OFF
                       </span>
                     </div>
@@ -352,37 +351,37 @@ export function BuyerDiscover({
                     <div className="flex-1 min-w-0 flex flex-col justify-between">
                       <div>
                         <div className="flex items-center justify-between gap-1">
-                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-black uppercase tracking-wider truncate">
+                          <span className="text-[9px] sm:text-[10px] text-amber-600 dark:text-amber-400 font-black uppercase tracking-wider truncate">
                             {deal.shop_name}
                           </span>
-                          <span className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded shrink-0">
+                          <span className="text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold px-1 py-0.2 rounded shrink-0">
                             {formatDistance(deal.distanceKm)}
                           </span>
                         </div>
-                        <h4 className="font-title-md text-xs font-bold text-on-surface line-clamp-2 mt-0.5">
+                        <h4 className="font-title-md text-[11px] sm:text-xs font-bold text-on-surface line-clamp-1 sm:line-clamp-2 mt-0.5">
                           {deal.name}
                         </h4>
                       </div>
 
                       <div>
-                        <div className="flex items-baseline gap-1.5 mt-1">
-                          <span className="font-black text-rose-600 text-base">
+                        <div className="flex items-baseline gap-1 mt-0.5">
+                          <span className="font-black text-rose-600 text-sm sm:text-base">
                             ₹{info.discountedPrice}
                           </span>
-                          <span className="text-xs text-on-surface-variant line-through opacity-75 font-semibold">
+                          <span className="text-[10px] text-on-surface-variant line-through opacity-75 font-semibold">
                             ₹{info.originalPrice}
                           </span>
                         </div>
 
                         {/* Live Countdown Badge */}
                         <div className="mt-1 flex items-center justify-between">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-600 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20">
-                            <span className="material-symbols-outlined text-[12px] animate-spin">timer</span>
-                            <span>{info.countdownText}</span>
+                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 bg-rose-500/10 px-1.5 py-0.5 rounded-full border border-rose-500/20">
+                            <span className="material-symbols-outlined text-[10px] animate-spin">timer</span>
+                            <span className="truncate max-w-[65px]">{info.countdownText}</span>
                           </span>
-                          <span className="text-[10px] font-bold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
+                          <span className="text-[9px] sm:text-[10px] font-bold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                             <span>Grab</span>
-                            <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                            <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
                           </span>
                         </div>
                       </div>
