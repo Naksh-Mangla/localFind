@@ -5,6 +5,7 @@ import { ConfirmModal } from './ConfirmModal'
 import { CustomSelect } from './CustomSelect'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
+import { getFlashDealInfo } from '../utils/flashDeals'
 
 export function MerchantDashboard({
   user,
@@ -262,9 +263,25 @@ export function MerchantDashboard({
     setProductCategory(product.category || 'General')
     setProductImageUrl(product.image_url || '')
     setImageFile(null)
-    setIsFlashDeal(Boolean(product.is_flash_deal))
+
+    // Check if flash deal is currently active or expired
+    const isCurrentlyActive = Boolean(
+      product.is_flash_deal &&
+      product.flash_deal_ends_at &&
+      new Date(product.flash_deal_ends_at).getTime() > Date.now()
+    )
+
+    setIsFlashDeal(isCurrentlyActive)
     setFlashDiscount(product.flash_deal_discount || 20)
-    setFlashDurationHours(6)
+
+    // Calculate remaining hours if already active, else default 6
+    if (isCurrentlyActive && product.flash_deal_ends_at) {
+      const remainingHours = Math.max(1, Math.round((new Date(product.flash_deal_ends_at).getTime() - Date.now()) / (1000 * 60 * 60)))
+      setFlashDurationHours(remainingHours > 24 ? 24 : remainingHours)
+    } else {
+      setFlashDurationHours(6)
+    }
+
     setShowAddProductModal(true)
   }
 
@@ -940,69 +957,77 @@ export function MerchantDashboard({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
-          {products.map((product) => (
-            <div
-              key={product.id}
-              className="bg-surface-container-lowest rounded-xl border border-surface-variant/60 overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow"
-            >
-              <div className="w-full aspect-square bg-surface-variant overflow-hidden relative">
-                <img
-                  src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-                {Boolean(product.is_flash_deal) && (
-                  <div className="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2.5 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-md border border-white/40">
-                    <span>⚡</span>
-                    <span>{product.flash_deal_discount}% OFF FLASH DEAL</span>
-                  </div>
-                )}
-              </div>
-              <div className="p-4 flex flex-col flex-1 justify-between">
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] text-primary font-bold uppercase tracking-wider">{product.category}</span>
-                    <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded">
-                      v{product.version || 1}
-                    </span>
-                  </div>
-                  <h4 className="font-title-md text-sm font-semibold text-on-surface line-clamp-1">{product.name}</h4>
+          {products.map((product) => {
+            const flashInfo = getFlashDealInfo(product)
+            return (
+              <div
+                key={product.id}
+                className="bg-surface-container-lowest rounded-xl border border-surface-variant/60 overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow"
+              >
+                <div className="w-full aspect-square bg-surface-variant overflow-hidden relative">
+                  <img
+                    src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'}
+                    alt={product.name}
+                    className="w-full h-full object-cover"
+                  />
+                  {flashInfo.isLive && (
+                    <div className="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2.5 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-md border border-white/40">
+                      <span>⚡</span>
+                      <span>{flashInfo.discountPercent}% OFF • {flashInfo.countdownText}</span>
+                    </div>
+                  )}
+                  {flashInfo.isExpired && (
+                    <div className="absolute top-2 left-2 bg-surface-variant/90 text-on-surface-variant px-2 py-0.5 rounded-full text-[9px] font-bold border border-surface-variant">
+                      Deal Expired
+                    </div>
+                  )}
                 </div>
-                <div className="mt-3 flex items-center justify-between">
+                <div className="p-4 flex flex-col flex-1 justify-between">
                   <div>
-                    {Boolean(product.is_flash_deal) ? (
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="font-bold text-rose-600 text-base">
-                          ₹{Math.round(product.price * (1 - (product.flash_deal_discount || 0) / 100))}
-                        </span>
-                        <span className="text-xs text-on-surface-variant line-through opacity-70">
-                          ₹{product.price}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="font-bold text-primary text-base">₹{product.price}</span>
-                    )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-primary font-bold uppercase tracking-wider">{product.category}</span>
+                      <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                        v{product.version || 1}
+                      </span>
+                    </div>
+                    <h4 className="font-title-md text-sm font-semibold text-on-surface line-clamp-1">{product.name}</h4>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleOpenEditModal(product)}
-                      title="Edit Product"
-                      className="p-2 rounded-xl bg-surface-container-high hover:bg-primary/15 text-on-surface hover:text-primary transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">edit</span>
-                    </button>
-                    <button
-                      onClick={() => handleDeleteProduct(product.id)}
-                      title="Delete Product"
-                      className="p-2 rounded-xl bg-surface-container-high hover:bg-rose-500/15 text-on-surface hover:text-rose-600 transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
-                    >
-                      <span className="material-symbols-outlined text-[15px]">delete</span>
-                    </button>
+                  <div className="mt-3 flex items-center justify-between">
+                    <div>
+                      {flashInfo.isLive ? (
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-bold text-rose-600 text-base">
+                            ₹{flashInfo.discountedPrice}
+                          </span>
+                          <span className="text-xs text-on-surface-variant line-through opacity-70">
+                            ₹{flashInfo.originalPrice}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="font-bold text-primary text-base">₹{product.price}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => handleOpenEditModal(product)}
+                        title="Edit Product"
+                        className="p-2 rounded-xl bg-surface-container-high hover:bg-primary/15 text-on-surface hover:text-primary transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">edit</span>
+                      </button>
+                      <button
+                        onClick={() => handleDeleteProduct(product.id)}
+                        title="Delete Product"
+                        className="p-2 rounded-xl bg-surface-container-high hover:bg-rose-500/15 text-on-surface hover:text-rose-600 transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
+                      >
+                        <span className="material-symbols-outlined text-[15px]">delete</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
