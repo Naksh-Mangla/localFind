@@ -79,7 +79,7 @@ async function handleCreateShop(request, env, user) {
   const body = await request.json().catch(() => null)
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
-  const { shop_name, owner_name, description, whatsapp_number, lat, lng, address_text } = body
+  const { shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text } = body
   if (!shop_name || !whatsapp_number) return json({ error: 'shop_name and whatsapp_number are required' }, 400)
   if (typeof lat !== 'number' || !Number.isFinite(lat) || lat < -90 || lat > 90) {
     return json({ error: 'lat must be a number between -90 and 90' }, 400)
@@ -95,12 +95,14 @@ async function handleCreateShop(request, env, user) {
   if (existing) {
     const res = await env.DB.prepare(
       `UPDATE shops
-       SET shop_name = ?, owner_name = ?, description = ?, whatsapp_number = ?, lat = ?, lng = ?, address_text = ?
+       SET shop_name = ?, owner_name = ?, description = ?, opening_time = ?, closing_time = ?, whatsapp_number = ?, lat = ?, lng = ?, address_text = ?
        WHERE id = ? AND owner_id = ?`
     ).bind(
       shop_name,
       owner_name ?? null,
       description ?? null,
+      opening_time ?? '09:00',
+      closing_time ?? '21:00',
       whatsapp_number,
       lat,
       lng,
@@ -115,14 +117,16 @@ async function handleCreateShop(request, env, user) {
 
   const id = crypto.randomUUID()
   const res = await env.DB.prepare(
-    `INSERT INTO shops (id, owner_id, shop_name, owner_name, description, whatsapp_number, lat, lng, address_text)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO shops (id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
   ).bind(
     id,
     user.sub,
     shop_name,
     owner_name ?? null,
     description ?? null,
+    opening_time ?? '09:00',
+    closing_time ?? '21:00',
     whatsapp_number,
     lat,
     lng,
@@ -232,7 +236,7 @@ async function handleListProducts(env) {
   const { results } = await env.DB.prepare(
     `SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
             p.is_affiliate_fallback, p.affiliate_link, p.version, p.updated_at, p.created_at,
-            s.shop_name, s.owner_name, s.description, s.whatsapp_number, s.lat, s.lng, s.address_text
+            s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text
      FROM products p
      JOIN shops s ON s.id = p.shop_id
      ORDER BY p.created_at DESC

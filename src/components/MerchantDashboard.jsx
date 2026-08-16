@@ -4,6 +4,7 @@ import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { CustomSelect } from './CustomSelect'
 import { getRAGStatus } from '../utils/syncRAG'
+import { getStoreOpenStatus } from '../utils/storeHours'
 
 export function MerchantDashboard({
   user,
@@ -28,6 +29,8 @@ export function MerchantDashboard({
   const [shopName, setShopName] = useState('')
   const [ownerName, setOwnerName] = useState(user?.displayName || '')
   const [shopDescription, setShopDescription] = useState('')
+  const [openingTime, setOpeningTime] = useState('09:00')
+  const [closingTime, setClosingTime] = useState('21:00')
   const [whatsappNumber, setWhatsappNumber] = useState('')
   const [streetAddress, setStreetAddress] = useState('')
   const [landmarkText, setLandmarkText] = useState('')
@@ -70,6 +73,8 @@ export function MerchantDashboard({
         setShopName(myShop.shop_name || '')
         setOwnerName(myShop.owner_name || user?.displayName || '')
         setShopDescription(myShop.description || '')
+        setOpeningTime(myShop.opening_time || '09:00')
+        setClosingTime(myShop.closing_time || '21:00')
         setWhatsappNumber(myShop.whatsapp_number || '')
         setLat(myShop.lat || userCoords?.lat || 28.6139)
         setLng(myShop.lng || userCoords?.lng || 77.2090)
@@ -212,6 +217,8 @@ export function MerchantDashboard({
           shop_name: cleanShopName,
           owner_name: ownerName.trim() || user?.displayName || 'Store Owner',
           description: shopDescription.trim() || null,
+          opening_time: openingTime || '09:00',
+          closing_time: closingTime || '21:00',
           whatsapp_number: cleanPhone,
           lat: finalLat,
           lng: finalLng,
@@ -687,6 +694,36 @@ export function MerchantDashboard({
               />
             </div>
 
+            {/* Shop Timings (Opening & Closing Hours) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs text-primary">schedule</span>
+                  <span>Opening Time *</span>
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={openingTime}
+                  onChange={(e) => setOpeningTime(e.target.value)}
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-on-surface mb-1 flex items-center gap-1">
+                  <span className="material-symbols-outlined text-xs text-primary">schedule</span>
+                  <span>Closing Time *</span>
+                </label>
+                <input
+                  type="time"
+                  required
+                  value={closingTime}
+                  onChange={(e) => setClosingTime(e.target.value)}
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            </div>
+
             {/* 2. WhatsApp Number Field (Exactly 10 digits) */}
             <div>
               <label className="block text-xs font-bold text-on-surface mb-1">
@@ -799,11 +836,20 @@ export function MerchantDashboard({
       {/* Merchant Header Bar */}
       <div className="bg-surface-container-lowest p-6 rounded-2xl border border-surface-variant shadow-md mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h2 className="font-headline-lg text-2xl font-bold text-on-surface">{shop.shop_name}</h2>
             <span className="bg-secondary-container text-on-secondary-container px-2.5 py-0.5 rounded-full text-xs font-semibold">
               Live Shop Window
             </span>
+            {(() => {
+              const openStatus = getStoreOpenStatus(shop.opening_time, shop.closing_time)
+              return (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold border ${openStatus.badgeClass}`}>
+                  <span className={`w-2 h-2 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
+                  <span>{openStatus.label} ({openStatus.timingText})</span>
+                </span>
+              )
+            })()}
           </div>
           <p className="text-xs text-on-surface-variant flex items-center gap-2 mt-1 flex-wrap">
             <span className="flex items-center gap-1">
@@ -1180,6 +1226,36 @@ export function MerchantDashboard({
                   placeholder="Tell local buyers what makes your shop special..."
                   className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-xs focus:ring-1 focus:ring-primary"
                 />
+              </div>
+
+              {/* Shop Timings (Opening & Closing Hours) */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs text-primary">schedule</span>
+                    <span>Opening Time *</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={openingTime}
+                    onChange={(e) => setOpeningTime(e.target.value)}
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-xs text-primary">schedule</span>
+                    <span>Closing Time *</span>
+                  </label>
+                  <input
+                    type="time"
+                    required
+                    value={closingTime}
+                    onChange={(e) => setClosingTime(e.target.value)}
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                  />
+                </div>
               </div>
 
               {/* 2. WhatsApp Number Field (Exactly 10 digits) */}

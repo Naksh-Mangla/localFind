@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS shops (
   shop_name       TEXT NOT NULL,
   owner_name      TEXT,
   description     TEXT,
+  opening_time    TEXT DEFAULT '09:00',
+  closing_time    TEXT DEFAULT '21:00',
   whatsapp_number TEXT NOT NULL,
   lat             REAL NOT NULL,
   lng             REAL NOT NULL,

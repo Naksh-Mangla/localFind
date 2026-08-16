@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { calculateDistanceKm, formatDistance } from '../utils/haversine'
 import { getRAGStatus } from '../utils/syncRAG'
+import { getStoreOpenStatus } from '../utils/storeHours'
 
 const CATEGORIES = [
   { label: 'All', icon: 'interests' },
@@ -256,9 +257,23 @@ export function BuyerDiscover({
                         {product.name}
                       </h3>
                     </div>
-                    <p className="font-body-sm text-xs text-on-surface-variant mb-3 line-clamp-1">
-                      {product.shop_name}
-                    </p>
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <p className="font-body-sm text-xs text-on-surface-variant line-clamp-1 flex-1">
+                        {product.shop_name}
+                      </p>
+                      {(() => {
+                        const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
+                        return (
+                          <span
+                            title={openStatus.detail}
+                            className={`flex-shrink-0 text-[9px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}
+                          >
+                            <span className={`w-1 h-1 rounded-full ${openStatus.dotClass}`}></span>
+                            <span>{openStatus.label}</span>
+                          </span>
+                        )
+                      })()}
+                    </div>
                     <div className="mt-auto flex items-end justify-between pt-2">
                       <div>
                         <span className="font-headline-lg-mobile text-xl font-bold text-primary">
@@ -322,9 +337,23 @@ export function BuyerDiscover({
                       {product.name}
                     </h3>
                   </div>
-                  <p className="font-body-sm text-xs text-on-surface-variant mb-3 line-clamp-1">
-                    {product.shop_name}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mb-3">
+                    <p className="font-body-sm text-xs text-on-surface-variant line-clamp-1 flex-1">
+                      {product.shop_name}
+                    </p>
+                    {(() => {
+                      const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
+                      return (
+                        <span
+                          title={openStatus.detail}
+                          className={`flex-shrink-0 text-[9px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}
+                        >
+                          <span className={`w-1 h-1 rounded-full ${openStatus.dotClass}`}></span>
+                          <span>{openStatus.label}</span>
+                        </span>
+                      )
+                    })()}
+                  </div>
                     <div className="mt-auto flex items-end justify-between pt-2">
                       <div>
                         <span className="font-headline-lg-mobile text-xl font-bold text-primary">

@@ -1,8 +1,13 @@
 import React from 'react'
 import { formatDistance } from '../utils/haversine'
+import { getRAGStatus } from '../utils/syncRAG'
+import { getStoreOpenStatus } from '../utils/storeHours'
 
 export function ProductDetailModal({ product, onClose }) {
   if (!product) return null
+
+  const productRAG = getRAGStatus(product.updated_at || product.created_at)
+  const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
 
   const cleanWhatsapp = (product.whatsapp_number || '').replace(/[^0-9]/g, '')
   const whatsappMsg = encodeURIComponent(
@@ -72,13 +77,17 @@ export function ProductDetailModal({ product, onClose }) {
                 <span className="material-symbols-outlined">storefront</span>
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h3 className="font-title-md font-bold text-on-surface text-base">{product.shop_name}</h3>
                   {product.owner_name && (
                     <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
                       Owner: {product.owner_name}
                     </span>
                   )}
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
+                    <span>{openStatus.label} ({openStatus.timingText})</span>
+                  </span>
                 </div>
                 <p className="text-xs text-on-surface-variant flex items-center gap-1 mb-1">
                   <span className="material-symbols-outlined text-xs text-primary">location_on</span>
