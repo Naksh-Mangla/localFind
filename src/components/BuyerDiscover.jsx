@@ -178,7 +178,7 @@ export function BuyerDiscover({
   return (
     <main className="pt-20 md:pt-28 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
       {/* Search and Category Filter Section */}
-      <section className="mb-stack-lg sticky top-16 md:top-20 bg-surface z-30 py-3">
+      <section className="mb-stack-lg sticky top-16 md:top-20 bg-surface z-20 py-3">
         <div className="relative w-full mb-3 flex items-center gap-2">
           <div className="relative flex-1">
             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">

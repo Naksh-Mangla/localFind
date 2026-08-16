@@ -56,7 +56,7 @@ export function Header({
   return (
     <>
       {/* Mobile TopAppBar */}
-      <header className="md:hidden bg-surface/95 backdrop-blur-md shadow-sm fixed top-0 w-full z-50 flex items-center justify-between px-3 h-16 border-b border-surface-variant/40">
+      <header className="md:hidden bg-surface/95 backdrop-blur-md shadow-sm fixed top-0 w-full z-30 flex items-center justify-between px-3 h-16 border-b border-surface-variant/40">
         {/* Left: Brand logo & Location bar */}
         <div
           className="flex items-center gap-2.5 cursor-pointer max-w-[65%] overflow-hidden"
@@ -125,7 +125,7 @@ export function Header({
       </header>
 
       {/* Desktop TopAppBar */}
-      <header className="hidden md:flex bg-surface/90 backdrop-blur-md shadow-xs fixed top-0 w-full z-50 items-center justify-between px-container-margin h-20 border-b border-surface-variant/40">
+      <header className="hidden md:flex bg-surface/90 backdrop-blur-md shadow-xs fixed top-0 w-full z-30 items-center justify-between px-container-margin h-20 border-b border-surface-variant/40">
         <div className="flex items-center gap-5">
           <div
             onClick={() => setActiveView('discover')}
