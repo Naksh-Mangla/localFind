@@ -2,7 +2,11 @@ const corsHeaders = () => ({
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '86400'
+  'Access-Control-Max-Age': '86400',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
+  'Referrer-Policy': 'strict-origin-when-cross-origin'
 })
 
 const json = (data, status = 200) =>
@@ -275,12 +279,32 @@ async function handleUploadImage(request, env, user) {
   const file = formData.get('file')
   if (!file || typeof file === 'string') return json({ error: 'No file uploaded' }, 400)
 
-  const ext = file.name ? file.name.split('.').pop() : 'jpg'
+  // Security Check 1: Max upload size limit (5 MB)
+  const MAX_FILE_SIZE = 5 * 1024 * 1024
+  if (file.size && file.size > MAX_FILE_SIZE) {
+    return json({ error: 'File too large. Maximum allowed size is 5MB.' }, 400)
+  }
+
+  // Security Check 2: Allowed image MIME types only
+  const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic']
+  const mimeType = (file.type || 'image/jpeg').toLowerCase()
+  if (!ALLOWED_MIME_TYPES.includes(mimeType)) {
+    return json({ error: 'Invalid file format. Only JPEG, PNG, WEBP, and GIF images are allowed.' }, 400)
+  }
+
+  const EXT_MAP = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+    'image/heic': 'heic'
+  }
+  const ext = EXT_MAP[mimeType] || 'jpg'
   const key = `products/${user.sub}/${crypto.randomUUID()}.${ext}`
 
   await env.IMAGES_BUCKET.put(key, file.stream(), {
     httpMetadata: {
-      contentType: file.type || 'image/jpeg'
+      contentType: mimeType
     }
   })
 
