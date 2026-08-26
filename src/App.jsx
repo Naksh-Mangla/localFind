@@ -52,7 +52,8 @@ export default function App() {
 
   // Products state & sync tracking
   const [products, setProducts] = useState([])
-  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [initialLoading, setInitialLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now())
 
   // Reverse geocode coordinates to human-readable street/neighborhood name
@@ -185,33 +186,36 @@ export default function App() {
     detectLocation()
   }, [detectLocation])
 
-  // Fetch products from Cloudflare Worker
-  const fetchProducts = useCallback(async () => {
+  // Fetch products from Cloudflare Worker (Silent background updates without unmounting UI)
+  const fetchProducts = useCallback(async (isManualRefresh = false) => {
     try {
-      setLoadingProducts(true)
+      if (isManualRefresh) setIsRefreshing(true)
       const data = await apiFetch('/api/products')
-      setProducts(data.products || [])
+      if (data && Array.isArray(data.products)) {
+        setProducts(data.products)
+      }
       setLastSyncedAt(Date.now())
     } catch (err) {
       console.error('Failed to fetch products from worker:', err)
     } finally {
-      setLoadingProducts(false)
+      setInitialLoading(false)
+      setIsRefreshing(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchProducts()
+    fetchProducts(false)
   }, [fetchProducts])
 
-  // High-Frequency Real-time Sync (every 8s) + Instant Sync on tab focus / window visibility
+  // Periodic background sync (every 30s) + Instant Sync on tab focus
   useEffect(() => {
     const interval = setInterval(() => {
-      fetchProducts()
-    }, 8000)
+      fetchProducts(false)
+    }, 30000)
 
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
-        fetchProducts()
+        fetchProducts(false)
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityOrFocus)
@@ -265,8 +269,8 @@ export default function App() {
         onOpenSignIn={() => {
           setActiveView('merchant')
         }}
-        onRefreshProducts={fetchProducts}
-        refreshing={loadingProducts}
+        onRefreshProducts={() => fetchProducts(true)}
+        refreshing={isRefreshing}
         lastSyncedAt={lastSyncedAt}
       />
 
@@ -278,9 +282,9 @@ export default function App() {
               products={products}
               userCoords={userCoords}
               onSelectProduct={(p) => setSelectedProduct(p)}
-              loading={loadingProducts}
-              onRefreshProducts={fetchProducts}
-              refreshing={loadingProducts}
+              loading={initialLoading && products.length === 0}
+              onRefreshProducts={() => fetchProducts(true)}
+              refreshing={isRefreshing}
               lastSyncedAt={lastSyncedAt}
               onChangeLocation={() => setShowLocationPicker(true)}
               locationStatus={locationStatus}
@@ -301,7 +305,7 @@ export default function App() {
                 signInWithGoogle={signInWithGoogle}
                 signOut={signOut}
                 userCoords={userCoords}
-                onRefreshProducts={fetchProducts}
+                onRefreshProducts={() => fetchProducts(true)}
                 lastSyncedAt={lastSyncedAt}
               />
             </Suspense>
