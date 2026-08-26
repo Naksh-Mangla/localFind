@@ -120,12 +120,17 @@ export function Header({
         <div className="flex items-center gap-5">
           <div
             onClick={() => setActiveView('discover')}
-            className="flex items-center gap-2.5 cursor-pointer group select-none"
+            className="flex items-center gap-2 cursor-pointer group select-none"
           >
             <img src="/logo.svg" alt="LocalFind Logo" className="w-8 h-8 rounded-full object-contain group-hover:scale-105 transition-transform" />
-            <span className="font-display-lg text-xl font-black text-primary tracking-tight">
-              LocalFind
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="font-display-lg text-xl font-black text-primary tracking-tight">
+                LocalFind
+              </span>
+              <span className="text-[10px] font-extrabold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20 tracking-wider">
+                BY NAKSH
+              </span>
+            </div>
           </div>
 
           {/* Minimalist Location Selector Pill */}

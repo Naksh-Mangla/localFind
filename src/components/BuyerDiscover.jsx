@@ -1085,6 +1085,19 @@ export function BuyerDiscover({
           </div>
         </section>
       )}
+
+      {/* 🌟 Sleek Minimalist Footer Credit */}
+      <footer className="mt-14 pt-6 border-t border-surface-variant/30 text-center pb-8">
+        <p className="text-xs text-on-surface-variant flex items-center justify-center gap-2 font-medium">
+          <span>LocalFind • Hyperlocal Physical Commerce</span>
+          <span className="opacity-40">•</span>
+          <span className="inline-flex items-center gap-1 font-bold text-on-surface">
+            <span>Crafted with</span>
+            <span className="text-rose-500 text-sm animate-pulse">❤️</span>
+            <span>by <strong className="text-primary font-extrabold tracking-wide">NAKSH</strong></span>
+          </span>
+        </p>
+      </footer>
     </main>
   )
 }

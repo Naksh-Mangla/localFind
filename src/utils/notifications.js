@@ -1,6 +1,6 @@
 /**
  * Local Flash Deal Notification & Alert Manager
- * Powered by standard Web Notifications API with 0 external fees.
+ * Robust multi-platform Web Notifications API with Service Worker fallback.
  */
 
 const NOTIFIED_DEALS_KEY = 'localfind_notified_deals'
@@ -11,7 +11,7 @@ const SUBSCRIBED_AT_KEY = 'localfind_deal_alerts_subscribed_at'
  * Check if the browser supports standard Web Notifications
  */
 export function isNotificationSupported() {
-  return typeof window !== 'undefined' && 'Notification' in window
+  return typeof window !== 'undefined' && ('Notification' in window || ('serviceWorker' in navigator && 'PushManager' in window))
 }
 
 /**
@@ -19,7 +19,7 @@ export function isNotificationSupported() {
  * @returns {'granted' | 'denied' | 'default' | 'unsupported'}
  */
 export function getNotificationPermission() {
-  if (!isNotificationSupported()) return 'unsupported'
+  if (!isNotificationSupported() || typeof Notification === 'undefined') return 'unsupported'
   return Notification.permission
 }
 
@@ -27,7 +27,7 @@ export function getNotificationPermission() {
  * Check if the user has enabled deal alerts
  */
 export function isDealAlertsEnabled() {
-  if (!isNotificationSupported()) return false
+  if (!isNotificationSupported() || typeof Notification === 'undefined') return false
   const enabled = localStorage.getItem(ALERTS_ENABLED_KEY) === 'true'
   return enabled && Notification.permission === 'granted'
 }
@@ -40,18 +40,27 @@ export function isDealAlertsEnabled() {
  */
 export async function enableDealAlerts(currentProducts = []) {
   if (!isNotificationSupported()) {
-    alert('Web Notifications are not supported on this browser.')
+    alert('💡 Web Notifications are not supported on this browser.\n(If on iPhone Safari, tap "Share" → "Add to Home Screen" to enable notifications).')
+    return false
+  }
+
+  if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+    alert('⚠️ Notifications are currently blocked in your browser.\n\nTo enable:\n1. Tap the Lock (🔒) or Tune icon in your browser URL address bar.\n2. Set "Notifications" to "Allow".\n3. Tap the bell icon again.')
     return false
   }
 
   try {
-    const permission = await Notification.requestPermission()
+    let permission = 'default'
+    if (typeof Notification !== 'undefined' && typeof Notification.requestPermission === 'function') {
+      permission = await Notification.requestPermission()
+    }
+
     if (permission === 'granted') {
       const now = Date.now()
       localStorage.setItem(ALERTS_ENABLED_KEY, 'true')
       localStorage.setItem(SUBSCRIBED_AT_KEY, String(now))
       
-      // Seed all existing currently-live deals into the notified list so NO existing deals fire
+      // Baseline all current active deals so they don't immediately trigger
       if (Array.isArray(currentProducts) && currentProducts.length > 0) {
         const existingLiveDealIds = currentProducts
           .filter((p) => p.is_flash_deal && p.flash_deal_ends_at)
@@ -61,13 +70,17 @@ export async function enableDealAlerts(currentProducts = []) {
         localStorage.setItem(NOTIFIED_DEALS_KEY, JSON.stringify([]))
       }
 
-      // Send a welcome confirmation test notification
-      sendLocalNotification({
+      // Send a welcome test notification
+      await sendLocalNotification({
         title: '⚡ Local Flash Deal Alerts Active!',
-        body: 'You will only receive notifications when shops launch NEW flash deals from now on.',
+        body: 'You will receive instant alerts when local shops launch 24-hr discounts.',
         tag: 'localfind-welcome-alert'
       })
       return true
+    } else if (permission === 'denied') {
+      localStorage.setItem(ALERTS_ENABLED_KEY, 'false')
+      alert('⚠️ Notifications were not allowed. You can enable them anytime from your browser site settings.')
+      return false
     } else {
       localStorage.setItem(ALERTS_ENABLED_KEY, 'false')
       return false
@@ -88,32 +101,58 @@ export function disableDealAlerts() {
 }
 
 /**
- * Send a browser push notification
+ * Send a browser push notification (with ServiceWorker & window.Notification support)
  */
-export function sendLocalNotification({ title, body, icon = '/logo.svg', tag, data = {} }) {
-  if (!isNotificationSupported() || Notification.permission !== 'granted') return null
+export async function sendLocalNotification({ title, body, icon = '/logo.svg', tag, data = {} }) {
+  if (!isNotificationSupported() || (typeof Notification !== 'undefined' && Notification.permission !== 'granted')) {
+    return null
+  }
 
   try {
-    const notification = new Notification(title, {
-      body,
-      icon,
-      badge: icon,
-      tag: tag || 'localfind-deal',
-      data,
-      renotify: true,
-      silent: false
-    })
-
-    notification.onclick = function (e) {
-      e.preventDefault()
-      window.focus()
-      if (data?.productId) {
-        window.dispatchEvent(new CustomEvent('openProductDetail', { detail: { productId: data.productId } }))
+    // 1. Try Service Worker showNotification (Mandatory for Android Chrome & mobile PWAs)
+    if ('serviceWorker' in navigator) {
+      try {
+        const registration = await navigator.serviceWorker.getRegistration()
+        if (registration && typeof registration.showNotification === 'function') {
+          return await registration.showNotification(title, {
+            body,
+            icon,
+            badge: icon,
+            tag: tag || 'localfind-deal',
+            data,
+            renotify: true,
+            silent: false
+          })
+        }
+      } catch (swErr) {
+        console.warn('ServiceWorker showNotification attempt:', swErr)
       }
-      notification.close()
     }
 
-    return notification
+    // 2. Fallback to desktop window.Notification constructor
+    if (typeof Notification !== 'undefined') {
+      const notification = new Notification(title, {
+        body,
+        icon,
+        badge: icon,
+        tag: tag || 'localfind-deal',
+        data,
+        renotify: true,
+        silent: false
+      })
+
+      notification.onclick = function (e) {
+        e.preventDefault()
+        window.focus()
+        if (data?.productId) {
+          window.dispatchEvent(new CustomEvent('openProductDetail', { detail: { productId: data.productId } }))
+        }
+        notification.close()
+      }
+
+      return notification
+    }
+    return null
   } catch (err) {
     console.warn('Failed to dispatch notification:', err)
     return null
@@ -130,7 +169,6 @@ export function checkAndNotifyNewDeals(products = [], userCoords = null) {
 
   try {
     const now = Date.now()
-    const subscribedAt = Number(localStorage.getItem(SUBSCRIBED_AT_KEY) || now)
     const notifiedIds = JSON.parse(localStorage.getItem(NOTIFIED_DEALS_KEY) || '[]')
     const notifiedSet = new Set(notifiedIds)
 
@@ -169,4 +207,3 @@ export function checkAndNotifyNewDeals(products = [], userCoords = null) {
     console.warn('Error checking deal notifications:', err)
   }
 }
-
