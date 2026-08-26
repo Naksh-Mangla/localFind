@@ -146,28 +146,29 @@ export default function App() {
 
     if (pos) {
       const { latitude: lat, longitude: lng, accuracy } = pos.coords
-      console.log(`📍 GPS locked: ${lat}, ${lng} (±${Math.round(accuracy)}m), mode: ${mode}`)
+      console.log(`📍 Location retrieved: ${lat}, ${lng} (±${Math.round(accuracy)}m), mode: ${mode}`)
       
-      // If valid GPS coordinates are acquired (satellite lock or Wi-Fi geo under 3km), automatically switch to live GPS!
-      if (accuracy <= 3000 || mode === 'high') {
+      // True high-accuracy GPS (typically <= 1500m on mobile devices)
+      const isAccurateGPS = Number.isFinite(accuracy) && accuracy <= 1500
+
+      if (isAccurateGPS) {
         setUserCoords({ lat, lng, accuracy })
         setLocationStatus('success')
         fetchAddressName(lat, lng, '', true)
         setIsFirstTimeFallback(false)
         setShowLocationPicker(false)
-        console.log('✅ Automatically switched to real-time GPS location!')
+        console.log('✅ Locked high-accuracy live GPS location!')
       } else {
-        // Broad IP location (> 3000m)
+        // Approximate / IP location (> 1500m error, e.g. laptop 50km cell tower)
         if (hasSavedLocation) {
-          // Keep user's saved location
-          console.log('Using saved location instead of broad IP location')
+          console.log('Using previously saved accurate user location instead of broad IP location')
         } else {
-          // First time user with inaccurate GPS: Open manual location modal
-          console.warn('Inaccurate location on first visit, requesting manual location entry')
+          // First time user with broad IP location: Open manual location modal to get exact pincode/area
+          console.warn('Inaccurate/broad IP location (±' + Math.round(accuracy) + 'm). Prompting user for Pincode/Area.')
           setIsFirstTimeFallback(true)
           setShowLocationPicker(true)
           setLocationStatus('approx')
-          setUserLocationName('Location needed')
+          setUserLocationName('Enter your area')
         }
       }
     } else {
@@ -179,7 +180,7 @@ export default function App() {
         setIsFirstTimeFallback(true)
         setShowLocationPicker(true)
         setLocationStatus('error')
-        setUserLocationName('Location needed')
+        setUserLocationName('Enter your area')
       }
     }
   }, [getGPSPosition, fetchAddressName])
