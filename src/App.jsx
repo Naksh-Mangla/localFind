@@ -5,9 +5,26 @@ import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
 import { LocationPickerModal } from './components/LocationPickerModal'
 
-// Performance optimization: Lazy load heavy Seller Dashboard & Modals
-const MerchantDashboard = lazy(() => import('./components/MerchantDashboard').then(m => ({ default: m.MerchantDashboard })))
-const ProductDetailModal = lazy(() => import('./components/ProductDetailModal').then(m => ({ default: m.ProductDetailModal })))
+// Performance optimization: Robust lazy loader with automatic deployment chunk-stale retry
+const lazyWithRetry = (importFn) =>
+  lazy(async () => {
+    try {
+      return await importFn()
+    } catch (err) {
+      console.warn('Failed to load dynamic chunk (new deployment detected). Auto-reloading...', err)
+      const refreshed = sessionStorage.getItem('chunk_retry_refreshed')
+      if (!refreshed) {
+        sessionStorage.setItem('chunk_retry_refreshed', 'true')
+        window.location.reload()
+        return new Promise(() => {})
+      }
+      sessionStorage.removeItem('chunk_retry_refreshed')
+      throw err
+    }
+  })
+
+const MerchantDashboard = lazyWithRetry(() => import('./components/MerchantDashboard').then(m => ({ default: m.MerchantDashboard })))
+const ProductDetailModal = lazyWithRetry(() => import('./components/ProductDetailModal').then(m => ({ default: m.ProductDetailModal })))
 
 export default function App() {
   const { user, signInWithGoogle, signOut } = useAuth()

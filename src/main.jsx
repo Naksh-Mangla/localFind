@@ -4,6 +4,13 @@ import App from './App.jsx'
 import { ErrorBoundary } from './components/ErrorBoundary.jsx'
 import './index.css'
 
+// ⚡ Auto-recover from stale dynamic chunk imports on new deployments
+window.addEventListener('vite:preloadError', (event) => {
+  console.warn('Vite chunk preload error detected. Auto-refreshing to fetch latest version...', event)
+  event.preventDefault()
+  window.location.reload()
+})
+
 // Register Service Worker for offline PWA & Instant Edge Caching in production only
 if ('serviceWorker' in navigator) {
   if (import.meta.env.PROD) {
