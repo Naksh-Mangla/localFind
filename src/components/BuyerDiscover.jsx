@@ -688,21 +688,21 @@ export function BuyerDiscover({
           </div>
         </div>
 
-        {/* Quick Category Pills Bar - Apple Capsule Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-1.5 mt-1.5">
+        {/* Quick Category Pills Bar - Minimalist Apple/Linear Segmented Chips */}
+        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar py-2 mt-1">
           {CATEGORIES.map((cat) => {
             const isActive = selectedCategory === cat.label
             return (
               <button
                 key={`chip-${cat.label}`}
                 onClick={() => setSelectedCategory(cat.label)}
-                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
                   isActive
-                    ? 'bg-primary text-on-primary font-bold shadow-crisp-sm ring-2 ring-primary/20 scale-[1.02]'
-                    : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/50 shadow-crisp-xs'
+                    ? 'bg-primary text-on-primary font-bold shadow-crisp-xs'
+                    : 'bg-surface-container-high/60 hover:bg-surface-container-high text-on-surface border border-surface-variant/50'
                 }`}
               >
-                <span className="material-symbols-outlined text-[15px]">{cat.icon}</span>
+                <span className="material-symbols-outlined text-[15px] opacity-85">{cat.icon}</span>
                 <span>{cat.label}</span>
               </button>
             )
