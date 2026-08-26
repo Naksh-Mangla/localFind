@@ -39,16 +39,27 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET' || !url.protocol.startsWith('http')) return
 
   // Cache-first for static fonts and SVG icons
-  if (url.origin.includes('fonts.googleapis.com') || url.origin.includes('fonts.gstatic.com') || url.pathname.endsWith('.svg') || url.pathname.endsWith('.png')) {
+  if (
+    url.origin.includes('fonts.googleapis.com') ||
+    url.origin.includes('fonts.gstatic.com') ||
+    url.pathname.endsWith('.svg') ||
+    url.pathname.endsWith('.png') ||
+    url.pathname.endsWith('.webp')
+  ) {
     event.respondWith(
       caches.match(event.request).then((cached) => {
-        return cached || fetch(event.request).then((response) => {
-          if (response.status === 200) {
-            const clone = response.clone()
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone))
-          }
-          return response
-        }).catch(() => cached)
+        if (cached) return cached
+        return fetch(event.request)
+          .then((response) => {
+            if (response && response.status === 200) {
+              const clone = response.clone()
+              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone))
+            }
+            return response
+          })
+          .catch(() => {
+            return cached || new Response('', { status: 404, statusText: 'Not Found' })
+          })
       })
     )
     return
@@ -58,12 +69,16 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response.status === 200) {
+        if (response && response.status === 200) {
           const clone = response.clone()
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone))
         }
         return response
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => {
+        const cached = await caches.match(event.request)
+        if (cached) return cached
+        return new Response(null, { status: 503, statusText: 'Offline' })
+      })
   )
 })
