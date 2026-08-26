@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" fill="none">
+  <!-- Outer Pin Shape (Pure White on Transparent) -->
+  <path d="M48 8C31.5 8 18 21.5 18 38C18 60 42.5 84 46.4 87.5C47.3 88.3 48.7 88.3 49.6 87.5C53.5 84 78 60 78 38C78 21.5 64.5 8 48 8Z" fill="#FFFFFF"/>
+  <!-- Shopping Bag Cutout Silhouette (Transparent Knockout) -->
+  <mask id="bagMask">
+    <rect width="96" height="96" fill="#FFFFFF"/>
+    <!-- Knock out handle -->
+    <path d="M40 31C40 26.6 43.6 23 48 23C52.4 23 56 26.6 56 31V37H52V31C52 28.8 50.2 27 48 27C45.8 27 44 28.8 44 31V37H40V31Z" fill="#000000"/>
+    <!-- Knock out body -->
+    <rect x="34" y="36" width="28" height="20" rx="4" fill="#000000"/>
+  </mask>
+  <path d="M48 8C31.5 8 18 21.5 18 38C18 60 42.5 84 46.4 87.5C47.3 88.3 48.7 88.3 49.6 87.5C53.5 84 78 60 78 38C78 21.5 64.5 8 48 8Z" fill="#FFFFFF" mask="url(#bagMask)"/>
+  <circle cx="48" cy="46" r="3.5" fill="#FFFFFF"/>
+</svg>
