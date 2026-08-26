@@ -150,6 +150,28 @@ export function MerchantDashboard({
     }
   }, [shop, user, lat, lng])
 
+  // 🎯 1-Tap Live GPS Capture for Shopkeepers
+  const handleCaptureLiveGPS = async () => {
+    if (!navigator.geolocation) {
+      showToast('GPS is not supported on this browser.', 'error', 'GPS Error')
+      return
+    }
+    showToast('Locking high-accuracy satellite GPS coordinates...', 'info', 'Detecting GPS')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const freshLat = Number(pos.coords.latitude.toFixed(6))
+        const freshLng = Number(pos.coords.longitude.toFixed(6))
+        setLat(freshLat)
+        setLng(freshLng)
+        showToast(`✅ Store GPS updated to your exact spot!\n${freshLat}, ${freshLng} (±${Math.round(pos.coords.accuracy)}m)`, 'success', 'GPS Updated')
+      },
+      (err) => {
+        showToast(`Could not access GPS: ${err.message}. Please allow location permission in browser.`, 'error', 'GPS Denied')
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    )
+  }
+
   // Handle Shop Creation — strictly validates mandatory fields & acquires FRESH GPS from device
   const handleCreateShop = async (e) => {
     e.preventDefault()
@@ -210,8 +232,8 @@ export function MerchantDashboard({
       })
 
     try {
-      let finalLat = shop?.lat || userCoords?.lat || lat
-      let finalLng = shop?.lng || userCoords?.lng || lng
+      let finalLat = lat || shop?.lat || userCoords?.lat
+      let finalLng = lng || shop?.lng || userCoords?.lng
 
       // If initial shop setup, attempt fresh GPS lock from device hardware
       if (!shop && (!finalLat || !finalLng || (finalLat === 28.6139 && finalLng === 77.209))) {
@@ -886,13 +908,25 @@ export function MerchantDashboard({
               </div>
             </div>
 
-            {/* 5. Verified Automatic GPS Notice (Manual Coordinate inputs removed for precision security) */}
-            <div className="bg-emerald-500/10 p-3.5 rounded-xl border border-emerald-500/30 flex items-center gap-3">
-              <span className="material-symbols-outlined text-emerald-500 text-xl flex-shrink-0">verified</span>
-              <p className="text-[11px] text-on-surface-variant leading-relaxed">
-                <strong className="text-on-surface block font-bold mb-0.5">Automated High-Precision GPS Lock</strong>
-                Store GPS coordinates are captured automatically from your phone hardware on submit for 100% location accuracy.
-              </p>
+            {/* 5. Live GPS Coordinates & Sync Button */}
+            <div className="bg-primary/10 p-3.5 rounded-2xl border border-primary/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 my-1">
+              <div className="flex items-center gap-2.5">
+                <span className="material-symbols-outlined text-primary text-2xl">my_location</span>
+                <div>
+                  <strong className="text-xs font-bold text-on-surface block">Store GPS Coordinates</strong>
+                  <span className="text-[11px] text-on-surface-variant font-mono font-semibold">
+                    {lat && lng ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Detecting GPS...'}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleCaptureLiveGPS}
+                className="bg-primary hover:bg-primary/90 text-on-primary px-4 py-2 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center"
+              >
+                <span className="material-symbols-outlined text-sm">near_me</span>
+                <span>Set to My Live Spot</span>
+              </button>
             </div>
 
             <button
@@ -1534,6 +1568,27 @@ export function MerchantDashboard({
                       className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
                     />
                   </div>
+                </div>
+
+                {/* 5. Live GPS Coordinates & Sync Button */}
+                <div className="bg-primary/10 p-3.5 rounded-2xl border border-primary/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 my-1">
+                  <div className="flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-primary text-2xl">my_location</span>
+                    <div>
+                      <strong className="text-xs font-bold text-on-surface block">Store GPS Coordinates</strong>
+                      <span className="text-[11px] text-on-surface-variant font-mono font-semibold">
+                        {lat && lng ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Detecting GPS...'}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCaptureLiveGPS}
+                    className="bg-primary hover:bg-primary/90 text-on-primary px-4 py-2 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center"
+                  >
+                    <span className="material-symbols-outlined text-sm">near_me</span>
+                    <span>Sync to Live Spot</span>
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-3 mt-auto pt-4">

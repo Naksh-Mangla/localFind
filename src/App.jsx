@@ -286,6 +286,7 @@ export default function App() {
             <BuyerDiscover
               products={products}
               userCoords={userCoords}
+              currentUser={user}
               onSelectProduct={(p) => setSelectedProduct(p)}
               loading={initialLoading && products.length === 0}
               onRefreshProducts={() => fetchProducts(true)}

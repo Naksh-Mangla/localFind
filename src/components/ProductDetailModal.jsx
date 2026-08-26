@@ -80,7 +80,12 @@ export function ProductDetailModal({ product, onClose }) {
           </button>
           
           <div className="flex items-center gap-2 pointer-events-auto">
-            {product.distanceKm !== null && product.distanceKm !== undefined && (
+            {product.isOwner ? (
+              <div className="bg-primary text-on-primary px-3.5 py-1.5 rounded-full text-xs font-bold shadow-crisp-sm flex items-center gap-1">
+                <span className="material-symbols-outlined text-sm">storefront</span>
+                <span>Your Shop (0m)</span>
+              </div>
+            ) : product.distanceKm !== null && product.distanceKm !== undefined && (
               <div className="bg-secondary text-on-secondary px-3.5 py-1.5 rounded-full text-xs font-bold shadow-crisp-sm flex items-center gap-1">
                 <span className="material-symbols-outlined text-sm">directions_walk</span>
                 <span>{formatDistance(product.distanceKm)}</span>

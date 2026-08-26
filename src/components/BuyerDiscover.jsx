@@ -104,23 +104,31 @@ const ProductCard = React.memo(function ProductCard({
               <span className={itemRAG.textClass}>{itemRAG.label}</span>
             </span>
           )}
+          {product.isOwner ? (
+            <span
+              className="apple-frosted px-2.5 py-1 rounded-full text-[9px] font-bold shadow-crisp-xs border border-primary/40 bg-primary/15 text-primary flex items-center gap-0.5"
+            >
+              <span className="material-symbols-outlined text-[12px] text-primary">
+                storefront
+              </span>
+              <span>Your Shop (0m)</span>
+            </span>
+          ) : product.distanceKm !== null && (
+            <span
+              className={`apple-frosted px-2.5 py-1 rounded-full text-[9px] font-bold shadow-crisp-xs border flex items-center gap-0.5 ${
+                isDistant
+                  ? 'bg-amber-600/90 text-white border-amber-600/60'
+                  : 'bg-surface/80 text-on-surface border-surface-variant/40'
+              }`}
+            >
+              <span className={`material-symbols-outlined text-[12px] ${isDistant ? '' : 'text-primary'}`}>
+                directions_walk
+              </span>
+              <span>{formatDistance(product.distanceKm)}</span>
+            </span>
+          )}
 
           <div className="flex items-center gap-1.5 ml-auto pointer-events-auto">
-            {product.distanceKm !== null && (
-              <span
-                className={`apple-frosted px-2.5 py-1 rounded-full text-[9px] font-bold shadow-crisp-xs border flex items-center gap-0.5 ${
-                  isDistant
-                    ? 'bg-amber-600/90 text-white border-amber-600/60'
-                    : 'bg-surface/80 text-on-surface border-surface-variant/40'
-                }`}
-              >
-                <span className={`material-symbols-outlined text-[12px] ${isDistant ? '' : 'text-primary'}`}>
-                  directions_walk
-                </span>
-                <span>{formatDistance(product.distanceKm)}</span>
-              </span>
-            )}
-
             {/* Apple Circular Action Chip */}
             <button
               onClick={(e) => onToggleWishlist(product.id, e)}
@@ -195,6 +203,7 @@ const ProductCard = React.memo(function ProductCard({
 export function BuyerDiscover({
   products = [],
   userCoords,
+  currentUser,
   onSelectProduct,
   loading,
   onRefreshProducts,
@@ -356,17 +365,23 @@ export function BuyerDiscover({
     const uLat = userCoords ? Number(userCoords.lat) : null
     const uLng = userCoords ? Number(userCoords.lng) : null
     const hasUserGPS = Number.isFinite(uLat) && Number.isFinite(uLng)
+    const currentUid = currentUser?.uid || currentUser?.sub
 
     return indexed.map((prod) => {
       let distanceKm = null
-      const pLat = Number(prod.lat)
-      const pLng = Number(prod.lng)
-      if (hasUserGPS && Number.isFinite(pLat) && Number.isFinite(pLng)) {
-        distanceKm = calculateDistanceKm(uLat, uLng, pLat, pLng)
+      const isOwner = Boolean(currentUid && (prod.owner_id === currentUid || prod.shop_owner_id === currentUid))
+      if (isOwner) {
+        distanceKm = 0 // Exactly 0 distance for merchant's own shop
+      } else {
+        const pLat = Number(prod.lat)
+        const pLng = Number(prod.lng)
+        if (hasUserGPS && Number.isFinite(pLat) && Number.isFinite(pLng)) {
+          distanceKm = calculateDistanceKm(uLat, uLng, pLat, pLng)
+        }
       }
-      return { ...prod, distanceKm }
+      return { ...prod, distanceKm, isOwner }
     })
-  }, [products, userCoords])
+  }, [products, userCoords, currentUser])
 
   // 2. High-Performance Query Filter with LRU Caching
   const filteredProducts = useMemo(() => {
