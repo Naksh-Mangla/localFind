@@ -56,6 +56,19 @@ export function MerchantDashboard({
   const [savingProduct, setSavingProduct] = useState(false)
   const [uploadProgress, setUploadProgress] = useState('')
 
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setShowAddProductModal(false)
+        setShowEditShopModal(false)
+        setDeleteTargetId(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   // Load shop data for logged-in merchant
   const fetchMerchantShop = useCallback(async () => {
     if (!user) {
@@ -130,7 +143,7 @@ export function MerchantDashboard({
             setLat(Number(pos.coords.latitude.toFixed(6)))
             setLng(Number(pos.coords.longitude.toFixed(6)))
           },
-          () => {},
+          () => { },
           { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         )
       }
@@ -177,7 +190,6 @@ export function MerchantDashboard({
     }
 
     setCreatingShop(true)
-    showToast('Locking high-accuracy GPS position automatically...', 'info', 'GPS Lock')
 
     // Helper: acquire fresh satellite GPS lock from device hardware
     const getFreshGPS = () =>
@@ -193,15 +205,23 @@ export function MerchantDashboard({
             accuracy: pos.coords.accuracy
           }),
           () => resolve(null),
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         )
       })
 
     try {
-      // Get fresh GPS coordinates or fallback to existing shop coords or live userCoords
-      const gps = await getFreshGPS()
-      const finalLat = gps?.lat ?? (shop?.lat || userCoords?.lat)
-      const finalLng = gps?.lng ?? (shop?.lng || userCoords?.lng)
+      let finalLat = shop?.lat || userCoords?.lat || lat
+      let finalLng = shop?.lng || userCoords?.lng || lng
+
+      // If initial shop setup, lock fresh GPS
+      if (!shop && (!finalLat || !finalLng || (finalLat === 28.6139 && finalLng === 77.209))) {
+        showToast('Locking high-accuracy GPS position automatically...', 'info', 'GPS Lock')
+        const gps = await getFreshGPS()
+        if (gps?.lat && gps?.lng) {
+          finalLat = gps.lat
+          finalLng = gps.lng
+        }
+      }
 
       if (!finalLat || !finalLng || (finalLat === 28.6139 && finalLng === 77.209 && !shop?.lat)) {
         showToast('Location permission is required to lock store coordinates! Please allow GPS access on your phone.', 'error', 'GPS Required')
@@ -318,7 +338,7 @@ export function MerchantDashboard({
         const parsed = new URL(cleaned)
         const directImgUrl = parsed.searchParams.get('imgurl')
         if (directImgUrl) return decodeURIComponent(directImgUrl)
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // 2. Handle Google Search result links (e.g. google.com/url?url=... or google.com/url?q=...)
@@ -327,7 +347,7 @@ export function MerchantDashboard({
         const parsed = new URL(cleaned)
         const targetUrl = parsed.searchParams.get('url') || parsed.searchParams.get('q')
         if (targetUrl) return decodeURIComponent(targetUrl)
-      } catch (_) {}
+      } catch (_) { }
     }
 
     // 3. Handle Google Drive view links (drive.google.com/file/d/XYZ/view)
@@ -870,7 +890,7 @@ export function MerchantDashboard({
 
   // Screen 3: Authenticated Merchant with Active Shop Dashboard
   return (
-    <main className="pt-20 md:pt-24 px-container-margin max-w-6xl mx-auto pb-24">
+    <main className="pt-4 md:pt-6 px-container-margin max-w-6xl mx-auto pb-24">
       {/* Merchant Header Bar - Clean Structured Card */}
       <div className="bg-surface-container-lowest p-5 sm:p-6 rounded-3xl border border-surface-variant/70 shadow-sm mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
@@ -971,6 +991,12 @@ export function MerchantDashboard({
                   <img
                     src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'}
                     alt={product.name}
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      e.target.onerror = null
+                      e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'
+                    }}
                     className="w-full h-full object-cover"
                   />
                   {flashInfo.isLive && (
@@ -1036,8 +1062,14 @@ export function MerchantDashboard({
 
       {/* Add / Edit Product Modal */}
       {showAddProductModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto">
-          <div className="bg-surface rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[92vh] overflow-y-auto my-auto animate-fadeIn">
+        <div
+          onClick={() => setShowAddProductModal(false)}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-surface rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[92vh] overflow-y-auto my-auto animate-fadeIn"
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-headline-lg text-xl font-bold text-on-surface">
                 {editingProduct ? 'Edit Product' : 'Add New Product'}
@@ -1050,235 +1082,248 @@ export function MerchantDashboard({
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="flex flex-col gap-4">
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">Product Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={productName}
-                  onChange={(e) => setProductName(e.target.value)}
-                  placeholder="e.g. Handmade Leather Wallet"
-                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
+            <form onSubmit={handleSaveProduct} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Basic Info & Photo */}
+              <div className="flex flex-col gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">Price (₹) *</label>
+                  <label className="block text-xs font-bold text-on-surface mb-1">Product Name *</label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
                     required
-                    value={productPrice}
-                    onChange={(e) => setProductPrice(e.target.value)}
-                    placeholder="299"
+                    value={productName}
+                    onChange={(e) => setProductName(e.target.value)}
+                    placeholder="e.g. Handmade Leather Wallet"
                     className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
                   />
                 </div>
-                <div>
-                  <CustomSelect
-                    label="Category *"
-                    value={productCategory}
-                    onChange={(val) => setProductCategory(val)}
-                    options={[
-                      { label: 'General', value: 'General' },
-                      { label: 'Handmade', value: 'Handmade' },
-                      { label: 'Groceries', value: 'Groceries' },
-                      { label: 'Fashion', value: 'Fashion' },
-                      { label: 'Electronics', value: 'Electronics' },
-                      { label: 'Sale', value: 'Sale' }
-                    ]}
-                  />
-                </div>
-              </div>
 
-              {/* Product Photo: Direct Phone Gallery/Camera Upload + URL Fallback */}
-              <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
-                <span className="text-xs font-bold text-on-surface">Product Photo (Direct Upload or Link)</span>
-                <p className="text-[11px] text-on-surface-variant">
-                  Choose a photo directly from your phone gallery/camera, OR paste an image link from Google!
-                </p>
-
-                {/* Option A: Direct File Upload */}
-                <div>
-                  <label className="block text-[11px] font-bold text-on-surface mb-1">📷 Upload Photo from Phone</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={async (e) => {
-                      const file = e.target.files?.[0]
-                      if (file) {
-                        try {
-                          showToast('Compressing photo instantly...', 'info', 'Image Compression')
-                          const compressedBase64 = await compressImageToBase64(file)
-                          setImageFile(file)
-                          setProductImageUrl(compressedBase64)
-                          const origKB = Math.round(file.size / 1024)
-                          const newKB = Math.round((compressedBase64.length * 0.75) / 1024)
-                          showToast(`Photo compressed by ${Math.round((1 - newKB / origKB) * 100)}% (${origKB} KB ➔ ${newKB} KB)!`, 'success', 'Photo Compressed')
-                        } catch (err) {
-                          setImageFile(file)
-                          setProductImageUrl(URL.createObjectURL(file))
-                        }
-                      }
-                    }}
-                    className="w-full text-xs text-on-surface-variant file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 my-1">
-                  <div className="h-px bg-surface-variant flex-1"></div>
-                  <span className="text-[10px] text-on-surface-variant uppercase font-bold">OR PASTE LINK</span>
-                  <div className="h-px bg-surface-variant flex-1"></div>
-                </div>
-
-                {/* Option B: Image URL */}
-                <div>
-                  <input
-                    type="url"
-                    value={imageFile ? '' : productImageUrl}
-                    onChange={(e) => {
-                      setImageFile(null)
-                      setProductImageUrl(e.target.value)
-                    }}
-                    onBlur={(e) => {
-                      if (!imageFile) {
-                        const cleaned = cleanGoogleImageUrl(e.target.value)
-                        if (cleaned !== e.target.value) {
-                          setProductImageUrl(cleaned)
-                          showToast('Extracted direct image URL from Google link!', 'info', 'URL Cleaned')
-                        }
-                      }
-                    }}
-                    placeholder="https://images.unsplash.com/... or Google Image Link"
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-2.5 text-xs"
-                  />
-                </div>
-
-                {/* Live Image Preview */}
-                {productImageUrl && (
-                  <div className="flex items-center gap-3 bg-surface p-2 rounded-lg border border-surface-variant/40">
-                    <img
-                      src={imageFile ? productImageUrl : cleanGoogleImageUrl(productImageUrl)}
-                      alt="Preview"
-                      className="w-16 h-16 object-cover rounded-md bg-surface-variant flex-shrink-0"
-                      onError={(e) => {
-                        e.target.onerror = null
-                        e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&auto=format&fit=crop&q=80'
-                      }}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">Price (₹) *</label>
+                    <input
+                      type="number"
+                      step="any"
+                      required
+                      value={productPrice}
+                      onChange={(e) => setProductPrice(e.target.value)}
+                      placeholder="299"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
                     />
-                    <div className="text-[11px] text-on-surface-variant overflow-hidden flex-1">
-                      <span className="font-bold text-on-surface flex items-center justify-between gap-1 mb-0.5">
-                        <span>{imageFile ? 'Compressed Photo Preview' : 'Image Link Preview'}</span>
-                        {imageFile && (
-                          <span className="text-[9px] bg-emerald-500/15 text-emerald-600 font-bold px-1.5 py-0.2 rounded border border-emerald-500/30">
-                            ~{Math.round((productImageUrl.length * 0.75) / 1024)} KB
-                          </span>
-                        )}
-                      </span>
-                      <span className="truncate block opacity-75">
-                        {imageFile ? `${imageFile.name} (Original: ${Math.round(imageFile.size / 1024)} KB)` : cleanGoogleImageUrl(productImageUrl)}
-                      </span>
-                    </div>
                   </div>
-                )}
-              </div>
-
-              {/* ⚡ 24-Hour Flash Deal / "Aaj Ka Offer" Settings Box */}
-              <div className={`p-4 rounded-2xl border transition-all ${
-                isFlashDeal
-                  ? 'bg-amber-500/10 border-amber-500/40 shadow-xs'
-                  : 'bg-surface-container-high/50 border-surface-variant/60'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xl">⚡</span>
-                    <div>
-                      <h4 className="text-xs font-bold text-on-surface flex items-center gap-1.5">
-                        <span>Aaj Ka Offer / Flash Deal</span>
-                        <span className="text-[9px] bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/30">
-                          BOOST SALES
-                        </span>
-                      </h4>
-                      <p className="text-[11px] text-on-surface-variant">
-                        Feature this item with a countdown timer & discount banner!
-                      </p>
-                    </div>
+                  <div>
+                    <CustomSelect
+                      label="Category *"
+                      value={productCategory}
+                      onChange={(val) => setProductCategory(val)}
+                      options={[
+                        { label: 'General', value: 'General' },
+                        { label: 'Handmade', value: 'Handmade' },
+                        { label: 'Groceries', value: 'Groceries' },
+                        { label: 'Fashion', value: 'Fashion' },
+                        { label: 'Electronics', value: 'Electronics' },
+                        { label: 'Sale', value: 'Sale' }
+                      ]}
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    id="flashDealToggle"
-                    checked={isFlashDeal}
-                    onChange={(e) => setIsFlashDeal(e.target.checked)}
-                    className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
-                  />
                 </div>
 
-                {isFlashDeal && (
-                  <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fadeIn">
-                    <div>
-                      <label className="block text-[11px] font-bold text-on-surface mb-1">
-                        Discount Percentage (%)
-                      </label>
-                      <div className="relative">
-                        <input
-                          type="number"
-                          min="5"
-                          max="90"
-                          value={flashDiscount}
-                          onChange={(e) => setFlashDiscount(e.target.value)}
-                          className="w-full bg-surface border border-surface-variant rounded-xl p-2.5 pl-3 pr-8 text-xs font-bold text-primary"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
-                          %
+                {/* Product Photo: Direct Phone Gallery/Camera Upload + URL Fallback */}
+                <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
+                  <span className="text-xs font-bold text-on-surface">Product Photo (Direct Upload or Link)</span>
+                  <p className="text-[11px] text-on-surface-variant">
+                    Choose a photo directly from your phone gallery/camera, OR paste an image link from Google!
+                  </p>
+
+                  {/* Option A: Direct File Upload */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-on-surface mb-1">📷 Upload Photo from Phone</label>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        if (file) {
+                          try {
+                            showToast('Compressing photo instantly...', 'info', 'Image Compression')
+                            const compressedBase64 = await compressImageToBase64(file)
+                            setImageFile(file)
+                            setProductImageUrl(compressedBase64)
+                            const origKB = Math.round(file.size / 1024)
+                            const newKB = Math.round((compressedBase64.length * 0.75) / 1024)
+                            showToast(`Photo compressed by ${Math.round((1 - newKB / origKB) * 100)}% (${origKB} KB ➔ ${newKB} KB)!`, 'success', 'Photo Compressed')
+                          } catch (err) {
+                            setImageFile(file)
+                            setProductImageUrl(URL.createObjectURL(file))
+                          }
+                        }
+                      }}
+                      className="w-full text-xs text-on-surface-variant file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 my-1">
+                    <div className="h-px bg-surface-variant flex-1"></div>
+                    <span className="text-[10px] text-on-surface-variant uppercase font-bold">OR PASTE LINK</span>
+                    <div className="h-px bg-surface-variant flex-1"></div>
+                  </div>
+
+                  {/* Option B: Image URL */}
+                  <div>
+                    <input
+                      type="url"
+                      value={imageFile ? '' : productImageUrl}
+                      onChange={(e) => {
+                        setImageFile(null)
+                        setProductImageUrl(e.target.value)
+                      }}
+                      onBlur={(e) => {
+                        if (!imageFile) {
+                          const cleaned = cleanGoogleImageUrl(e.target.value)
+                          if (cleaned !== e.target.value) {
+                            setProductImageUrl(cleaned)
+                            showToast('Extracted direct image URL from Google link!', 'info', 'URL Cleaned')
+                          }
+                        }
+                      }}
+                      placeholder="https://images.unsplash.com/... or Google Image Link"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-2.5 text-xs"
+                    />
+                  </div>
+
+                  {/* Live Image Preview */}
+                  {productImageUrl && (
+                    <div className="flex items-center gap-3 bg-surface p-2 rounded-lg border border-surface-variant/40">
+                      <img
+                        src={imageFile ? productImageUrl : cleanGoogleImageUrl(productImageUrl)}
+                        alt="Preview"
+                        className="w-16 h-16 object-cover rounded-md bg-surface-variant flex-shrink-0"
+                        onError={(e) => {
+                          e.target.onerror = null
+                          e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&auto=format&fit=crop&q=80'
+                        }}
+                      />
+                      <div className="text-[11px] text-on-surface-variant overflow-hidden flex-1">
+                        <span className="font-bold text-on-surface flex items-center justify-between gap-1 mb-0.5">
+                          <span>{imageFile ? 'Compressed Photo Preview' : 'Image Link Preview'}</span>
+                          {imageFile && (
+                            <span className="text-[9px] bg-emerald-500/15 text-emerald-600 font-bold px-1.5 py-0.2 rounded border border-emerald-500/30">
+                              ~{Math.round((productImageUrl.length * 0.75) / 1024)} KB
+                            </span>
+                          )}
+                        </span>
+                        <span className="truncate block opacity-75">
+                          {imageFile ? `${imageFile.name} (Original: ${Math.round(imageFile.size / 1024)} KB)` : cleanGoogleImageUrl(productImageUrl)}
                         </span>
                       </div>
-                      {productPrice && (
-                        <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
-                          Offer Price: ₹{Math.round(parseFloat(productPrice || 0) * (1 - (Number(flashDiscount) || 0) / 100))}
-                        </span>
-                      )}
                     </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-on-surface mb-1">
-                        Deal Duration (Hours)
-                      </label>
-                      <select
-                        value={flashDurationHours}
-                        onChange={(e) => setFlashDurationHours(Number(e.target.value))}
-                        className="w-full bg-surface border border-surface-variant rounded-xl p-2.5 text-xs font-semibold text-on-surface"
-                      >
-                        <option value="3">3 Hours (Urgent)</option>
-                        <option value="6">6 Hours (Half Day)</option>
-                        <option value="12">12 Hours (Full Day)</option>
-                        <option value="24">24 Hours (Aaj Ka Offer)</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={savingProduct}
-                className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md mt-2 active:scale-95"
-              >
-                {savingProduct
-                  ? 'Saving Product...'
-                  : editingProduct
-                  ? 'Update Product Details'
-                  : 'Publish Product to Live App'}
-              </button>
+              {/* Right Column: Flash Deal & Actions */}
+              <div className="flex flex-col gap-4 justify-between">
+                {/* ⚡ 24-Hour Flash Deal / "Aaj Ka Offer" Settings Box */}
+                <div className={`p-4 rounded-2xl border transition-all ${isFlashDeal
+                    ? 'bg-amber-500/10 border-amber-500/40 shadow-xs'
+                    : 'bg-surface-container-high/50 border-surface-variant/60'
+                  }`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xl">⚡</span>
+                      <div>
+                        <h4 className="text-xs font-bold text-on-surface flex items-center gap-1.5">
+                          <span>Aaj Ka Offer / Flash Deal</span>
+                          <span className="text-[9px] bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded border border-amber-500/30">
+                            BOOST SALES
+                          </span>
+                        </h4>
+                        <p className="text-[11px] text-on-surface-variant">
+                          Feature this item with a countdown timer & discount banner!
+                        </p>
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      id="flashDealToggle"
+                      checked={isFlashDeal}
+                      onChange={(e) => setIsFlashDeal(e.target.checked)}
+                      className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                    />
+                  </div>
+
+                  {isFlashDeal && (
+                    <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fadeIn">
+                      <div>
+                        <label className="block text-[11px] font-bold text-on-surface mb-1">
+                          Discount Percentage (%)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            min="5"
+                            max="90"
+                            value={flashDiscount}
+                            onChange={(e) => setFlashDiscount(e.target.value)}
+                            className="w-full bg-surface border border-surface-variant rounded-xl p-2.5 pl-3 pr-8 text-xs font-bold text-primary"
+                          />
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                            %
+                          </span>
+                        </div>
+                        {productPrice && (
+                          <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
+                            Offer Price: ₹{Math.round(parseFloat(productPrice || 0) * (1 - (Number(flashDiscount) || 0) / 100))}
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-on-surface mb-1">
+                          Deal Duration (Hours)
+                        </label>
+                        <select
+                          value={flashDurationHours}
+                          onChange={(e) => setFlashDurationHours(Number(e.target.value))}
+                          className="w-full bg-surface border border-surface-variant rounded-xl p-2.5 text-xs font-semibold text-on-surface"
+                        >
+                          <option value="3">3 Hours (Urgent)</option>
+                          <option value="6">6 Hours (Half Day)</option>
+                          <option value="12">12 Hours (Full Day)</option>
+                          <option value="24">24 Hours (Aaj Ka Offer)</option>
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-auto pt-4">
+                  <button
+                    type="submit"
+                    disabled={savingProduct}
+                    className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md active:scale-95"
+                  >
+                    {savingProduct
+                      ? 'Saving Product...'
+                      : editingProduct
+                        ? 'Update Product Details'
+                        : 'Publish Product to Live App'}
+                  </button>
+                </div>
+              </div>
             </form>
           </div>
         </div>
       )}
       {/* Edit Shop Profile Modal */}
       {showEditShopModal && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[100] overflow-y-auto animate-fadeIn">
-          <div className="bg-surface-container-lowest p-5 sm:p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-xl w-full max-h-[92vh] overflow-y-auto my-auto">
+        <div
+          onClick={() => setShowEditShopModal(false)}
+          className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[100] overflow-y-auto animate-fadeIn"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-surface-container-lowest p-5 sm:p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto my-auto"
+          >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-headline-lg text-xl font-bold text-on-surface">Edit Shop Profile</h3>
@@ -1292,172 +1337,178 @@ export function MerchantDashboard({
               </button>
             </div>
 
-            <form onSubmit={handleCreateShop} className="flex flex-col gap-4">
-              {/* 1. Shop Name Field (Min 4 chars) & Owner Name */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <form onSubmit={handleCreateShop} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Basic Details & Timings */}
+              <div className="flex flex-col gap-4">
+                {/* 1. Shop Name Field (Min 4 chars) & Owner Name */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">
+                      Shop Name * <span className="text-[10px] text-on-surface-variant font-normal">(Min 4 chars)</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      minLength={4}
+                      value={shopName}
+                      onChange={(e) => setShopName(e.target.value)}
+                      placeholder="e.g. Earth & Fire Ceramics"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">
+                      Owner Full Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={ownerName}
+                      onChange={(e) => setOwnerName(e.target.value)}
+                      placeholder="e.g. Rajesh Kumar"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* Shop About / Description Field */}
                 <div>
                   <label className="block text-xs font-bold text-on-surface mb-1">
-                    Shop Name * <span className="text-[10px] text-on-surface-variant font-normal">(Min 4 chars)</span>
+                    About Shop / Business Description (optional)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={shopDescription}
+                    onChange={(e) => setShopDescription(e.target.value)}
+                    placeholder="Tell local buyers what makes your shop special..."
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-xs focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                {/* Shop Timings (Opening & Closing Hours) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs text-primary">schedule</span>
+                      <span>Opening Time *</span>
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={openingTime}
+                      onChange={(e) => setOpeningTime(e.target.value)}
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1 flex items-center gap-1">
+                      <span className="material-symbols-outlined text-xs text-primary">schedule</span>
+                      <span>Closing Time *</span>
+                    </label>
+                    <input
+                      type="time"
+                      required
+                      value={closingTime}
+                      onChange={(e) => setClosingTime(e.target.value)}
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Contact & Location & Actions */}
+              <div className="flex flex-col gap-4 justify-between">
+                {/* 2. WhatsApp Number Field (Exactly 10 digits) */}
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    WhatsApp Phone Number * <span className="text-[10px] text-on-surface-variant font-normal">(Exactly 10 digits)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
+                      +91
+                    </span>
+                    <input
+                      type="tel"
+                      required
+                      maxLength={10}
+                      value={whatsappNumber}
+                      onChange={(e) => {
+                        const onlyNums = e.target.value.replace(/[^0-9]/g, '')
+                        if (onlyNums.length <= 10) setWhatsappNumber(onlyNums)
+                      }}
+                      placeholder="9876543210"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 pl-12 text-sm focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+
+                {/* 3. Separate Street Address Field (Mandatory) */}
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Street Address / Shop No. *
                   </label>
                   <input
                     type="text"
                     required
-                    minLength={4}
-                    value={shopName}
-                    onChange={(e) => setShopName(e.target.value)}
-                    placeholder="e.g. Earth & Fire Ceramics"
+                    value={streetAddress}
+                    onChange={(e) => setStreetAddress(e.target.value)}
+                    placeholder="e.g. Shop #4, Main Commercial Complex"
                     className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">
-                    Owner Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={ownerName}
-                    onChange={(e) => setOwnerName(e.target.value)}
-                    placeholder="e.g. Rajesh Kumar"
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
+                {/* 4. Separate Landmark & Pin Code Fields (Mandatory) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">
+                      Landmark *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={landmarkText}
+                      onChange={(e) => setLandmarkText(e.target.value)}
+                      placeholder="e.g. Opposite State Bank"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
 
-              {/* Shop About / Description Field */}
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  About Shop / Business Description (optional)
-                </label>
-                <textarea
-                  rows={2}
-                  value={shopDescription}
-                  onChange={(e) => setShopDescription(e.target.value)}
-                  placeholder="Tell local buyers what makes your shop special..."
-                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-xs focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              {/* Shop Timings (Opening & Closing Hours) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs text-primary">schedule</span>
-                    <span>Opening Time *</span>
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={openingTime}
-                    onChange={(e) => setOpeningTime(e.target.value)}
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs text-primary">schedule</span>
-                    <span>Closing Time *</span>
-                  </label>
-                  <input
-                    type="time"
-                    required
-                    value={closingTime}
-                    onChange={(e) => setClosingTime(e.target.value)}
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-
-              {/* 2. WhatsApp Number Field (Exactly 10 digits) */}
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  WhatsApp Phone Number * <span className="text-[10px] text-on-surface-variant font-normal">(Exactly 10 digits)</span>
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-on-surface-variant">
-                    +91
-                  </span>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={10}
-                    value={whatsappNumber}
-                    onChange={(e) => {
-                      const onlyNums = e.target.value.replace(/[^0-9]/g, '')
-                      if (onlyNums.length <= 10) setWhatsappNumber(onlyNums)
-                    }}
-                    placeholder="9876543210"
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 pl-12 text-sm focus:ring-1 focus:ring-primary"
-                  />
-                </div>
-              </div>
-
-              {/* 3. Separate Street Address Field (Mandatory) */}
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  Street Address / Shop No. *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={streetAddress}
-                  onChange={(e) => setStreetAddress(e.target.value)}
-                  placeholder="e.g. Shop #4, Main Commercial Complex"
-                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                />
-              </div>
-
-              {/* 4. Separate Landmark & Pin Code Fields (Mandatory) */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">
-                    Landmark *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={landmarkText}
-                    onChange={(e) => setLandmarkText(e.target.value)}
-                    placeholder="e.g. Opposite State Bank"
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                  />
+                  <div>
+                    <label className="block text-xs font-bold text-on-surface mb-1">
+                      Pin Code * <span className="text-[10px] text-on-surface-variant font-normal">(6 digits)</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      value={pincodeText}
+                      onChange={(e) => {
+                        const onlyNums = e.target.value.replace(/[^0-9]/g, '')
+                        if (onlyNums.length <= 6) setPincodeText(onlyNums)
+                      }}
+                      placeholder="110001"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-on-surface mb-1">
-                    Pin Code * <span className="text-[10px] text-on-surface-variant font-normal">(6 digits)</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    maxLength={6}
-                    value={pincodeText}
-                    onChange={(e) => {
-                      const onlyNums = e.target.value.replace(/[^0-9]/g, '')
-                      if (onlyNums.length <= 6) setPincodeText(onlyNums)
-                    }}
-                    placeholder="110001"
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                  />
+                <div className="flex items-center gap-3 mt-auto pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowEditShopModal(false)}
+                    className="w-1/3 bg-surface-container-high text-on-surface py-3 rounded-xl font-bold text-xs hover:bg-surface-variant"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creatingShop}
+                    className="w-2/3 bg-primary text-on-primary py-3 rounded-xl font-bold text-xs hover:bg-primary-container shadow-md flex items-center justify-center gap-2"
+                  >
+                    {creatingShop ? 'Saving Profile...' : 'Save Profile Changes'}
+                  </button>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3 mt-3">
-                <button
-                  type="button"
-                  onClick={() => setShowEditShopModal(false)}
-                  className="w-1/3 bg-surface-container-high text-on-surface py-3 rounded-xl font-bold text-xs hover:bg-surface-variant"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatingShop}
-                  className="w-2/3 bg-primary text-on-primary py-3 rounded-xl font-bold text-xs hover:bg-primary-container shadow-md flex items-center justify-center gap-2"
-                >
-                  {creatingShop ? 'Saving Profile...' : 'Save Profile Changes'}
-                </button>
               </div>
             </form>
           </div>

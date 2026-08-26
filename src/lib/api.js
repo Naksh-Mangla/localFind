@@ -19,7 +19,12 @@ export async function apiFetch(path, options = {}) {
     headers['Content-Type'] = 'application/json'
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
+  // Avoid stale browser cache on GET requests
+  const url = options.method && options.method !== 'GET' 
+    ? `${API_URL}${path}`
+    : `${API_URL}${path}${path.includes('?') ? '&' : '?'}_t=${Date.now()}`
+
+  const res = await fetch(url, {
     ...options,
     headers
   })

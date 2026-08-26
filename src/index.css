@@ -114,16 +114,86 @@
   animation: floatIcon 3.5s ease-in-out infinite;
 }
 
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+img {
+  image-rendering: -webkit-optimize-contrast;
+}
+
+/* Crisp high-DPI micro-shadows & borders */
+.shadow-crisp-xs {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+}
+
+.shadow-crisp-sm {
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-crisp-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.03);
+}
+
+.shadow-crisp-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -4px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.04);
+}
+
+.shadow-crisp-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
 /* Micro-interaction active feedback */
 .touch-press {
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease;
+  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease, box-shadow 0.15s ease;
 }
 .touch-press:active {
-  transform: scale(0.96);
-  filter: brightness(0.95);
+  transform: scale(0.97);
+  filter: brightness(0.97);
+}
+
+/* Refined crisp slim scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(156, 62, 32, 0.2);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(156, 62, 32, 0.45);
 }
 
 body {
   min-height: max(884px, 100dvh);
   scroll-behavior: smooth;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
 }
+
+/* 🚀 60+ FPS Low-End Mobile Virtual Containment */
+.product-card-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+  contain: layout style paint;
+}
+
+.flash-card-contain {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 120px;
+}
+
+/* Smooth GPU accelerated transitions without layout reflows */
+.gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
+}
+

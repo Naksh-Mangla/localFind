@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 
 export function ConfirmModal({
   isOpen,
@@ -10,13 +10,30 @@ export function ConfirmModal({
   onConfirm,
   onCancel
 }) {
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onCancel()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, onCancel])
+
   if (!isOpen) return null
 
   const isDanger = type === 'danger'
 
   return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 pt-20 pb-8 bg-inverse-surface/70 backdrop-blur-sm animate-fadeIn">
-      <div className="bg-surface rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-surface-variant flex flex-col gap-4 text-center">
+    <div 
+      onClick={onCancel}
+      className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="bg-surface rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-surface-variant flex flex-col gap-4 text-center"
+      >
         <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-500 mx-auto flex items-center justify-center">
           <span className="material-symbols-outlined text-2xl">
             {isDanger ? 'warning' : 'help_outline'}

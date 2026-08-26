@@ -10,8 +10,17 @@ export function CustomSelect({ options = [], value, onChange, label }) {
         setIsOpen(false)
       }
     }
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
     document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [])
 
   const selectedOption = options.find((opt) => opt.value === value) || options[0]

@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import { apiFetch } from './lib/api'
 import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
+import { LocationPickerModal } from './components/LocationPickerModal'
 
 // Performance optimization: Lazy load heavy Seller Dashboard & Modals
 const MerchantDashboard = lazy(() => import('./components/MerchantDashboard').then(m => ({ default: m.MerchantDashboard })))
@@ -10,21 +11,44 @@ const ProductDetailModal = lazy(() => import('./components/ProductDetailModal').
 
 export default function App() {
   const { user, signInWithGoogle, signOut } = useAuth()
-  // Remember active view preference in localStorage so sellers return directly to their dashboard when opening the app
-  const [activeView, setActiveView] = useState(() => {
-    return localStorage.getItem('localfind_active_view') || 'discover'
-  })
+  // Default to buyer product discover screen
+  const [activeView, setActiveView] = useState('discover')
   const [selectedProduct, setSelectedProduct] = useState(null)
+  const [showLocationPicker, setShowLocationPicker] = useState(false)
+  const [isFirstTimeFallback, setIsFirstTimeFallback] = useState(false)
 
-  // Save active view tab to localStorage when changed
-  useEffect(() => {
-    localStorage.setItem('localfind_active_view', activeView)
-  }, [activeView])
+  // Geolocation state — initialize with saved accurate location if present
+  const [userCoords, setUserCoords] = useState(() => {
+    try {
+      const saved = localStorage.getItem('localfind_saved_location')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.lat && parsed.lng) {
+          return { lat: parsed.lat, lng: parsed.lng, accuracy: 10 }
+        }
+      }
+    } catch {}
+    return null
+  })
 
-  // Geolocation state
-  const [userCoords, setUserCoords] = useState(null)
-  const [userLocationName, setUserLocationName] = useState('Detecting Location...')
-  const [locationStatus, setLocationStatus] = useState('loading') // 'success' | 'approx' | 'error' | 'loading'
+  const [userLocationName, setUserLocationName] = useState(() => {
+    try {
+      const saved = localStorage.getItem('localfind_saved_location')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.locationName) return parsed.locationName
+      }
+    } catch {}
+    return 'Detecting Location...'
+  })
+
+  const [locationStatus, setLocationStatus] = useState(() => {
+    try {
+      const saved = localStorage.getItem('localfind_saved_location')
+      if (saved) return 'success'
+    } catch {}
+    return 'loading'
+  })
 
   // Products state & sync tracking
   const [products, setProducts] = useState([])
@@ -32,7 +56,7 @@ export default function App() {
   const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now())
 
   // Reverse geocode coordinates to human-readable street/neighborhood name
-  const fetchAddressName = useCallback(async (lat, lng, statusPrefix = '') => {
+  const fetchAddressName = useCallback(async (lat, lng, statusPrefix = '', shouldSave = false) => {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
@@ -49,13 +73,28 @@ export default function App() {
           addr.city ||
           addr.town ||
           'Live GPS Location'
+        
         setUserLocationName(statusPrefix ? `${statusPrefix} - ${name}` : name)
+        
+        if (shouldSave) {
+          localStorage.setItem(
+            'localfind_saved_location',
+            JSON.stringify({ lat, lng, locationName: name, isGPS: true })
+          )
+        }
         return
       }
     } catch (err) {
       console.warn('Reverse geocoding error:', err)
     }
-    setUserLocationName(statusPrefix ? `${statusPrefix} - GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})` : `GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+    const fallbackName = `GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+    setUserLocationName(statusPrefix ? `${statusPrefix} - ${fallbackName}` : fallbackName)
+    if (shouldSave) {
+      localStorage.setItem(
+        'localfind_saved_location',
+        JSON.stringify({ lat, lng, locationName: fallbackName, isGPS: true })
+      )
+    }
   }, [])
 
   // Get GPS position as a Promise — returns position object + mode ('high' | 'low' | null)
@@ -83,68 +122,68 @@ export default function App() {
               }
             },
             () => resolve({ pos: null, mode: null }), // Both failed
-            { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
           )
         },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
       )
     })
   }, [])
 
   // Main location detection — auto-runs on app launch
   const detectLocation = useCallback(async () => {
-    setUserLocationName('📍 Getting your location...')
-    setLocationStatus('loading')
+    const hasSavedLocation = Boolean(localStorage.getItem('localfind_saved_location'))
+    
+    if (!hasSavedLocation) {
+      setUserLocationName('📍 Getting your location...')
+      setLocationStatus('loading')
+    }
 
     const { pos, mode } = await getGPSPosition()
 
     if (pos) {
       const { latitude: lat, longitude: lng, accuracy } = pos.coords
       console.log(`📍 GPS locked: ${lat}, ${lng} (±${Math.round(accuracy)}m), mode: ${mode}`)
-      setUserCoords({ lat, lng, accuracy })
       
-      let statusMsg = ''
-      if (mode === 'high' && accuracy <= 100) {
-        statusMsg = 'Success'
+      if (mode === 'high' && accuracy <= 150) {
+        // High accuracy GPS: Save location automatically for 100% offline & future visits
+        setUserCoords({ lat, lng, accuracy })
         setLocationStatus('success')
+        fetchAddressName(lat, lng, '', true)
+        setIsFirstTimeFallback(false)
+        setShowLocationPicker(false)
       } else {
-        statusMsg = 'Low accuracy, approximate location'
-        setLocationStatus('approx')
+        // Approximate / IP location detected
+        if (hasSavedLocation) {
+          // Keep previously saved accurate location
+          console.log('Using previously saved user location instead of inaccurate IP location')
+        } else {
+          // First time user with inaccurate GPS: Open manual location modal
+          console.warn('Inaccurate location on first visit, requesting manual location entry')
+          setIsFirstTimeFallback(true)
+          setShowLocationPicker(true)
+          setLocationStatus('approx')
+          setUserLocationName('Location needed')
+        }
       }
-      setUserLocationName(statusMsg)
-      
-      fetchAddressName(lat, lng, statusMsg)
     } else {
-      // GPS completely unavailable — show exact failure message requested
-      console.error('GPS completely unavailable')
-      setUserLocationName("Can't get your location")
-      setLocationStatus('error')
+      // GPS completely unavailable / denied
+      if (hasSavedLocation) {
+        console.log('GPS unavailable, using saved user location')
+      } else {
+        console.warn('GPS unavailable on first visit, requesting manual location entry')
+        setIsFirstTimeFallback(true)
+        setShowLocationPicker(true)
+        setLocationStatus('error')
+        setUserLocationName('Location needed')
+      }
     }
   }, [getGPSPosition, fetchAddressName])
 
-  // Auto-detect on app launch + continuous background refinement via watchPosition
+  // Auto-detect on app launch
   useEffect(() => {
-    // Immediately request permission and detect location
     detectLocation()
-
-    if (!navigator.geolocation) return
-
-    // Continuous background refinement — keeps improving accuracy as GPS satellites lock
-    const watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng, accuracy } = pos.coords
-        console.log(`📍 GPS refined: ${lat}, ${lng} (±${Math.round(accuracy)}m)`)
-        setUserCoords({ lat, lng, accuracy })
-        const statusMsg = accuracy <= 100 ? 'Success' : 'Low accuracy, approximate location'
-        setLocationStatus(accuracy <= 100 ? 'success' : 'approx')
-        fetchAddressName(lat, lng, statusMsg)
-      },
-      () => {}, // Silently ignore watch errors — initial detectLocation already handled the user-facing error
-      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
-    )
-
-    return () => navigator.geolocation.clearWatch(watchId)
-  }, [detectLocation, fetchAddressName])
+  }, [detectLocation])
 
   // Fetch products from Cloudflare Worker
   const fetchProducts = useCallback(async () => {
@@ -164,24 +203,54 @@ export default function App() {
     fetchProducts()
   }, [fetchProducts])
 
-  // Periodic background sync (every 60s) + Sync on tab visibility focus
+  // High-Frequency Real-time Sync (every 8s) + Instant Sync on tab focus / window visibility
   useEffect(() => {
     const interval = setInterval(() => {
       fetchProducts()
-    }, 60000)
+    }, 8000)
 
-    const handleVisibilityChange = () => {
+    const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
         fetchProducts()
       }
     }
-    document.addEventListener('visibilitychange', handleVisibilityChange)
+    document.addEventListener('visibilitychange', handleVisibilityOrFocus)
+    window.addEventListener('focus', handleVisibilityOrFocus)
 
     return () => {
       clearInterval(interval)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
+      window.removeEventListener('focus', handleVisibilityOrFocus)
     }
   }, [fetchProducts])
+
+  // Handle manual location selection from LocationPickerModal
+  const handleSelectManualLocation = useCallback(({ lat, lng, accuracy, locationName, pincode, address, landmark }) => {
+    const newCoords = { lat, lng, accuracy: accuracy || 10 }
+    const displayName = locationName || address || 'Custom Location'
+    setUserCoords(newCoords)
+    setUserLocationName(displayName)
+    setLocationStatus('success')
+    setIsFirstTimeFallback(false)
+
+    // Persist to localStorage for 100% reliability
+    try {
+      localStorage.setItem(
+        'localfind_saved_location',
+        JSON.stringify({
+          lat,
+          lng,
+          locationName: displayName,
+          pincode,
+          address,
+          landmark,
+          isGPS: false
+        })
+      )
+    } catch (e) {
+      console.warn('Could not save location to localStorage', e)
+    }
+  }, [])
 
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body-sm">
@@ -192,7 +261,7 @@ export default function App() {
         user={user}
         userLocationName={userLocationName}
         locationStatus={locationStatus}
-        onDetectLocation={detectLocation}
+        onDetectLocation={() => setShowLocationPicker(true)}
         onOpenSignIn={() => {
           setActiveView('merchant')
         }}
@@ -213,6 +282,8 @@ export default function App() {
               onRefreshProducts={fetchProducts}
               refreshing={loadingProducts}
               lastSyncedAt={lastSyncedAt}
+              onChangeLocation={() => setShowLocationPicker(true)}
+              locationStatus={locationStatus}
             />
           </div>
         ) : (
@@ -248,35 +319,41 @@ export default function App() {
         </Suspense>
       )}
 
-      {/* Mobile Bottom Navigation Bar - Structured Floating Dock */}
-      <nav className="md:hidden bg-surface/95 backdrop-blur-xl shadow-[0px_-4px_24px_rgba(0,0,0,0.08)] fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-6 pb-4 pt-2.5 border-t border-surface-variant/50">
+      {/* Manual Location Search / Picker Modal */}
+      <LocationPickerModal
+        isOpen={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        currentLocationName={userLocationName}
+        onSelectLocation={handleSelectManualLocation}
+        onUseGPS={detectLocation}
+        locationStatus={locationStatus}
+        isFirstTimeFallback={isFirstTimeFallback}
+      />
+
+      {/* Mobile Bottom Navigation Bar - Sleek & Compact Dock */}
+      <nav className="md:hidden bg-surface/95 backdrop-blur-xl shadow-[0px_-2px_12px_rgba(0,0,0,0.06)] fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-4 py-1.5 border-t border-surface-variant/40">
         <button
           onClick={() => setActiveView('discover')}
-          className={`flex flex-col items-center justify-center py-1.5 px-6 rounded-2xl transition-all duration-200 active:scale-90 ${
+          className={`flex items-center justify-center gap-1.5 py-1.5 px-4 rounded-xl transition-all duration-200 active:scale-90 ${
             activeView === 'discover'
-              ? 'bg-primary text-on-primary font-bold shadow-sm'
+              ? 'bg-primary text-on-primary font-bold shadow-xs'
               : 'text-on-surface-variant hover:text-primary'
           }`}
         >
-          <span className="material-symbols-outlined text-[22px]">explore</span>
-          <span className="font-label-caps text-[10px] font-bold mt-0.5">Explore</span>
+          <span className="material-symbols-outlined text-[18px]">explore</span>
+          <span className="font-label-caps text-[11px] font-bold">Explore</span>
         </button>
 
         <button
-          onClick={() => {
-            if (!user) {
-              signInWithGoogle()
-            }
-            setActiveView('merchant')
-          }}
-          className={`flex flex-col items-center justify-center py-1.5 px-6 rounded-2xl transition-all duration-200 active:scale-90 ${
+          onClick={() => setActiveView('merchant')}
+          className={`flex items-center justify-center gap-1.5 py-1.5 px-4 rounded-xl transition-all duration-200 active:scale-90 ${
             activeView === 'merchant'
-              ? 'bg-primary text-on-primary font-bold shadow-sm'
+              ? 'bg-primary text-on-primary font-bold shadow-xs'
               : 'text-on-surface-variant hover:text-primary'
           }`}
         >
-          <span className="material-symbols-outlined text-[22px]">storefront</span>
-          <span className="font-label-caps text-[10px] font-bold mt-0.5">My Shop</span>
+          <span className="material-symbols-outlined text-[18px]">storefront</span>
+          <span className="font-label-caps text-[11px] font-bold">My Shop</span>
         </button>
       </nav>
     </div>

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { formatDistance } from '../utils/haversine'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
@@ -7,12 +7,45 @@ import { getFlashDealInfo } from '../utils/flashDeals'
 export function ProductDetailModal({ product, onClose }) {
   if (!product) return null
 
+  const [isWishlisted, setIsWishlisted] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
+      return saved.includes(product.id)
+    } catch {
+      return false
+    }
+  })
+
+  // Listen to cross-component storage updates for wishlist sync
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
+        setIsWishlisted(saved.includes(product.id))
+      } catch (e) {}
+    }
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose()
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('storage', handleStorage)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [product.id, onClose])
+
   const productRAG = getRAGStatus(product.updated_at || product.created_at)
   const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
   const flashInfo = getFlashDealInfo(product)
 
   const finalPrice = flashInfo.isLive ? flashInfo.discountedPrice : product.price
-  const cleanWhatsapp = (product.whatsapp_number || '').replace(/[^0-9]/g, '')
+  let cleanWhatsapp = (product.whatsapp_number || '').replace(/[^0-9]/g, '')
+  if (cleanWhatsapp.length === 10) {
+    cleanWhatsapp = `91${cleanWhatsapp}`
+  }
   const whatsappMsg = encodeURIComponent(
     flashInfo.isLive
       ? `Hi! I saw your ⚡ Flash Deal for "${product.name}" at ₹${finalPrice} (${flashInfo.discountPercent}% OFF) on LocalFind. Is it available for pickup today?`
@@ -22,10 +55,16 @@ export function ProductDetailModal({ product, onClose }) {
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${product.lat},${product.lng}`
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-surface rounded-2xl shadow-2xl overflow-hidden my-auto border border-surface-variant max-h-[92vh] flex flex-col">
-        {/* Floating Action Buttons */}
-        <div className="absolute top-4 left-4 right-4 z-20 flex justify-between items-center pointer-events-none">
+    <div 
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn"
+    >
+      <div 
+        onClick={(e) => e.stopPropagation()}
+        className="relative w-full max-w-2xl bg-surface rounded-2xl shadow-2xl overflow-y-auto my-auto border border-surface-variant max-h-[92vh] flex flex-col scroll-smooth"
+      >
+        {/* Floating Action Buttons (Sticky at top of modal) */}
+        <div className="sticky top-3 left-0 right-0 z-20 flex justify-between items-center px-4 pointer-events-none -mb-14">
           <button
             onClick={onClose}
             className="pointer-events-auto w-10 h-10 rounded-full bg-surface/90 backdrop-blur-md shadow-md flex items-center justify-center text-on-surface hover:bg-surface-variant transition-transform active:scale-95 border border-surface-variant"
@@ -49,6 +88,7 @@ export function ProductDetailModal({ product, onClose }) {
                     ? saved.filter((id) => id !== product.id)
                     : [...saved, product.id]
                   localStorage.setItem('localfind_wishlist', JSON.stringify(next))
+                  setIsWishlisted(next.includes(product.id))
                   // trigger custom storage event for sync
                   window.dispatchEvent(new Event('storage'))
                 } catch (e) {
@@ -58,16 +98,7 @@ export function ProductDetailModal({ product, onClose }) {
               title="Save to Wishlist"
               className="w-10 h-10 rounded-full bg-surface/90 backdrop-blur-md shadow-md flex items-center justify-center text-rose-500 hover:bg-surface-variant transition-transform active:scale-95 border border-surface-variant"
             >
-              <span className={`material-symbols-outlined text-xl ${
-                (() => {
-                  try {
-                    const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
-                    return saved.includes(product.id) ? 'fill-current' : ''
-                  } catch {
-                    return ''
-                  }
-                })()
-              }`}>
+              <span className={`material-symbols-outlined text-xl ${isWishlisted ? 'fill-current' : ''}`}>
                 favorite
               </span>
             </button>
@@ -75,7 +106,7 @@ export function ProductDetailModal({ product, onClose }) {
         </div>
 
         {/* Hero Product Image */}
-        <div className="relative w-full aspect-video md:aspect-[16/9] bg-surface-container-high overflow-hidden">
+        <div className="relative w-full aspect-video md:aspect-[16/9] bg-surface-container-high overflow-hidden shrink-0">
           <img
             src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'}
             alt={product.name}
@@ -94,7 +125,7 @@ export function ProductDetailModal({ product, onClose }) {
         </div>
 
         {/* Product Information Body */}
-        <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-5">
+        <div className="p-6 flex flex-col gap-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-2">

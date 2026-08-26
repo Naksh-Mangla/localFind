@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { getRAGStatus } from '../utils/syncRAG'
 
 export function Header({
@@ -13,6 +13,13 @@ export function Header({
   refreshing,
   lastSyncedAt
 }) {
+  // Live ticker to keep relative sync time up to date every 10 seconds
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    const timer = setInterval(() => setTick((t) => t + 1), 10000)
+    return () => clearInterval(timer)
+  }, [])
+
   const syncRAG = getRAGStatus(lastSyncedAt)
   const getAvatarUrl = (userObj) => {
     if (userObj?.photoURL) return userObj.photoURL
@@ -55,25 +62,33 @@ export function Header({
 
   return (
     <>
-      {/* Mobile TopAppBar - Modern Structured Layout */}
-      <header className="md:hidden bg-surface/95 backdrop-blur-lg shadow-xs fixed top-0 w-full z-30 flex items-center justify-between px-3.5 h-16 border-b border-surface-variant/50">
+      {/* Mobile TopAppBar - Standard Scrollable Layout */}
+      <header className="md:hidden bg-surface/95 shadow-xs w-full z-20 flex items-center justify-between px-3.5 h-16 border-b border-surface-variant/50">
         {/* Left: Brand logo & Compact Location Pill */}
-        <div
-          className="flex items-center gap-2.5 cursor-pointer max-w-[62%] overflow-hidden"
-          onClick={onDetectLocation}
-          title="Tap to refresh location"
-        >
-          <img src="/logo.svg" alt="LocalFind Logo" className="w-8 h-8 rounded-xl shadow-2xs object-contain flex-shrink-0" />
-          <div className="flex flex-col min-w-0">
-            <div className="flex items-center gap-1 leading-none mb-0.5">
-              <span className={`w-1.5 h-1.5 rounded-full ${statusColors.dotColor} flex-shrink-0`}></span>
-              <span className="text-[9px] font-extrabold text-on-surface-variant tracking-wider uppercase truncate">
-                LOCATION
+        <div className="flex items-center gap-2 max-w-[65%] overflow-hidden">
+          <img 
+            src="/logo.svg" 
+            alt="LocalFind Logo" 
+            onClick={() => setActiveView('discover')}
+            className="w-8 h-8 rounded-xl shadow-2xs object-contain flex-shrink-0 cursor-pointer active:scale-95 transition-transform" 
+          />
+          <div
+            className="flex items-center gap-1.5 min-w-0 cursor-pointer p-1.5 rounded-xl hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/40 bg-surface-container-low"
+            onClick={onDetectLocation}
+            title="Tap to change location"
+          >
+            <div className="flex flex-col min-w-0">
+              <div className="flex items-center gap-1 leading-none mb-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${statusColors.dotColor} flex-shrink-0`}></span>
+                <span className="text-[8px] font-extrabold text-on-surface-variant tracking-wider uppercase truncate">
+                  LOCATION
+                </span>
+              </div>
+              <span className="font-title-md text-[11px] font-bold text-on-surface truncate max-w-[130px] leading-tight">
+                {userLocationName || 'Detecting Location...'}
               </span>
             </div>
-            <span className="font-title-md text-[11px] font-bold text-on-surface truncate leading-tight">
-              {userLocationName || 'Detecting Location...'}
-            </span>
+            <span className="material-symbols-outlined text-[13px] text-on-surface-variant/70 shrink-0">edit</span>
           </div>
         </div>
 
@@ -103,6 +118,7 @@ export function Header({
                 src={getAvatarUrl(user)}
                 alt={user.displayName || 'Seller'}
                 onError={(e) => {
+                  e.currentTarget.onerror = null
                   e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || 'User')}&background=9c3e20&color=fff`
                 }}
                 className="w-4 h-4 rounded-full object-cover border border-white/40"
@@ -121,8 +137,8 @@ export function Header({
         </div>
       </header>
 
-      {/* Desktop TopAppBar */}
-      <header className="hidden md:flex bg-surface/90 backdrop-blur-md shadow-xs fixed top-0 w-full z-30 items-center justify-between px-container-margin h-20 border-b border-surface-variant/40">
+      {/* Desktop TopAppBar - Standard Scrollable Layout */}
+      <header className="hidden md:flex bg-surface/90 shadow-xs w-full z-20 items-center justify-between px-container-margin h-20 border-b border-surface-variant/40">
         <div className="flex items-center gap-5">
           <div
             onClick={() => setActiveView('discover')}
@@ -134,7 +150,7 @@ export function Header({
                 LocalFind
               </h1>
               <span className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full border border-primary/20">
-                v2.1.0
+                v2.2.0
               </span>
               <span className="text-[10px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1 shadow-xs">
                 <span className="material-symbols-outlined text-[12px]">code</span>
@@ -144,13 +160,18 @@ export function Header({
           </div>
           <button
             onClick={onDetectLocation}
-            className={`flex items-center gap-2.5 border transition-all rounded-full px-4 py-2 text-left hover:shadow-xs active:scale-95 ${statusColors.badgeBg}`}
+            className={`flex items-center gap-2.5 border transition-all rounded-full px-4 py-2 text-left hover:shadow-xs active:scale-95 group ${statusColors.badgeBg}`}
+            title="Click to change your area or pin code"
           >
             <span className={`material-symbols-outlined text-lg ${statusColors.iconColor}`}>location_on</span>
             <div className="flex flex-col">
               <span className="font-label-caps text-[9px] text-on-surface-variant font-bold tracking-wider">YOUR LOCATION</span>
               <span className="font-title-md text-xs font-semibold max-w-[200px] truncate">{userLocationName}</span>
             </div>
+            <span className="text-[10px] font-bold bg-surface/80 px-2 py-0.5 rounded-full border border-surface-variant/60 ml-1 text-on-surface-variant group-hover:text-primary transition-colors flex items-center gap-0.5">
+              <span className="material-symbols-outlined text-[12px]">edit</span>
+              <span>Change</span>
+            </span>
           </button>
 
           {/* Desktop Live Sync Teller with RAG Badge */}
@@ -201,6 +222,7 @@ export function Header({
                 src={getAvatarUrl(user)}
                 alt={user.displayName || 'Merchant'}
                 onError={(e) => {
+                  e.currentTarget.onerror = null
                   e.currentTarget.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.displayName || 'User')}&background=9c3e20&color=fff`
                 }}
                 className="w-9 h-9 rounded-full object-cover shadow-xs border border-surface-variant"

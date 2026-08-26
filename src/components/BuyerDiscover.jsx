@@ -1,8 +1,13 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react'
+import React, { useState, useMemo, useEffect, useRef, useDeferredValue, useCallback } from 'react'
 import { calculateDistanceKm, formatDistance } from '../utils/haversine'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
-import { matchesQueryWithHinglish, normalizeVoiceQuery } from '../utils/hinglishSearch'
+import {
+  parseQueryDescriptor,
+  matchesQueryDescriptor,
+  indexProductsList,
+  searchLRUCache
+} from '../utils/hinglishSearch'
 import { getFlashDealInfo } from '../utils/flashDeals'
 
 const CATEGORIES = [
@@ -14,6 +19,175 @@ const CATEGORIES = [
   { label: 'Sale', icon: 'sell' }
 ]
 
+const DEFAULT_IMG = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'
+
+// ⚡ Isolated Live Flash Deal Countdown Badge (Updates only itself, 0 parent re-renders)
+const FlashCountdownBadge = React.memo(function FlashCountdownBadge({ deal }) {
+  const [info, setInfo] = useState(() => getFlashDealInfo(deal))
+
+  useEffect(() => {
+    if (!deal.is_flash_deal || !deal.flash_deal_ends_at) return
+    const interval = setInterval(() => {
+      setInfo(getFlashDealInfo(deal))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [deal])
+
+  if (!info.isLive) return null
+
+  return (
+    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 bg-rose-500/10 px-1.5 py-0.5 rounded-full border border-rose-500/20">
+      <span className="material-symbols-outlined text-[10px] animate-spin">timer</span>
+      <span className="truncate max-w-[65px]">{info.countdownText}</span>
+    </span>
+  )
+})
+
+// 🏪 Isolated Store Opening Status Badge
+const StoreStatusBadge = React.memo(function StoreStatusBadge({ openingTime, closingTime }) {
+  const openStatus = getStoreOpenStatus(openingTime, closingTime)
+  return (
+    <span
+      title={openStatus.detail}
+      className={`flex-shrink-0 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-0.5 sm:gap-1 ${openStatus.badgeClass}`}
+    >
+      <span className={`w-1 h-1 rounded-full ${openStatus.dotClass}`}></span>
+      <span className="truncate max-w-[48px] sm:max-w-none">{openStatus.label}</span>
+    </span>
+  )
+})
+
+// 📦 Memoized 60+ FPS Product Card with CSS Virtual Containment
+const ProductCard = React.memo(function ProductCard({
+  product,
+  onSelectProduct,
+  isWishlisted,
+  onToggleWishlist,
+  priority = false,
+  isDistant = false
+}) {
+  const flashInfo = getFlashDealInfo(product)
+  const itemRAG = getRAGStatus(product.updated_at || product.created_at)
+
+  return (
+    <div
+      onClick={() => onSelectProduct(product)}
+      className={`product-card-contain bg-surface-container-lowest rounded-2xl shadow-xs overflow-hidden border flex flex-col group cursor-pointer hover:shadow-lg hover:-translate-y-1 transition-all duration-300 touch-press ${
+        isDistant ? 'border-amber-500/30' : 'border-surface-variant/60 hover:border-primary/40'
+      }`}
+    >
+      <div className="relative w-full aspect-square overflow-hidden bg-surface-variant">
+        <img
+          src={product.image_url || DEFAULT_IMG}
+          alt={product.name}
+          loading={priority ? 'eager' : 'lazy'}
+          decoding="async"
+          onError={(e) => {
+            e.target.onerror = null
+            e.target.src = DEFAULT_IMG
+          }}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+
+        {/* Badges Overlay */}
+        <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none gap-1">
+          {flashInfo.isLive ? (
+            <span className="bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2 py-0.5 rounded-full text-[9px] font-black shadow-xs flex items-center gap-0.5 pointer-events-auto">
+              <span>⚡</span>
+              <span>{flashInfo.discountPercent}% OFF</span>
+            </span>
+          ) : (
+            <span className="bg-surface/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold shadow-2xs border border-surface-variant/40 flex items-center gap-1 pointer-events-auto">
+              <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
+              <span className={itemRAG.textClass}>{itemRAG.label}</span>
+            </span>
+          )}
+
+          <div className="flex items-center gap-1 ml-auto pointer-events-auto">
+            {product.distanceKm !== null && (
+              <span
+                className={`backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold shadow-2xs border flex items-center gap-0.5 ${
+                  isDistant
+                    ? 'bg-amber-600/90 text-white border-amber-600'
+                    : 'bg-surface/90 text-on-surface border-surface-variant/40'
+                }`}
+              >
+                <span className={`material-symbols-outlined text-[12px] ${isDistant ? '' : 'text-primary'}`}>
+                  directions_walk
+                </span>
+                <span>{formatDistance(product.distanceKm)}</span>
+              </span>
+            )}
+
+            <button
+              onClick={(e) => onToggleWishlist(product.id, e)}
+              title={isWishlisted ? 'Remove from Saved Wishlist' : 'Save to Wishlist'}
+              className={`w-6 h-6 rounded-full flex items-center justify-center shadow-2xs transition-all active:scale-75 ${
+                isWishlisted
+                  ? 'bg-rose-500 text-white'
+                  : 'bg-surface/90 backdrop-blur-md text-on-surface-variant hover:text-rose-500 border border-surface-variant/40'
+              }`}
+            >
+              <span className={`material-symbols-outlined text-[14px] ${isWishlisted ? 'fill-current' : ''}`}>
+                favorite
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="p-3 sm:p-4 flex flex-col flex-grow">
+        <div className="flex justify-between items-start mb-0.5">
+          <h3 className="font-title-md text-xs sm:text-sm md:text-base font-bold text-on-surface line-clamp-1">
+            {product.name}
+          </h3>
+        </div>
+
+        <div className="flex items-center justify-between gap-1 mb-2">
+          <p className="font-body-sm text-[11px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1">
+            {product.shop_name}
+          </p>
+          <StoreStatusBadge openingTime={product.opening_time} closingTime={product.closing_time} />
+        </div>
+
+        <div className="mt-auto flex items-end justify-between pt-1.5">
+          <div>
+            {flashInfo.isLive ? (
+              <div className="flex flex-col">
+                <FlashCountdownBadge deal={product} />
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="font-headline-lg-mobile text-sm sm:text-lg md:text-xl font-bold text-rose-600">
+                    ₹{flashInfo.discountedPrice}
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-on-surface-variant line-through opacity-75 font-semibold">
+                    ₹{flashInfo.originalPrice}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <span className="font-headline-lg-mobile text-sm sm:text-lg md:text-xl font-bold text-primary">
+                ₹{product.price}
+              </span>
+            )}
+          </div>
+
+          <button
+            className={`px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-2xs flex items-center gap-0.5 sm:gap-1 active:scale-95 ${
+              isDistant
+                ? 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant'
+                : 'bg-primary hover:bg-primary-container text-on-primary hover:shadow-xs'
+            }`}
+          >
+            <span className="hidden sm:inline">Details</span>
+            <span className="sm:hidden">View</span>
+            <span className="material-symbols-outlined text-[12px] sm:text-[14px]">arrow_forward</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+})
+
 export function BuyerDiscover({
   products = [],
   userCoords,
@@ -21,17 +195,21 @@ export function BuyerDiscover({
   loading,
   onRefreshProducts,
   refreshing,
-  lastSyncedAt
+  lastSyncedAt,
+  onChangeLocation,
+  locationStatus
 }) {
-  const syncRAG = getRAGStatus(lastSyncedAt)
   const [searchQuery, setSearchQuery] = useState('')
+  // ⚡ Non-blocking deferred search query for 60+ FPS responsive typing on 1.6 GHz processors
+  const deferredSearchQuery = useDeferredValue(searchQuery)
+
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [maxRadiusKm, setMaxRadiusKm] = useState(2) // Default to 2km Hyperlocal radius
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false)
   const [showOnlyWishlist, setShowOnlyWishlist] = useState(false)
   const dropdownRef = useRef(null)
 
-  // 100% Offline LocalStorage Wishlist State
+  // Wishlist state
   const [wishlistIds, setWishlistIds] = useState(() => {
     try {
       const saved = localStorage.getItem('localfind_wishlist')
@@ -41,20 +219,37 @@ export function BuyerDiscover({
     }
   })
 
-  // Sync wishlist changes to LocalStorage
-  const toggleWishlist = (productId, e) => {
+  // Quick set for O(1) wishlist membership check
+  const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds])
+
+  const toggleWishlist = useCallback((productId, e) => {
     if (e) e.stopPropagation()
     setWishlistIds((prev) => {
       const isSaved = prev.includes(productId)
       const next = isSaved ? prev.filter((id) => id !== productId) : [...prev, productId]
       try {
         localStorage.setItem('localfind_wishlist', JSON.stringify(next))
+        window.dispatchEvent(new Event('storage'))
       } catch (err) {
         console.warn('Could not save wishlist to localStorage', err)
       }
       return next
     })
-  }
+  }, [])
+
+  // Sync wishlist across tabs/windows
+  useEffect(() => {
+    const handleStorage = () => {
+      try {
+        const saved = localStorage.getItem('localfind_wishlist')
+        if (saved) setWishlistIds(JSON.parse(saved))
+      } catch (err) {
+        console.warn('Failed to parse wishlist from storage event', err)
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+    return () => window.removeEventListener('storage', handleStorage)
+  }, [])
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -67,13 +262,12 @@ export function BuyerDiscover({
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  // Voice Search States (Hindi & Hinglish Web Speech API)
+  // Voice Search Web Speech API
   const [isListening, setIsListening] = useState(false)
-  const [speechLanguage, setSpeechLanguage] = useState('hi-IN') // 'hi-IN' or 'en-IN'
+  const [speechLanguage, setSpeechLanguage] = useState('hi-IN')
   const [voiceToast, setVoiceToast] = useState('')
   const recognitionRef = useRef(null)
 
-  // Initialize Web Speech Recognition
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (SpeechRecognition) {
@@ -84,7 +278,11 @@ export function BuyerDiscover({
 
       recognition.onstart = () => {
         setIsListening(true)
-        setVoiceToast(speechLanguage === 'hi-IN' ? 'सुन रहे हैं... बोलिए (Listening in Hindi/Hinglish)' : 'Listening... Speak now')
+        setVoiceToast(
+          speechLanguage === 'hi-IN'
+            ? 'सुन रहे हैं... बोलिए (Listening in Hindi/Hinglish)'
+            : 'Listening... Speak now'
+        )
       }
 
       recognition.onresult = (event) => {
@@ -124,8 +322,7 @@ export function BuyerDiscover({
     }
   }, [speechLanguage])
 
-  // Toggle Voice Recognition
-  const toggleVoiceSearch = () => {
+  const toggleVoiceSearch = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SpeechRecognition) {
       alert('Voice Search is not supported on this browser. Please use Chrome, Edge, or Safari.')
@@ -145,11 +342,14 @@ export function BuyerDiscover({
         console.warn('Recognition start error:', err)
       }
     }
-  }
+  }, [isListening, speechLanguage])
 
-  // Calculate distance for all products and sort by distance
-  const productsWithDistance = useMemo(() => {
-    return products.map((prod) => {
+  // 1. Pre-index products once on data change & attach distance in O(N)
+  const indexedProductsWithDistance = useMemo(() => {
+    searchLRUCache.clear() // Invalidate LRU query cache when product list updates
+    const indexed = indexProductsList(products)
+
+    return indexed.map((prod) => {
       let distanceKm = null
       if (userCoords && prod.lat && prod.lng) {
         distanceKm = calculateDistanceKm(userCoords.lat, userCoords.lng, prod.lat, prod.lng)
@@ -158,25 +358,40 @@ export function BuyerDiscover({
     })
   }, [products, userCoords])
 
-  // Filter products by smart Hindi/Hinglish search and category
+  // 2. High-Performance Query Filter with LRU Caching
   const filteredProducts = useMemo(() => {
-    return productsWithDistance.filter((item) => {
-      // Wishlist Only filter
-      if (showOnlyWishlist && !wishlistIds.includes(item.id)) {
+    const queryDesc = parseQueryDescriptor(deferredSearchQuery)
+    const categoryLower = selectedCategory.toLowerCase()
+
+    // Generate cache key
+    const cacheKey = `${deferredSearchQuery}::${selectedCategory}::${showOnlyWishlist ? wishlistIds.join(',') : 'all'}`
+    const cached = searchLRUCache.get(cacheKey)
+    if (cached) return cached
+
+    const results = indexedProductsWithDistance.filter((item) => {
+      // Wishlist check
+      if (showOnlyWishlist && !wishlistSet.has(item.id)) {
         return false
       }
 
-      const matchesCategory =
-        selectedCategory === 'All' ||
-        item.category?.toLowerCase() === selectedCategory.toLowerCase()
+      // Category check
+      if (selectedCategory !== 'All' && item.category?.toLowerCase() !== categoryLower) {
+        return false
+      }
 
-      const matchesSearch = matchesQueryWithHinglish(item, searchQuery)
+      // Hinglish / English search check
+      if (queryDesc && !matchesQueryDescriptor(item, queryDesc)) {
+        return false
+      }
 
-      return matchesCategory && matchesSearch
+      return true
     })
-  }, [productsWithDistance, selectedCategory, searchQuery, showOnlyWishlist, wishlistIds])
 
-  // Local products strictly within the selected radius (Default: 2 km)
+    searchLRUCache.set(cacheKey, results)
+    return results
+  }, [indexedProductsWithDistance, selectedCategory, deferredSearchQuery, showOnlyWishlist, wishlistSet, wishlistIds])
+
+  // 3. Hyperlocal Products (within selected radius)
   const hyperlocalProducts = useMemo(() => {
     return filteredProducts
       .filter((p) => !p.is_affiliate_fallback)
@@ -191,7 +406,7 @@ export function BuyerDiscover({
       })
   }, [filteredProducts, maxRadiusKm])
 
-  // Local products beyond the selected radius (e.g. 16 km away)
+  // 4. Distant Products (outside selected radius)
   const distantLocalProducts = useMemo(() => {
     if (maxRadiusKm === 'all') return []
     return filteredProducts
@@ -200,18 +415,9 @@ export function BuyerDiscover({
       .sort((a, b) => a.distanceKm - b.distanceKm)
   }, [filteredProducts, maxRadiusKm])
 
-  // Timer ticker to keep flash deal countdowns updating live every second
-  const [, setTimerTick] = useState(0)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimerTick((t) => t + 1)
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [])
-
-  // Active Flash Deals (sorted by nearest store)
+  // 5. Active Flash Deals
   const activeFlashDeals = useMemo(() => {
-    return productsWithDistance
+    return indexedProductsWithDistance
       .filter((p) => {
         if (!p.is_flash_deal || !p.flash_deal_ends_at) return false
         const info = getFlashDealInfo(p)
@@ -222,16 +428,17 @@ export function BuyerDiscover({
         if (b.distanceKm === null) return -1
         return a.distanceKm - b.distanceKm
       })
-  }, [productsWithDistance])
+  }, [indexedProductsWithDistance])
 
+  // 6. Online Fallback Options
   const fallbackProducts = useMemo(() => {
     return filteredProducts.filter((p) => p.is_affiliate_fallback)
   }, [filteredProducts])
 
   return (
-    <main className="pt-20 md:pt-28 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
-      {/* Search and Filter Dropdown Section - Ultra Minimal */}
-      <section className="mb-4 sticky top-16 md:top-20 bg-surface z-20 py-2.5">
+    <main className="pt-4 md:pt-6 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
+      {/* Search and Filter Section */}
+      <section className="mb-4 bg-surface py-2">
         <div className="relative w-full flex items-center gap-1.5 sm:gap-2">
           {/* Main Search Input */}
           <div className="relative flex-1">
@@ -319,10 +526,9 @@ export function BuyerDiscover({
               )}
             </button>
 
-            {/* 📋 Popover Dropdown Menu for Categories & Radius */}
+            {/* Popover Dropdown Menu */}
             {showFiltersDropdown && (
               <div className="absolute right-0 top-full mt-2 w-72 sm:w-80 bg-surface-container-lowest border border-surface-variant/80 rounded-2xl shadow-xl p-4 z-50 animate-popIn">
-                {/* Header with Active Filter Count & Reset */}
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-surface-variant/40">
                   <div className="flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-primary text-sm">tune</span>
@@ -341,7 +547,6 @@ export function BuyerDiscover({
                   )}
                 </div>
 
-                {/* Section 1: Categories */}
                 <div className="mb-3">
                   <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
                     Category ({selectedCategory})
@@ -367,7 +572,6 @@ export function BuyerDiscover({
                   </div>
                 </div>
 
-                {/* Section 2: Hyperlocal Radius */}
                 <div>
                   <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
                     Search Radius
@@ -397,7 +601,6 @@ export function BuyerDiscover({
                   </div>
                 </div>
 
-                {/* Done / Apply Button */}
                 <div className="mt-4 pt-3 border-t border-surface-variant/40">
                   <button
                     onClick={() => setShowFiltersDropdown(false)}
@@ -411,7 +614,28 @@ export function BuyerDiscover({
           </div>
         </div>
 
-        {/* Live Voice Status Feedback Banner */}
+        {/* Quick Category Chips */}
+        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-1 mt-1">
+          {CATEGORIES.map((cat) => {
+            const isActive = selectedCategory === cat.label
+            return (
+              <button
+                key={`chip-${cat.label}`}
+                onClick={() => setSelectedCategory(cat.label)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all active:scale-95 shadow-2xs flex-shrink-0 ${
+                  isActive
+                    ? 'bg-primary text-on-primary font-bold shadow-xs'
+                    : 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant/60'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[15px]">{cat.icon}</span>
+                <span>{cat.label}</span>
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Live Voice Status Feedback */}
         {voiceToast && (
           <div className="mt-2.5 p-2.5 px-4 bg-primary/10 border border-primary/30 rounded-xl flex items-center justify-between text-xs font-semibold text-primary animate-fadeIn">
             <div className="flex items-center gap-2">
@@ -429,7 +653,7 @@ export function BuyerDiscover({
           </div>
         )}
 
-        {/* Active Filter Summary Indicator (Minimal Pill when filters active) */}
+        {/* Active Filter Indicators */}
         {(selectedCategory !== 'All' || maxRadiusKm !== 2) && (
           <div className="flex items-center gap-1.5 mt-2 overflow-x-auto hide-scrollbar text-[11px]">
             <span className="text-[10px] text-on-surface-variant font-bold">Active:</span>
@@ -447,9 +671,29 @@ export function BuyerDiscover({
             )}
           </div>
         )}
+
+        {/* Approximate Location Notice */}
+        {locationStatus === 'approx' && onChangeLocation && (
+          <div className="mt-2.5 p-2.5 px-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center justify-between gap-2 text-xs text-amber-700 dark:text-amber-300">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="material-symbols-outlined text-base flex-shrink-0 text-amber-500">
+                info
+              </span>
+              <span className="truncate text-[11px] font-medium">
+                Using approximate internet location. Far away?
+              </span>
+            </div>
+            <button
+              onClick={onChangeLocation}
+              className="text-[10px] font-bold bg-amber-500 text-white px-2.5 py-1 rounded-lg shadow-2xs hover:bg-amber-600 active:scale-95 flex-shrink-0"
+            >
+              Set My Area
+            </button>
+          </div>
+        )}
       </section>
 
-      {/* ⚡ 24-Hour Flash Deals / "Aaj Ka Offer" Carousel Banner - Compact Mobile */}
+      {/* ⚡ 24-Hour Flash Deals Carousel */}
       {!loading && activeFlashDeals.length > 0 && (
         <section className="mb-6">
           <div className="flex items-center justify-between mb-2 px-1">
@@ -470,7 +714,6 @@ export function BuyerDiscover({
             </span>
           </div>
 
-          {/* Flash Deal Horizontal Slider */}
           <div className="flex gap-3 overflow-x-auto hide-scrollbar pb-2 pt-0.5">
             {activeFlashDeals.map((deal) => {
               const info = getFlashDealInfo(deal)
@@ -478,13 +721,19 @@ export function BuyerDiscover({
                 <div
                   key={`flash-${deal.id}`}
                   onClick={() => onSelectProduct(deal)}
-                  className="flex-shrink-0 w-64 sm:w-72 bg-gradient-to-br from-amber-500/10 via-surface-container-lowest to-surface-container-lowest rounded-2xl border-2 border-amber-500/40 p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all cursor-pointer group active:scale-[0.98]"
+                  className="flash-card-contain flex-shrink-0 w-64 sm:w-72 bg-gradient-to-br from-amber-500/10 via-surface-container-lowest to-surface-container-lowest rounded-2xl border-2 border-amber-500/40 p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all cursor-pointer group active:scale-[0.98]"
                 >
                   <div className="flex gap-2.5">
                     <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden bg-surface-variant relative flex-shrink-0">
                       <img
-                        src={deal.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop&q=80'}
+                        src={deal.image_url || DEFAULT_IMG}
                         alt={deal.name}
+                        loading="lazy"
+                        decoding="async"
+                        onError={(e) => {
+                          e.target.onerror = null
+                          e.target.src = DEFAULT_IMG
+                        }}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       />
                       <span className="absolute top-1 left-1 bg-rose-600 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-2xs">
@@ -517,12 +766,8 @@ export function BuyerDiscover({
                           </span>
                         </div>
 
-                        {/* Live Countdown Badge */}
                         <div className="mt-1 flex items-center justify-between">
-                          <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 bg-rose-500/10 px-1.5 py-0.5 rounded-full border border-rose-500/20">
-                            <span className="material-symbols-outlined text-[10px] animate-spin">timer</span>
-                            <span className="truncate max-w-[65px]">{info.countdownText}</span>
-                          </span>
+                          <FlashCountdownBadge deal={deal} />
                           <span className="text-[9px] sm:text-[10px] font-bold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
                             <span>Grab</span>
                             <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
@@ -538,7 +783,7 @@ export function BuyerDiscover({
         </section>
       )}
 
-      {/* Hyperlocal 2km Product Feed */}
+      {/* Hyperlocal Product Feed */}
       {!loading && (
         <section className="mb-stack-lg">
           <div className="flex items-center justify-between mb-3 px-1">
@@ -572,154 +817,52 @@ export function BuyerDiscover({
           {hyperlocalProducts.length === 0 ? (
             <div className="bg-surface-container-low p-8 rounded-2xl border border-surface-variant text-center my-6">
               <span className="material-symbols-outlined text-4xl text-primary mb-2">near_me_disabled</span>
-              <h3 className="font-title-md text-lg font-bold text-on-surface mb-1">No Local Products Within {maxRadiusKm === 'all' ? 'Range' : `${maxRadiusKm} km`}</h3>
+              <h3 className="font-title-md text-lg font-bold text-on-surface mb-1">
+                No Local Products Within {maxRadiusKm === 'all' ? 'Range' : `${maxRadiusKm} km`}
+              </h3>
               <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-4">
                 {distantLocalProducts.length > 0
                   ? `Found ${distantLocalProducts.length} store items slightly further away (beyond ${maxRadiusKm} km). Try widening your radius filter to 5 km or 10 km above!`
                   : 'No nearby shopkeeper has listed this item yet. Check out online fallback options below!'}
               </p>
-              {distantLocalProducts.length > 0 && (
-                <button
-                  onClick={() => setMaxRadiusKm('all')}
-                  className="bg-primary text-on-primary px-4 py-2 rounded-xl text-xs font-bold shadow-sm"
-                >
-                  Show All Distances
-                </button>
-              )}
+              <div className="flex items-center justify-center gap-2.5 flex-wrap">
+                {distantLocalProducts.length > 0 && (
+                  <button
+                    onClick={() => setMaxRadiusKm('all')}
+                    className="bg-primary text-on-primary px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"
+                  >
+                    Show All Distances
+                  </button>
+                )}
+                {onChangeLocation && (
+                  <button
+                    onClick={onChangeLocation}
+                    className="bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant/80 px-4 py-2.5 rounded-xl text-xs font-bold shadow-2xs active:scale-95 transition-all flex items-center gap-1.5"
+                  >
+                    <span className="material-symbols-outlined text-sm text-primary">edit_location_alt</span>
+                    <span>Change Pin Code / Area</span>
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-gutter">
-              {hyperlocalProducts.map((product) => (
-                <div
+              {hyperlocalProducts.map((product, index) => (
+                <ProductCard
                   key={product.id}
-                  onClick={() => onSelectProduct(product)}
-                  className="bg-surface-container-lowest rounded-2xl shadow-xs overflow-hidden border border-surface-variant/60 flex flex-col group cursor-pointer hover:shadow-lg hover:-translate-y-1 hover:border-primary/40 transition-all duration-300 touch-press"
-                >
-                  <div className="relative w-full aspect-square overflow-hidden bg-surface-variant">
-                    <img
-                      src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'}
-                      alt={product.name}
-                      loading="lazy"
-                      decoding="async"
-                      onError={(e) => {
-                        e.target.onerror = null
-                        e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'
-                      }}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    {/* Compact Image Overlay Badges - Clean & Symmetrical */}
-                    <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none gap-1">
-                      {(() => {
-                        const itemRAG = getRAGStatus(product.updated_at || product.created_at)
-                        const flashInfo = getFlashDealInfo(product)
-                        if (flashInfo.isLive) {
-                          return (
-                            <span className="bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2 py-0.5 rounded-full text-[9px] font-black shadow-xs flex items-center gap-0.5 pointer-events-auto">
-                              <span>⚡</span>
-                              <span>{flashInfo.discountPercent}% OFF</span>
-                            </span>
-                          )
-                        }
-                        return (
-                          <span className="bg-surface/90 backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold shadow-2xs border border-surface-variant/40 flex items-center gap-1 pointer-events-auto">
-                            <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
-                            <span className={itemRAG.textClass}>{itemRAG.label}</span>
-                          </span>
-                        )
-                      })()}
-
-                      <div className="flex items-center gap-1 ml-auto pointer-events-auto">
-                        {product.distanceKm !== null && (
-                          <span className="bg-surface/90 backdrop-blur-md text-on-surface px-2 py-0.5 rounded-full text-[9px] font-bold shadow-2xs border border-surface-variant/40 flex items-center gap-0.5">
-                            <span className="material-symbols-outlined text-[12px] text-primary">directions_walk</span>
-                            <span>{formatDistance(product.distanceKm)}</span>
-                          </span>
-                        )}
-
-                        {/* ❤️ 1-Tap Wishlist Heart Button */}
-                        <button
-                          onClick={(e) => toggleWishlist(product.id, e)}
-                          title={wishlistIds.includes(product.id) ? 'Remove from Saved Wishlist' : 'Save to Wishlist'}
-                          className={`w-6 h-6 rounded-full flex items-center justify-center shadow-2xs transition-all active:scale-75 ${
-                            wishlistIds.includes(product.id)
-                              ? 'bg-rose-500 text-white'
-                              : 'bg-surface/90 backdrop-blur-md text-on-surface-variant hover:text-rose-500 border border-surface-variant/40'
-                          }`}
-                        >
-                          <span className={`material-symbols-outlined text-[14px] ${wishlistIds.includes(product.id) ? 'fill-current' : ''}`}>
-                            favorite
-                          </span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-3 sm:p-4 flex flex-col flex-grow">
-                    <div className="flex justify-between items-start mb-0.5">
-                      <h3 className="font-title-md text-xs sm:text-sm md:text-base font-bold text-on-surface line-clamp-1">
-                        {product.name}
-                      </h3>
-                    </div>
-                    <div className="flex items-center justify-between gap-1 mb-2">
-                      <p className="font-body-sm text-[11px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1">
-                        {product.shop_name}
-                      </p>
-                      {(() => {
-                        const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
-                        return (
-                          <span
-                            title={openStatus.detail}
-                            className={`flex-shrink-0 text-[8px] sm:text-[9px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-0.5 sm:gap-1 ${openStatus.badgeClass}`}
-                          >
-                            <span className={`w-1 h-1 rounded-full ${openStatus.dotClass}`}></span>
-                            <span className="truncate max-w-[48px] sm:max-w-none">{openStatus.label}</span>
-                          </span>
-                        )
-                      })()}
-                    </div>
-                    <div className="mt-auto flex items-end justify-between pt-1.5">
-                      <div>
-                        {(() => {
-                          const flashInfo = getFlashDealInfo(product)
-                          if (flashInfo.isLive) {
-                            return (
-                              <div className="flex flex-col">
-                                <span className="text-[9px] sm:text-[10px] text-rose-600 font-bold flex items-center gap-0.5">
-                                  <span>⚡</span>
-                                  <span className="truncate max-w-[60px] sm:max-w-none">{flashInfo.countdownText}</span>
-                                </span>
-                                <div className="flex items-baseline gap-1">
-                                  <span className="font-headline-lg-mobile text-sm sm:text-lg md:text-xl font-bold text-rose-600">
-                                    ₹{flashInfo.discountedPrice}
-                                  </span>
-                                  <span className="text-[10px] sm:text-xs text-on-surface-variant line-through opacity-75 font-semibold">
-                                    ₹{flashInfo.originalPrice}
-                                  </span>
-                                </div>
-                              </div>
-                            )
-                          }
-                          return (
-                            <span className="font-headline-lg-mobile text-sm sm:text-lg md:text-xl font-bold text-primary">
-                              ₹{product.price}
-                            </span>
-                          )
-                        })()}
-                      </div>
-                      <button className="bg-primary hover:bg-primary-container text-on-primary px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-2xs hover:shadow-xs flex items-center gap-0.5 sm:gap-1 active:scale-95">
-                        <span className="hidden sm:inline">Details</span>
-                        <span className="sm:hidden">View</span>
-                        <span className="material-symbols-outlined text-[12px] sm:text-[14px]">arrow_forward</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  product={product}
+                  onSelectProduct={onSelectProduct}
+                  isWishlisted={wishlistSet.has(product.id)}
+                  onToggleWishlist={toggleWishlist}
+                  priority={index < 4}
+                />
               ))}
             </div>
           )}
         </section>
       )}
 
-      {/* Stores Beyond Selected Radius (e.g. 16 km away) */}
+      {/* Stores Beyond Selected Radius */}
       {!loading && distantLocalProducts.length > 0 && (
         <section className="mb-stack-lg mt-8 pt-6 border-t border-surface-variant/60">
           <div className="flex items-center justify-between mb-4">
@@ -737,64 +880,19 @@ export function BuyerDiscover({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
-            {distantLocalProducts.map((product) => (
-              <div
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-gutter">
+            {distantLocalProducts.map((product, index) => (
+              <ProductCard
                 key={product.id}
-                onClick={() => onSelectProduct(product)}
-                className="bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden border border-amber-500/30 flex flex-col group cursor-pointer hover:shadow-md transition-all duration-300"
-              >
-                <div className="relative w-full aspect-square overflow-hidden bg-surface-variant">
-                  <img
-                    src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'}
-                    alt={product.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
-                  />
-                  {product.distanceKm !== null && (
-                    <div className="absolute top-3 right-3 bg-amber-600 text-white px-2.5 py-1 rounded-full font-label-caps text-[11px] flex items-center gap-1 shadow-sm backdrop-blur-md bg-opacity-95 font-semibold">
-                      <span className="material-symbols-outlined text-[14px]">map</span>
-                      <span>{formatDistance(product.distanceKm)} (Beyond {maxRadiusKm}km)</span>
-                    </div>
-                  )}
-                </div>
-                <div className="p-4 flex flex-col flex-grow">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="font-title-md text-base font-semibold text-on-surface line-clamp-1">
-                      {product.name}
-                    </h3>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <p className="font-body-sm text-xs text-on-surface-variant line-clamp-1 flex-1">
-                      {product.shop_name}
-                    </p>
-                    {(() => {
-                      const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
-                      return (
-                        <span
-                          title={openStatus.detail}
-                          className={`flex-shrink-0 text-[9px] font-bold px-1.5 py-0.2 rounded-full border flex items-center gap-1 ${openStatus.badgeClass}`}
-                        >
-                          <span className={`w-1 h-1 rounded-full ${openStatus.dotClass}`}></span>
-                          <span>{openStatus.label}</span>
-                        </span>
-                      )
-                    })()}
-                  </div>
-                    <div className="mt-auto flex items-end justify-between pt-2">
-                      <div>
-                        <span className="font-headline-lg-mobile text-xl font-bold text-primary">
-                          ₹{product.price}
-                        </span>
-                      </div>
-                      <button className="bg-surface-container-high hover:bg-surface-variant text-on-surface px-3.5 py-1.5 rounded-xl font-label-caps text-xs font-bold transition-all shadow-xs flex items-center gap-1 border border-surface-variant active:scale-95">
-                        <span>View Details</span>
-                        <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                product={product}
+                onSelectProduct={onSelectProduct}
+                isWishlisted={wishlistSet.has(product.id)}
+                onToggleWishlist={toggleWishlist}
+                priority={false}
+                isDistant={true}
+              />
+            ))}
+          </div>
         </section>
       )}
 
@@ -821,8 +919,14 @@ export function BuyerDiscover({
                 className="bg-surface-container-low rounded-xl border border-secondary-fixed-dim/40 p-4 flex gap-4 cursor-pointer hover:bg-surface-container-high transition-colors"
               >
                 <img
-                  src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=300&auto=format&fit=crop&q=80'}
+                  src={product.image_url || DEFAULT_IMG}
                   alt={product.name}
+                  loading="lazy"
+                  decoding="async"
+                  onError={(e) => {
+                    e.target.onerror = null
+                    e.target.src = DEFAULT_IMG
+                  }}
                   className="w-20 h-20 rounded-lg object-cover bg-surface-variant"
                 />
                 <div className="flex flex-col justify-between flex-1">
@@ -843,3 +947,4 @@ export function BuyerDiscover({
     </main>
   )
 }
+
