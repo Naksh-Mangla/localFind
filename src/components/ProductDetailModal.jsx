@@ -52,7 +52,14 @@ export function ProductDetailModal({ product, onClose }) {
       : `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
   )
   const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}`
-  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${product.lat},${product.lng}`
+  
+  const pLat = Number(product.lat)
+  const pLng = Number(product.lng)
+  const hasShopCoords = Number.isFinite(pLat) && Number.isFinite(pLng)
+  const destinationParam = hasShopCoords
+    ? `${pLat},${pLng}`
+    : encodeURIComponent(`${product.shop_name || 'Local Shop'} ${product.address_text || ''}`.trim())
+  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationParam}`
 
   return (
     <div 

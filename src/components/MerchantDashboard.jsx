@@ -213,7 +213,7 @@ export function MerchantDashboard({
       let finalLat = shop?.lat || userCoords?.lat || lat
       let finalLng = shop?.lng || userCoords?.lng || lng
 
-      // If initial shop setup, lock fresh GPS
+      // If initial shop setup, attempt fresh GPS lock from device hardware
       if (!shop && (!finalLat || !finalLng || (finalLat === 28.6139 && finalLng === 77.209))) {
         showToast('Locking high-accuracy GPS position automatically...', 'info', 'GPS Lock')
         const gps = await getFreshGPS()
@@ -223,8 +223,35 @@ export function MerchantDashboard({
         }
       }
 
+      // If device GPS is unavailable or blocked, geocode shop's entered Pincode & Address
       if (!finalLat || !finalLng || (finalLat === 28.6139 && finalLng === 77.209 && !shop?.lat)) {
-        showToast('Location permission is required to lock store coordinates! Please allow GPS access on your phone.', 'error', 'GPS Required')
+        try {
+          const geoQuery = `${cleanAddress}, ${cleanLandmark}, ${cleanPincode}, India`
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(geoQuery)}&countrycodes=in&limit=1`
+          )
+          const data = res.ok ? await res.json() : []
+          if (data && data.length > 0) {
+            finalLat = parseFloat(data[0].lat)
+            finalLng = parseFloat(data[0].lon)
+          } else {
+            // Fallback to 6-digit Pincode query
+            const pinRes = await fetch(
+              `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(`${cleanPincode}, India`)}&countrycodes=in&limit=1`
+            )
+            const pinData = pinRes.ok ? await pinRes.json() : []
+            if (pinData && pinData.length > 0) {
+              finalLat = parseFloat(pinData[0].lat)
+              finalLng = parseFloat(pinData[0].lon)
+            }
+          }
+        } catch (geoErr) {
+          console.warn('Fallback geocoding error:', geoErr)
+        }
+      }
+
+      if (!finalLat || !finalLng) {
+        showToast('Please enable GPS or check your Pincode so we can locate your store on the map.', 'error', 'Location Needed')
         setCreatingShop(false)
         return
       }

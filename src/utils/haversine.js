@@ -37,22 +37,27 @@ export function isWithinBoundingBox(lat1, lon1, lat2, lon2, maxRadiusKm) {
  * @returns {number|null} Distance in kilometers rounded to 2 decimal places, or null if invalid
  */
 export function calculateDistanceKm(lat1, lon1, lat2, lon2) {
+  const nLat1 = Number(lat1)
+  const nLon1 = Number(lon1)
+  const nLat2 = Number(lat2)
+  const nLon2 = Number(lon2)
+
   if (
-    lat1 === undefined || lat1 === null ||
-    lon1 === undefined || lon1 === null ||
-    lat2 === undefined || lat2 === null ||
-    lon2 === undefined || lon2 === null
+    !Number.isFinite(nLat1) ||
+    !Number.isFinite(nLon1) ||
+    !Number.isFinite(nLat2) ||
+    !Number.isFinite(nLon2)
   ) {
     return null
   }
 
   // Fast path: identical points
-  if (lat1 === lat2 && lon1 === lon2) return 0
+  if (nLat1 === nLat2 && nLon1 === nLon2) return 0
 
-  const dLat = (lat2 - lat1) * DEG_TO_RAD
-  const dLon = (lon2 - lon1) * DEG_TO_RAD
-  const radLat1 = lat1 * DEG_TO_RAD
-  const radLat2 = lat2 * DEG_TO_RAD
+  const dLat = (nLat2 - nLat1) * DEG_TO_RAD
+  const dLon = (nLon2 - nLon1) * DEG_TO_RAD
+  const radLat1 = nLat1 * DEG_TO_RAD
+  const radLat2 = nLat2 * DEG_TO_RAD
 
   const sinDLat2 = Math.sin(dLat * 0.5)
   const sinDLon2 = Math.sin(dLon * 0.5)
@@ -74,12 +79,17 @@ export function calculateDistanceKm(lat1, lon1, lat2, lon2) {
  * @returns {string} e.g. "400m away", "1.2 km away", or "Distance unknown"
  */
 export function formatDistance(km) {
-  if (km === null || km === undefined || isNaN(km)) {
+  const nKm = Number(km)
+  if (km === null || km === undefined || !Number.isFinite(nKm) || nKm < 0) {
     return 'Distance unknown'
   }
-  if (km < 1) {
-    const meters = Math.round(km * 1000)
+  if (nKm < 0.05) {
+    return 'Very close (< 50m)'
+  }
+  if (nKm < 1) {
+    const meters = Math.round(nKm * 1000)
     return `${meters}m away`
   }
-  return `${km.toFixed(1)} km away`
+  return `${nKm.toFixed(1)} km away`
 }
+

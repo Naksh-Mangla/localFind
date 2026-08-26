@@ -353,10 +353,16 @@ export function BuyerDiscover({
     searchLRUCache.clear() // Invalidate LRU query cache when product list updates
     const indexed = indexProductsList(products)
 
+    const uLat = userCoords ? Number(userCoords.lat) : null
+    const uLng = userCoords ? Number(userCoords.lng) : null
+    const hasUserGPS = Number.isFinite(uLat) && Number.isFinite(uLng)
+
     return indexed.map((prod) => {
       let distanceKm = null
-      if (userCoords && prod.lat && prod.lng) {
-        distanceKm = calculateDistanceKm(userCoords.lat, userCoords.lng, prod.lat, prod.lng)
+      const pLat = Number(prod.lat)
+      const pLng = Number(prod.lng)
+      if (hasUserGPS && Number.isFinite(pLat) && Number.isFinite(pLng)) {
+        distanceKm = calculateDistanceKm(uLat, uLng, pLat, pLng)
       }
       return { ...prod, distanceKm }
     })
