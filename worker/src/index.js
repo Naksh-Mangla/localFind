@@ -211,7 +211,12 @@ async function handleCreateShop(request, env, user) {
   ).run()
 
   if (!res.success) return json({ error: 'Failed to save shop' }, 500)
-  return json({ id, updated: (res.meta?.changes ?? 0) > 0 }, 200)
+
+  // On conflict SQLite keeps the ORIGINAL row id, so read back the persisted row to
+  // report the accurate id and whether this request created or updated the shop.
+  const row = await env.DB.prepare('SELECT id FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  const updated = Boolean(row && row.id !== id)
+  return json(row ? { id: row.id, ...(updated ? { updated: true } : { created: true }) } : { error: 'Failed to save shop' }, row ? 200 : 500)
 }
 
 async function handleCreateProduct(request, env, user) {
