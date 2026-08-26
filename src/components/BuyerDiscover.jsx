@@ -26,7 +26,7 @@ const FlashCountdownBadge = React.memo(function FlashCountdownBadge({ deal }) {
   const [info, setInfo] = useState(() => getFlashDealInfo(deal))
 
   useEffect(() => {
-    if (!deal.is_flash_deal || !deal.flash_deal_ends_at) return
+    if (!deal?.is_flash_deal || !deal?.flash_deal_ends_at) return
     const interval = setInterval(() => {
       setInfo(getFlashDealInfo(deal))
     }, 1000)
@@ -36,10 +36,39 @@ const FlashCountdownBadge = React.memo(function FlashCountdownBadge({ deal }) {
   if (!info.isLive) return null
 
   return (
-    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-rose-600 bg-rose-500/10 px-1.5 py-0.5 rounded-full border border-rose-500/20">
-      <span className="material-symbols-outlined text-[10px] animate-spin">timer</span>
-      <span className="truncate max-w-[65px]">{info.countdownText}</span>
+    <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-rose-600 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/25">
+      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
+      <span className="truncate max-w-[80px]">{info.countdownText}</span>
     </span>
+  )
+})
+
+// ⏱️ Retro-Modern Digital HUD Timer with Live Ticking Numerals
+const LiveHUDTimer = React.memo(function LiveHUDTimer({ deal }) {
+  const [info, setInfo] = useState(() => getFlashDealInfo(deal))
+
+  useEffect(() => {
+    if (!deal?.is_flash_deal || !deal?.flash_deal_ends_at) return
+    const interval = setInterval(() => {
+      setInfo(getFlashDealInfo(deal))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [deal])
+
+  if (!info.isLive) return null
+
+  const pad = (n) => String(n || 0).padStart(2, '0')
+
+  return (
+    <div className="inline-flex items-center gap-1 bg-black/85 dark:bg-black/95 text-amber-400 border border-amber-500/40 px-2.5 py-1 rounded-full shadow-crisp-xs hud-digital-clock font-mono text-[10px] sm:text-[11px] font-bold">
+      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping mr-0.5"></span>
+      <span>{pad(info.hours)}</span>
+      <span className="opacity-60 animate-pulse">:</span>
+      <span>{pad(info.minutes)}</span>
+      <span className="opacity-60 animate-pulse">:</span>
+      <span className="text-rose-400">{pad(info.seconds)}</span>
+      <span className="text-[9px] text-amber-300/80 uppercase font-sans ml-0.5 font-extrabold">left</span>
+    </div>
   )
 })
 
@@ -718,92 +747,123 @@ export function BuyerDiscover({
         )}
       </section>
 
-      {/* ⚡ 24-Hour Flash Deals Carousel */}
+      {/* ⚡ 24-Hour Flash Deals Psychological Aurora Banner */}
       {!loading && activeFlashDeals.length > 0 && (
-        <section className="mb-7">
-          <div className="flex items-center justify-between mb-2.5 px-1">
-            <div className="flex items-center gap-2">
-              <span className="flex h-2.5 w-2.5 relative">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-              </span>
-              <h2 className="font-headline-lg-mobile text-sm sm:text-base md:text-lg font-bold text-on-surface flex items-center gap-1.5">
-                <span>Aaj Ka Offer • Deals</span>
-                <span className="text-[9px] bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 text-white font-black px-2 py-0.5 rounded-full shadow-crisp-xs animate-bounceSubtle">
-                  HOT
-                </span>
-              </h2>
+        <section className="mb-8 relative">
+          {/* Main Aurora Glass Container */}
+          <div className="relative overflow-hidden rounded-3xl border border-amber-500/40 flash-aurora-bg p-4 sm:p-5 md:p-6 shadow-crisp-md backdrop-blur-md">
+            {/* Shimmer Light Sweep */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
+              <div className="w-1/2 h-full bg-gradient-to-r from-transparent via-white to-transparent transform -skew-x-12 animate-shimmer-sweep"></div>
             </div>
-            <span className="text-[10px] sm:text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
-              {activeFlashDeals.length} Live
-            </span>
-          </div>
 
-          <div className="flex gap-3.5 overflow-x-auto hide-scrollbar pb-2.5 pt-0.5">
-            {activeFlashDeals.map((deal) => {
-              const info = getFlashDealInfo(deal)
-              return (
-                <div
-                  key={`flash-${deal.id}`}
-                  onClick={() => onSelectProduct(deal)}
-                  className="flash-card-contain flex-shrink-0 w-64 sm:w-72 bg-gradient-to-br from-amber-500/15 via-surface-container-lowest to-surface-container-lowest rounded-3xl border border-amber-500/35 p-3 shadow-crisp-sm hover:shadow-crisp-lg transition-all cursor-pointer group active:scale-[0.98]"
-                >
-                  <div className="flex gap-3">
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden bg-surface-variant relative flex-shrink-0">
-                      <img
-                        src={deal.image_url || DEFAULT_IMG}
-                        alt={deal.name}
-                        loading="lazy"
-                        decoding="async"
-                        onError={(e) => {
-                          e.target.onerror = null
-                          e.target.src = DEFAULT_IMG
-                        }}
-                        className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
-                      />
-                      <span className="absolute top-1 left-1 bg-gradient-to-r from-rose-600 to-pink-600 text-white text-[8px] sm:text-[9px] font-black px-1.5 py-0.5 rounded-lg shadow-crisp-xs">
-                        {info.discountPercent}% OFF
+            {/* Banner Header Ribbon */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 via-rose-500 to-pink-600 text-white flex items-center justify-center shadow-lg shadow-amber-500/25 flex-shrink-0 animate-flame">
+                  <span className="text-xl">⚡</span>
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-headline-lg text-base sm:text-lg md:text-xl font-black text-on-surface tracking-tight flex items-center gap-1.5">
+                      <span>Aaj Ka Offer • Flash Deals</span>
+                      <span className="text-[10px] bg-gradient-to-r from-amber-500 to-rose-500 text-white font-black px-2 py-0.5 rounded-full shadow-crisp-xs animate-pulse">
+                        LIVE
                       </span>
-                    </div>
+                    </h2>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-on-surface-variant font-medium">
+                    Limited-time discounted bargains from verified local shops in your area
+                  </p>
+                </div>
+              </div>
 
-                    <div className="flex-1 min-w-0 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-[9px] sm:text-[10px] text-amber-600 dark:text-amber-400 font-black uppercase tracking-wider truncate">
-                            {deal.shop_name}
-                          </span>
-                          <span className="text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded-md shrink-0">
-                            {formatDistance(deal.distanceKm)}
-                          </span>
-                        </div>
-                        <h4 className="font-title-md text-[11px] sm:text-xs font-bold text-on-surface line-clamp-1 sm:line-clamp-2 mt-0.5 group-hover:text-primary transition-colors">
-                          {deal.name}
-                        </h4>
+              {/* Header Right: Live Deals Count & Urgency Badge */}
+              <div className="flex items-center gap-2 self-start sm:self-auto">
+                {activeFlashDeals[0] && <LiveHUDTimer deal={activeFlashDeals[0]} />}
+                <span className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-2.5 py-1 rounded-full border border-amber-500/30">
+                  {activeFlashDeals.length} {activeFlashDeals.length === 1 ? 'Deal' : 'Deals'} Live
+                </span>
+              </div>
+            </div>
+
+            {/* Horizontal Flash Deals Scroller */}
+            <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-1 pt-1 relative z-10 -mx-1 px-1">
+              {activeFlashDeals.map((deal) => {
+                const info = getFlashDealInfo(deal)
+                return (
+                  <div
+                    key={`flash-${deal.id}`}
+                    onClick={() => onSelectProduct(deal)}
+                    className="flash-card-contain flex-shrink-0 w-72 sm:w-80 bg-surface/90 apple-frosted rounded-3xl border border-amber-500/30 p-3.5 shadow-crisp-sm hover:shadow-crisp-xl hover:border-amber-500/60 transition-all duration-300 cursor-pointer group active:scale-[0.98] flex flex-col justify-between"
+                  >
+                    <div className="flex gap-3.5">
+                      {/* Image with Discount Overlay */}
+                      <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl overflow-hidden bg-surface-variant relative flex-shrink-0 border border-surface-variant/50">
+                        <img
+                          src={deal.image_url || DEFAULT_IMG}
+                          alt={deal.name}
+                          loading="lazy"
+                          decoding="async"
+                          onError={(e) => {
+                            e.target.onerror = null
+                            e.target.src = DEFAULT_IMG
+                          }}
+                          className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
+                        />
+                        <span className="absolute top-1.5 left-1.5 bg-gradient-to-r from-amber-500 via-rose-500 to-pink-600 text-white text-[9px] font-black px-2 py-0.5 rounded-lg shadow-crisp-xs animate-softGaze">
+                          {info.discountPercent}% OFF
+                        </span>
                       </div>
 
-                      <div>
-                        <div className="flex items-baseline gap-1 mt-0.5">
-                          <span className="font-black text-rose-600 text-sm sm:text-base">
-                            ₹{info.discountedPrice}
-                          </span>
-                          <span className="text-[10px] text-on-surface-variant line-through opacity-70 font-medium">
-                            ₹{info.originalPrice}
-                          </span>
+                      {/* Content Details */}
+                      <div className="flex-1 min-w-0 flex flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-1 mb-0.5">
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-black uppercase tracking-wider truncate">
+                              {deal.shop_name}
+                            </span>
+                            <span className="text-[9px] bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold px-1.5 py-0.2 rounded-md shrink-0">
+                              {deal.isOwner ? 'Your Shop' : formatDistance(deal.distanceKm)}
+                            </span>
+                          </div>
+
+                          <h4 className="font-title-md text-xs sm:text-sm font-bold text-on-surface line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                            {deal.name}
+                          </h4>
                         </div>
 
-                        <div className="mt-1 flex items-center justify-between">
-                          <FlashCountdownBadge deal={deal} />
-                          <span className="text-[9px] sm:text-[10px] font-bold text-primary flex items-center gap-0.5 group-hover:translate-x-0.5 transition-transform">
-                            <span>Grab</span>
-                            <span className="material-symbols-outlined text-[10px]">arrow_forward</span>
-                          </span>
+                        <div>
+                          {/* Price Tag with Savings Highlight */}
+                          <div className="flex items-baseline gap-1.5 mt-1">
+                            <span className="font-display-lg text-base sm:text-lg font-black text-rose-600">
+                              ₹{info.discountedPrice}
+                            </span>
+                            <span className="text-xs text-on-surface-variant line-through opacity-70 font-medium">
+                              ₹{info.originalPrice}
+                            </span>
+                            {info.savings > 0 && (
+                              <span className="text-[9px] font-bold text-emerald-600 bg-emerald-500/15 px-1.5 py-0.2 rounded">
+                                Save ₹{info.savings}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Countdown & Action */}
+                          <div className="mt-2 flex items-center justify-between gap-1">
+                            <FlashCountdownBadge deal={deal} />
+                            <span className="bg-primary hover:bg-primary/90 text-on-primary text-[10px] font-bold px-3 py-1 rounded-full flex items-center gap-0.5 shadow-2xs group-hover:translate-x-0.5 transition-transform">
+                              <span>Claim</span>
+                              <span className="material-symbols-outlined text-[12px]">arrow_forward</span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )
-            })}
+                )
+              })}
+            </div>
           </div>
         </section>
       )}
