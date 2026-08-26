@@ -258,6 +258,33 @@ h1, h2, h3, .font-headline-lg, .font-display-lg {
     backface-visibility: hidden;
     perspective: 1000px;
   }
+
+  /* 🏛️ Structured Layout & Section Utilities */
+  .section-header-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    line-height: 1.35;
+    letter-spacing: -0.022em;
+    color: var(--color-on-surface, #1d1d1f);
+  }
+
+  .subtle-hairline {
+    border-color: rgba(0, 0, 0, 0.07);
+  }
+
+  .dark .subtle-hairline {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .pill-badge {
+    border-radius: 9999px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+  }
 }
 
 /* Refined crisp slim scrollbars */
@@ -280,3 +307,4 @@ h1, h2, h3, .font-headline-lg, .font-display-lg {
   scrollbar-width: thin;
   scrollbar-color: rgba(156, 62, 32, 0.2) transparent;
 }
+

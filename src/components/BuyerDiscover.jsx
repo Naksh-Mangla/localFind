@@ -787,53 +787,56 @@ export function BuyerDiscover({
         </section>
       )}
 
-      {/* Hyperlocal Product Feed */}
+      {/* 📍 Zone 3: Hyperlocal Nearby Products Grid */}
       {!loading && (
-        <section className="mb-stack-lg">
-          <div className="flex items-center justify-between mb-3 px-1">
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3.5 px-1">
             <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary text-xl">store</span>
-              <h2 className="font-headline-lg-mobile text-base sm:text-lg font-bold text-on-surface">
-                {maxRadiusKm === 'all'
-                  ? 'All Stores'
-                  : `Nearby Stores (${maxRadiusKm} km)`}
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-on-surface-variant font-semibold">
-                {hyperlocalProducts.length} items
-              </span>
-              {onRefreshProducts && (
-                <button
-                  onClick={onRefreshProducts}
-                  disabled={refreshing}
-                  title="Refresh products list"
-                  className="w-7 h-7 rounded-full bg-surface-container-high text-on-surface hover:bg-surface-variant transition-colors flex items-center justify-center border border-surface-variant/70 active:scale-95 shadow-2xs"
-                >
-                  <span className={`material-symbols-outlined text-sm ${refreshing ? 'animate-spin text-primary' : ''}`}>
-                    refresh
+              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-lg">storefront</span>
+              </div>
+              <div>
+                <h2 className="section-header-title flex items-center gap-2">
+                  <span>{maxRadiusKm === 'all' ? 'All Local Stores' : `Nearby Stores (${maxRadiusKm} km)`}</span>
+                  <span className="text-[10px] font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
+                    {hyperlocalProducts.length} items
                   </span>
-                </button>
-              )}
+                </h2>
+              </div>
             </div>
+
+            {onRefreshProducts && (
+              <button
+                onClick={onRefreshProducts}
+                disabled={refreshing}
+                title="Refresh products list"
+                className="w-8 h-8 rounded-full bg-surface-container-high/80 text-on-surface hover:bg-surface-variant transition-all flex items-center justify-center border border-surface-variant/60 active:scale-90 shadow-crisp-xs"
+              >
+                <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin text-primary' : ''}`}>
+                  refresh
+                </span>
+              </button>
+            )}
           </div>
 
           {hyperlocalProducts.length === 0 ? (
-            <div className="bg-surface-container-low p-8 rounded-2xl border border-surface-variant text-center my-6">
-              <span className="material-symbols-outlined text-4xl text-primary mb-2">near_me_disabled</span>
-              <h3 className="font-title-md text-lg font-bold text-on-surface mb-1">
+            <div className="bg-surface-container-low/80 p-8 sm:p-10 rounded-3xl border border-surface-variant/60 text-center my-4 shadow-crisp-xs">
+              <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
+                <span className="material-symbols-outlined text-3xl">near_me_disabled</span>
+              </div>
+              <h3 className="font-title-md text-lg font-bold text-on-surface mb-1.5 tracking-tight">
                 No Local Products Within {maxRadiusKm === 'all' ? 'Range' : `${maxRadiusKm} km`}
               </h3>
-              <p className="text-sm text-on-surface-variant max-w-md mx-auto mb-4">
+              <p className="text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto mb-5 leading-relaxed">
                 {distantLocalProducts.length > 0
-                  ? `Found ${distantLocalProducts.length} store items slightly further away (beyond ${maxRadiusKm} km). Try widening your radius filter to 5 km or 10 km above!`
+                  ? `Found ${distantLocalProducts.length} store items slightly further away (beyond ${maxRadiusKm} km). Try widening your radius filter to 5 km or 10 km!`
                   : 'No nearby shopkeeper has listed this item yet. Check out online fallback options below!'}
               </p>
               <div className="flex items-center justify-center gap-2.5 flex-wrap">
                 {distantLocalProducts.length > 0 && (
                   <button
                     onClick={() => setMaxRadiusKm('all')}
-                    className="bg-primary text-on-primary px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm active:scale-95 transition-all"
+                    className="bg-primary hover:bg-primary/90 text-on-primary px-5 py-2.5 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all"
                   >
                     Show All Distances
                   </button>
@@ -841,7 +844,7 @@ export function BuyerDiscover({
                 {onChangeLocation && (
                   <button
                     onClick={onChangeLocation}
-                    className="bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant/80 px-4 py-2.5 rounded-xl text-xs font-bold shadow-2xs active:scale-95 transition-all flex items-center gap-1.5"
+                    className="bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border border-surface-variant/70 px-5 py-2.5 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-sm text-primary">edit_location_alt</span>
                     <span>Change Pin Code / Area</span>
@@ -850,7 +853,7 @@ export function BuyerDiscover({
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-gutter">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
               {hyperlocalProducts.map((product, index) => (
                 <ProductCard
                   key={product.id}
@@ -866,26 +869,30 @@ export function BuyerDiscover({
         </section>
       )}
 
-      {/* Stores Beyond Selected Radius */}
+      {/* 🚗 Zone 4: Stores Beyond Selected Radius */}
       {!loading && distantLocalProducts.length > 0 && (
-        <section className="mb-stack-lg mt-8 pt-6 border-t border-surface-variant/60">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-headline-lg-mobile text-xl font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-amber-600">location_off</span>
-                <span>Stores Beyond {maxRadiusKm} km Radius</span>
-              </h2>
-              <p className="text-xs text-on-surface-variant">
-                These shops are further away from your current location.
-              </p>
+        <section className="mb-8 mt-10 pt-7 border-t border-surface-variant/40">
+          <div className="flex items-center justify-between mb-4 px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600">
+                <span className="material-symbols-outlined text-lg">location_off</span>
+              </div>
+              <div>
+                <h2 className="section-header-title flex items-center gap-2">
+                  <span>Stores Beyond {maxRadiusKm} km Radius</span>
+                  <span className="text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 px-2.5 py-0.5 rounded-full">
+                    {distantLocalProducts.length} further items
+                  </span>
+                </h2>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  Available in the wider city area.
+                </p>
+              </div>
             </div>
-            <span className="text-xs text-on-surface-variant font-medium">
-              {distantLocalProducts.length} further items
-            </span>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-gutter">
-            {distantLocalProducts.map((product, index) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+            {distantLocalProducts.map((product) => (
               <ProductCard
                 key={product.id}
                 product={product}
@@ -900,27 +907,29 @@ export function BuyerDiscover({
         </section>
       )}
 
-      {/* Online Fallback Options */}
+      {/* 📦 Zone 5: Online Fallback Options */}
       {fallbackProducts.length > 0 && (
-        <section className="mt-10 pt-6 border-t border-surface-variant/60">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="font-headline-lg-mobile text-xl font-bold text-on-surface flex items-center gap-2">
-                <span className="material-symbols-outlined text-secondary">shopping_bag</span>
-                <span>Online Fallback Options</span>
-              </h2>
-              <p className="text-xs text-on-surface-variant">
-                Items not currently in stock nearby can be ordered online.
-              </p>
+        <section className="mt-10 pt-7 border-t border-surface-variant/40">
+          <div className="flex items-center justify-between mb-4 px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary">
+                <span className="material-symbols-outlined text-lg">shopping_bag</span>
+              </div>
+              <div>
+                <h2 className="section-header-title">Online Fallback Options</h2>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  Items not currently in stock nearby can be ordered online.
+                </p>
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {fallbackProducts.map((product) => (
               <div
                 key={product.id}
                 onClick={() => onSelectProduct(product)}
-                className="bg-surface-container-low rounded-xl border border-secondary-fixed-dim/40 p-4 flex gap-4 cursor-pointer hover:bg-surface-container-high transition-colors"
+                className="bg-surface-container-low/80 hover:bg-surface-container-high rounded-3xl border border-secondary-fixed-dim/40 p-4 flex gap-4 cursor-pointer transition-all shadow-crisp-xs hover:apple-product-shadow active:scale-[0.98]"
               >
                 <img
                   src={product.image_url || DEFAULT_IMG}
@@ -931,16 +940,19 @@ export function BuyerDiscover({
                     e.target.onerror = null
                     e.target.src = DEFAULT_IMG
                   }}
-                  className="w-20 h-20 rounded-lg object-cover bg-surface-variant"
+                  className="w-20 h-20 rounded-2xl object-cover bg-surface-variant flex-shrink-0"
                 />
-                <div className="flex flex-col justify-between flex-1">
+                <div className="flex flex-col justify-between flex-1 min-w-0">
                   <div>
-                    <h3 className="font-title-md text-sm font-semibold text-on-surface">{product.name}</h3>
-                    <span className="text-xs text-secondary font-medium">Online Affiliate Deal</span>
+                    <h3 className="font-title-md text-sm font-bold text-on-surface truncate">{product.name}</h3>
+                    <span className="text-[11px] text-secondary font-semibold">Online Affiliate Deal</span>
                   </div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-primary text-base">₹{product.price}</span>
-                    <span className="text-xs text-primary underline">Buy Online &rarr;</span>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="font-black text-primary text-base">₹{product.price}</span>
+                    <span className="text-xs font-bold text-primary flex items-center gap-0.5 hover:translate-x-0.5 transition-transform">
+                      <span>Buy Online</span>
+                      <span className="material-symbols-outlined text-xs">arrow_forward</span>
+                    </span>
                   </div>
                 </div>
               </div>

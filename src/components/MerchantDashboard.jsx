@@ -891,19 +891,19 @@ export function MerchantDashboard({
   // Screen 3: Authenticated Merchant with Active Shop Dashboard
   return (
     <main className="pt-4 md:pt-6 px-container-margin max-w-6xl mx-auto pb-24">
-      {/* Merchant Header Bar - Clean Structured Card */}
-      <div className="bg-surface-container-lowest p-5 sm:p-6 rounded-3xl border border-surface-variant/70 shadow-sm mb-8">
-        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+      {/* 🏛️ Merchant Header Bar - Structured Apple Card */}
+      <div className="bg-surface-container-lowest p-6 sm:p-7 rounded-3xl border border-surface-variant/50 shadow-crisp-xs mb-8">
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              <h2 className="font-headline-lg text-xl sm:text-2xl font-bold text-on-surface tracking-tight">{shop.shop_name}</h2>
-              <span className="bg-primary/10 text-primary border border-primary/20 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h2 className="font-headline-lg text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">{shop.shop_name}</h2>
+              <span className="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-xs font-bold">
                 Live Window
               </span>
               {(() => {
                 const openStatus = getStoreOpenStatus(shop.opening_time, shop.closing_time)
                 return (
-                  <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${openStatus.badgeClass}`}>
+                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold border ${openStatus.badgeClass}`}>
                     <span className={`w-1.5 h-1.5 rounded-full ${openStatus.dotClass} ${openStatus.isOpen ? 'animate-pulse' : ''}`}></span>
                     <span>{openStatus.badgeLabel || `${openStatus.label} (${openStatus.timingText || '9 AM – 9 PM'})`}</span>
                   </span>
@@ -911,31 +911,45 @@ export function MerchantDashboard({
               })()}
             </div>
 
-            <div className="flex flex-col gap-1 text-xs text-on-surface-variant mt-2">
+            <div className="flex flex-col gap-1.5 text-xs text-on-surface-variant mt-2.5">
               <p className="flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm text-primary flex-shrink-0">location_on</span>
                 <span className="line-clamp-1">{shop.address_text || 'Local Address'}</span>
               </p>
-              <div className="flex items-center gap-3 flex-wrap text-[11px] mt-0.5">
+              <div className="flex items-center gap-3 flex-wrap text-xs mt-0.5">
                 <span className="flex items-center gap-1 font-semibold text-on-surface">
-                  <span className="material-symbols-outlined text-[13px] text-emerald-600">call</span>
+                  <span className="material-symbols-outlined text-[15px] text-emerald-600">call</span>
                   <span>WhatsApp: {shop.whatsapp_number}</span>
                 </span>
                 <span>•</span>
-                <span className={`inline-flex items-center gap-1 px-2 py-0.2 rounded-full font-bold border ${syncRAG.colorClass}`}>
-                  <span className={`w-1 h-1 rounded-full ${syncRAG.dotClass}`}></span>
+                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full font-bold border ${syncRAG.colorClass}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${syncRAG.dotClass}`}></span>
                   <span>Synced {syncRAG.label}</span>
                 </span>
               </div>
             </div>
           </div>
+
+          {/* Quick Metrics Pills */}
+          <div className="flex items-center gap-2.5 flex-wrap self-start">
+            <div className="bg-surface-container-high/80 px-4 py-2 rounded-2xl border border-surface-variant/40 flex flex-col text-center">
+              <span className="text-base font-black text-on-surface">{products.length}</span>
+              <span className="text-[10px] text-on-surface-variant font-bold uppercase tracking-wider">Products</span>
+            </div>
+            <div className="bg-amber-500/10 px-4 py-2 rounded-2xl border border-amber-500/30 flex flex-col text-center">
+              <span className="text-base font-black text-amber-600 dark:text-amber-400">
+                {products.filter(p => getFlashDealInfo(p).isLive).length}
+              </span>
+              <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold uppercase tracking-wider">Deals</span>
+            </div>
+          </div>
         </div>
 
         {/* Structured Action Bar Grid */}
-        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 mt-5 pt-4 border-t border-surface-variant/40">
+        <div className="grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2.5 mt-6 pt-5 border-t border-surface-variant/30">
           <button
             onClick={() => setShowAddProductModal(true)}
-            className="col-span-2 sm:col-span-1 bg-primary hover:bg-primary/90 text-on-primary px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 active:scale-95 border border-white/20"
+            className="col-span-2 sm:col-span-1 bg-primary hover:bg-primary/90 text-on-primary px-5 py-2.5 rounded-full text-xs font-bold transition-all shadow-crisp-xs flex items-center justify-center gap-2 active:scale-95 border border-white/20 hover:shadow-primary/20"
           >
             <span className="material-symbols-outlined text-sm">add_circle</span>
             <span>Add Product</span>
@@ -943,7 +957,7 @@ export function MerchantDashboard({
 
           <button
             onClick={() => setShowEditShopModal(true)}
-            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant/70 flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 hover:border-primary/40"
+            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-4 py-2.5 rounded-full text-xs font-bold transition-all border border-surface-variant/70 flex items-center justify-center gap-1.5 shadow-crisp-xs active:scale-95 hover:border-primary/40"
           >
             <span className="material-symbols-outlined text-sm text-primary">edit_square</span>
             <span>Edit Profile</span>
@@ -951,7 +965,7 @@ export function MerchantDashboard({
 
           <button
             onClick={signOut}
-            className="col-span-2 sm:col-span-1 bg-surface-container-high hover:bg-rose-500/10 text-on-surface hover:text-rose-600 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all border border-surface-variant/70 flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 sm:ml-auto"
+            className="col-span-2 sm:col-span-1 bg-surface-container-high hover:bg-rose-500/10 text-on-surface hover:text-rose-600 px-4 py-2.5 rounded-full text-xs font-bold transition-all border border-surface-variant/70 flex items-center justify-center gap-1.5 shadow-crisp-xs active:scale-95 sm:ml-auto"
           >
             <span className="material-symbols-outlined text-sm">logout</span>
             <span>Sign Out</span>
@@ -960,34 +974,36 @@ export function MerchantDashboard({
       </div>
 
       {/* Product List Grid */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-title-md text-lg font-bold text-on-surface">Your Product Showcase ({products.length})</h3>
+      <div className="flex items-center justify-between mb-4 px-1">
+        <h3 className="section-header-title">Your Product Showcase ({products.length})</h3>
       </div>
 
       {products.length === 0 ? (
-        <div className="bg-surface-container-low p-8 rounded-2xl border border-surface-variant text-center my-4">
-          <span className="material-symbols-outlined text-4xl text-primary mb-2">add_photo_alternate</span>
-          <h4 className="font-title-md text-base font-bold text-on-surface mb-1">No products added yet</h4>
-          <p className="text-xs text-on-surface-variant mb-4">
+        <div className="bg-surface-container-low/80 p-8 sm:p-10 rounded-3xl border border-surface-variant/60 text-center my-4 shadow-crisp-xs">
+          <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center mx-auto mb-3">
+            <span className="material-symbols-outlined text-3xl">add_photo_alternate</span>
+          </div>
+          <h4 className="font-title-md text-lg font-bold text-on-surface mb-1.5 tracking-tight">No products added yet</h4>
+          <p className="text-xs sm:text-sm text-on-surface-variant max-w-md mx-auto mb-5 leading-relaxed">
             Showcase your best-selling items so local buyers nearby can discover them!
           </p>
           <button
             onClick={handleOpenAddModal}
-            className="bg-primary text-on-primary px-4 py-2 rounded-xl text-xs font-bold shadow-sm"
+            className="bg-primary hover:bg-primary/90 text-on-primary px-5 py-2.5 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all"
           >
             + Add First Product
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-gutter">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
           {products.map((product) => {
             const flashInfo = getFlashDealInfo(product)
             return (
               <div
                 key={product.id}
-                className="bg-surface-container-lowest rounded-xl border border-surface-variant/60 overflow-hidden shadow-sm flex flex-col group hover:shadow-md transition-shadow"
+                className="bg-surface-container-lowest rounded-3xl border border-surface-variant/40 overflow-hidden shadow-crisp-xs hover:apple-product-shadow flex flex-col group transition-all duration-300"
               >
-                <div className="w-full aspect-square bg-surface-variant overflow-hidden relative">
+                <div className="w-full aspect-square bg-surface-variant/40 overflow-hidden relative">
                   <img
                     src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'}
                     alt={product.name}
@@ -997,16 +1013,16 @@ export function MerchantDashboard({
                       e.target.onerror = null
                       e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&auto=format&fit=crop&q=80'
                     }}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
                   {flashInfo.isLive && (
-                    <div className="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-rose-500 text-white px-2.5 py-0.5 rounded-full text-[10px] font-black flex items-center gap-1 shadow-md border border-white/40">
+                    <div className="absolute top-2.5 left-2.5 bg-gradient-to-r from-amber-500 to-rose-500 text-white px-3 py-1 rounded-full text-[10px] font-black flex items-center gap-1 shadow-crisp-xs border border-white/40">
                       <span>⚡</span>
                       <span>{flashInfo.discountPercent}% OFF • {flashInfo.countdownText}</span>
                     </div>
                   )}
                   {flashInfo.isExpired && (
-                    <div className="absolute top-2 left-2 bg-surface-variant/90 text-on-surface-variant px-2 py-0.5 rounded-full text-[9px] font-bold border border-surface-variant">
+                    <div className="absolute top-2.5 left-2.5 bg-surface-variant/90 text-on-surface-variant px-2.5 py-0.5 rounded-full text-[9px] font-bold border border-surface-variant">
                       Deal Expired
                     </div>
                   )}
@@ -1015,7 +1031,7 @@ export function MerchantDashboard({
                   <div>
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-primary font-bold uppercase tracking-wider">{product.category}</span>
-                      <span className="text-[9px] font-bold bg-primary/10 text-primary px-1.5 py-0.5 rounded">
+                      <span className="text-[9px] font-bold bg-primary/10 text-primary px-2 py-0.5 rounded-full">
                         v{product.version || 1}
                       </span>
                     </div>
