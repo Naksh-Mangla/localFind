@@ -3,10 +3,11 @@ import { apiFetch } from '../lib/api'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { CustomSelect } from './CustomSelect'
-import { StoreQRStandeeModal } from './StoreQRStandeeModal'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
 import { getFlashDealInfo } from '../utils/flashDeals'
+
+const StoreQRStandeeModal = React.lazy(() => import('./StoreQRStandeeModal').then(m => ({ default: m.StoreQRStandeeModal })))
 
 export function MerchantDashboard({
   user,
@@ -1643,11 +1644,13 @@ export function MerchantDashboard({
 
       {/* 📄 Printable Store QR Standee Generator Modal */}
       {showQRStandeeModal && shop && (
-        <StoreQRStandeeModal
-          shop={shop}
-          products={products}
-          onClose={() => setShowQRStandeeModal(false)}
-        />
+        <React.Suspense fallback={null}>
+          <StoreQRStandeeModal
+            shop={shop}
+            products={products}
+            onClose={() => setShowQRStandeeModal(false)}
+          />
+        </React.Suspense>
       )}
     </main>
   )

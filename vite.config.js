@@ -11,11 +11,21 @@ export default defineConfig({
     target: 'esnext',
     minify: 'esbuild',
     cssMinify: true,
+    cssCodeSplit: true,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          firebase: ['firebase/app', 'firebase/auth']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('firebase')) {
+              return 'firebase'
+            }
+            if (id.includes('qrcode')) {
+              return 'qrcode-lib'
+            }
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor-react'
+            }
+          }
         }
       }
     }
