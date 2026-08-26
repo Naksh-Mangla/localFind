@@ -1178,20 +1178,21 @@ export function BuyerDiscover({
         </section>
       )}
 
-      {/* 🌟 Sleek Minimalist Footer Credit */}
-      <footer className="mt-14 pt-6 border-t border-surface-variant/30 text-center pb-8 flex flex-col items-center gap-2">
-        <p className="text-xs text-on-surface-variant flex items-center justify-center gap-2 font-medium flex-wrap">
-          <span>LocalFind • Hyperlocal Physical Commerce</span>
-          <span className="opacity-40">•</span>
-          <span className="inline-flex items-center gap-1 font-bold text-on-surface">
+      {/* 🌟 Ultra-Sleek Minimalist Linear-Style Footer */}
+      <footer className="mt-10 pt-4 border-t border-surface-variant/20 text-center pb-6 flex flex-col items-center gap-1.5 opacity-80 hover:opacity-100 transition-opacity">
+        <div className="flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant/80 font-medium flex-wrap">
+          <span className="tracking-tight">LocalFind • Hyperlocal Physical Commerce</span>
+          <span className="opacity-30">•</span>
+          <span className="inline-flex items-center gap-1 text-on-surface/90">
             <span>Crafted with</span>
-            <span className="text-rose-500 text-sm animate-pulse">❤️</span>
-            <span>by <strong className="text-primary font-extrabold tracking-wide">NAKSH</strong></span>
+            <span className="text-rose-500 text-[10px]">❤️</span>
+            <span>by <strong className="text-primary font-bold">NAKSH</strong></span>
           </span>
-        </p>
-        <span className="text-[10px] font-mono font-bold bg-surface-container-high text-on-surface-variant/80 px-2.5 py-0.5 rounded-full border border-surface-variant/60">
-          v2.3.0
-        </span>
+          <span className="opacity-30">•</span>
+          <span className="text-[9px] font-mono font-bold bg-surface-container-high/80 text-on-surface-variant px-1.5 py-0.2 rounded border border-surface-variant/50">
+            v2.3.0
+          </span>
+        </div>
       </footer>
     </main>
   )
