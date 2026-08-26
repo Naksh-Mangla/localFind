@@ -551,33 +551,13 @@ export function BuyerDiscover({
             </div>
           </div>
 
-          {/* ❤️ Wishlist Quick Toggle Button with Apple Pill */}
-          <button
-            onClick={() => setShowOnlyWishlist((prev) => !prev)}
-            title={showOnlyWishlist ? 'Show all products' : `View saved wishlist (${wishlistIds.length} items)`}
-            className={`flex-shrink-0 flex items-center justify-center gap-1 p-2.5 sm:p-3 rounded-full transition-all shadow-crisp-xs active:scale-90 border ${
-              showOnlyWishlist
-                ? 'bg-rose-500 text-white border-rose-600 ring-2 ring-rose-500/30 font-bold shadow-rose-500/20'
-                : 'bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border-surface-variant/60'
-            }`}
-          >
-            <span className={`material-symbols-outlined text-lg sm:text-xl ${showOnlyWishlist ? 'fill-current animate-heartBeat' : 'text-rose-500'}`}>
-              favorite
-            </span>
-            {wishlistIds.length > 0 && !showOnlyWishlist && (
-              <span className="text-[10px] font-extrabold bg-rose-500 text-white px-1.5 py-0.2 rounded-full shadow-2xs">
-                {wishlistIds.length}
-              </span>
-            )}
-          </button>
-
           {/* 🔘 Minimal Filter Dropdown Trigger Button */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowFiltersDropdown((prev) => !prev)}
-              title="Filter Categories & Radius"
-              className={`flex-shrink-0 flex items-center justify-center gap-1 p-2.5 sm:p-3 rounded-full transition-all shadow-crisp-xs active:scale-90 border ${
-                showFiltersDropdown || selectedCategory !== 'All' || maxRadiusKm !== 2
+              title="Filter Categories, Radius & Wishlist"
+              className={`flex-shrink-0 flex items-center justify-center gap-1.5 p-2.5 sm:p-3 rounded-full transition-all shadow-crisp-xs active:scale-90 border ${
+                showFiltersDropdown || selectedCategory !== 'All' || maxRadiusKm !== 2 || showOnlyWishlist
                   ? 'bg-secondary text-on-secondary border-secondary ring-2 ring-secondary/20 font-bold'
                   : 'bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border-surface-variant/60'
               }`}
@@ -585,7 +565,7 @@ export function BuyerDiscover({
               <span className="material-symbols-outlined text-lg sm:text-xl">
                 tune
               </span>
-              {(selectedCategory !== 'All' || maxRadiusKm !== 2) && (
+              {(selectedCategory !== 'All' || maxRadiusKm !== 2 || showOnlyWishlist) && (
                 <span className="w-2 h-2 rounded-full bg-primary-container animate-pulse"></span>
               )}
             </button>
@@ -598,11 +578,12 @@ export function BuyerDiscover({
                     <span className="material-symbols-outlined text-primary text-sm">tune</span>
                     <span className="font-title-md text-xs font-bold text-on-surface">Filter Products</span>
                   </div>
-                  {(selectedCategory !== 'All' || maxRadiusKm !== 2) && (
+                  {(selectedCategory !== 'All' || maxRadiusKm !== 2 || showOnlyWishlist) && (
                     <button
                       onClick={() => {
                         setSelectedCategory('All')
                         setMaxRadiusKm(2)
+                        setShowOnlyWishlist(false)
                       }}
                       className="text-[10px] font-bold text-primary hover:underline"
                     >
@@ -611,6 +592,32 @@ export function BuyerDiscover({
                   )}
                 </div>
 
+                {/* ❤️ Saved Wishlist Filter Toggle Inside Dropdown */}
+                <div className="mb-3.5 pb-3 border-b border-surface-variant/40">
+                  <button
+                    type="button"
+                    onClick={() => setShowOnlyWishlist((prev) => !prev)}
+                    className={`w-full flex items-center justify-between p-2.5 px-3 rounded-2xl border transition-all text-xs font-bold ${
+                      showOnlyWishlist
+                        ? 'bg-rose-500 text-white border-rose-600 shadow-rose-500/20 shadow-sm'
+                        : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border-surface-variant/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`material-symbols-outlined text-base ${showOnlyWishlist ? 'fill-current animate-heartBeat' : 'text-rose-500'}`}>
+                        favorite
+                      </span>
+                      <span>Show Saved Wishlist</span>
+                    </div>
+                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                      showOnlyWishlist ? 'bg-white text-rose-600' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                    }`}>
+                      {wishlistIds.length} {wishlistIds.length === 1 ? 'item' : 'items'}
+                    </span>
+                  </button>
+                </div>
+
+                {/* Category Selection */}
                 <div className="mb-3.5">
                   <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
                     Category ({selectedCategory})
@@ -636,6 +643,7 @@ export function BuyerDiscover({
                   </div>
                 </div>
 
+                {/* Distance Radius Selection */}
                 <div>
                   <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
                     Search Radius
@@ -718,9 +726,16 @@ export function BuyerDiscover({
         )}
 
         {/* Active Filter Indicators */}
-        {(selectedCategory !== 'All' || maxRadiusKm !== 2) && (
+        {(selectedCategory !== 'All' || maxRadiusKm !== 2 || showOnlyWishlist) && (
           <div className="flex items-center gap-1.5 mt-2 overflow-x-auto hide-scrollbar text-[11px]">
             <span className="text-[10px] text-on-surface-variant font-bold">Active:</span>
+            {showOnlyWishlist && (
+              <span className="bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2.5 py-0.5 rounded-full font-bold border border-rose-500/20 flex items-center gap-1 shadow-2xs">
+                <span className="material-symbols-outlined text-[12px] fill-current">favorite</span>
+                <span>Wishlist ({wishlistIds.length})</span>
+                <button onClick={() => setShowOnlyWishlist(false)} className="hover:text-rose-700 font-bold">×</button>
+              </span>
+            )}
             {selectedCategory !== 'All' && (
               <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold border border-primary/20 flex items-center gap-1 shadow-2xs">
                 <span>{selectedCategory}</span>
