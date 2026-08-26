@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react'
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { apiFetch } from './lib/api'
 import { Header } from './components/Header'
@@ -16,6 +16,7 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [showLocationPicker, setShowLocationPicker] = useState(false)
   const [isFirstTimeFallback, setIsFirstTimeFallback] = useState(false)
+  const hasAutoDetectedRef = useRef(false)
 
   // Geolocation state — initialize with saved accurate location if present
   const [userCoords, setUserCoords] = useState(() => {
@@ -181,8 +182,10 @@ export default function App() {
     }
   }, [getGPSPosition, fetchAddressName])
 
-  // Auto-detect on app launch
+  // Auto-detect on app launch (once only)
   useEffect(() => {
+    if (hasAutoDetectedRef.current) return
+    hasAutoDetectedRef.current = true
     detectLocation()
   }, [detectLocation])
 
