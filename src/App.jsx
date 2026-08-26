@@ -77,7 +77,7 @@ export default function App() {
       disableDealAlerts()
       setDealAlertsActive(false)
     } else {
-      const enabled = await enableDealAlerts()
+      const enabled = await enableDealAlerts(products)
       setDealAlertsActive(enabled)
     }
   }

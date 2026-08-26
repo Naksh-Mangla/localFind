@@ -5,6 +5,7 @@
 
 const NOTIFIED_DEALS_KEY = 'localfind_notified_deals'
 const ALERTS_ENABLED_KEY = 'localfind_deal_alerts_enabled'
+const SUBSCRIBED_AT_KEY = 'localfind_deal_alerts_subscribed_at'
 
 /**
  * Check if the browser supports standard Web Notifications
@@ -33,9 +34,11 @@ export function isDealAlertsEnabled() {
 
 /**
  * Request notification permission and enable deal alerts
+ * Seeds all existing deals so the user only gets notified for FUTURE deals from this exact moment onward.
+ * @param {Array} currentProducts - currently loaded products to baseline
  * @returns {Promise<boolean>} true if enabled successfully
  */
-export async function enableDealAlerts() {
+export async function enableDealAlerts(currentProducts = []) {
   if (!isNotificationSupported()) {
     alert('Web Notifications are not supported on this browser.')
     return false
@@ -44,12 +47,24 @@ export async function enableDealAlerts() {
   try {
     const permission = await Notification.requestPermission()
     if (permission === 'granted') {
+      const now = Date.now()
       localStorage.setItem(ALERTS_ENABLED_KEY, 'true')
+      localStorage.setItem(SUBSCRIBED_AT_KEY, String(now))
       
+      // Seed all existing currently-live deals into the notified list so NO existing deals fire
+      if (Array.isArray(currentProducts) && currentProducts.length > 0) {
+        const existingLiveDealIds = currentProducts
+          .filter((p) => p.is_flash_deal && p.flash_deal_ends_at)
+          .map((p) => p.id)
+        localStorage.setItem(NOTIFIED_DEALS_KEY, JSON.stringify(existingLiveDealIds))
+      } else {
+        localStorage.setItem(NOTIFIED_DEALS_KEY, JSON.stringify([]))
+      }
+
       // Send a welcome confirmation test notification
       sendLocalNotification({
         title: '⚡ Local Flash Deal Alerts Active!',
-        body: 'You will get notified whenever nearby shops launch 24-hr discounts.',
+        body: 'You will only receive notifications when shops launch NEW flash deals from now on.',
         tag: 'localfind-welcome-alert'
       })
       return true
@@ -106,7 +121,7 @@ export function sendLocalNotification({ title, body, icon = '/logo.svg', tag, da
 }
 
 /**
- * Scans products and notifies user of any new nearby flash deals
+ * Scans products and notifies user ONLY of new nearby flash deals launched AFTER subscription
  */
 export function checkAndNotifyNewDeals(products = [], userCoords = null) {
   if (!isDealAlertsEnabled() || !Array.isArray(products) || products.length === 0) {
@@ -115,16 +130,18 @@ export function checkAndNotifyNewDeals(products = [], userCoords = null) {
 
   try {
     const now = Date.now()
+    const subscribedAt = Number(localStorage.getItem(SUBSCRIBED_AT_KEY) || now)
     const notifiedIds = JSON.parse(localStorage.getItem(NOTIFIED_DEALS_KEY) || '[]')
     const notifiedSet = new Set(notifiedIds)
 
-    // Filter active flash deals
+    // Filter active flash deals that are currently live
     const activeDeals = products.filter((p) => {
       if (!p.is_flash_deal || !p.flash_deal_ends_at) return false
       const endTime = new Date(p.flash_deal_ends_at).getTime()
       return Number.isFinite(endTime) && endTime > now
     })
 
+    // Only consider deals that have NOT yet been notified
     const newDealsToNotify = activeDeals.filter((deal) => !notifiedSet.has(deal.id))
 
     if (newDealsToNotify.length > 0) {
@@ -142,7 +159,7 @@ export function checkAndNotifyNewDeals(products = [], userCoords = null) {
         data: { productId: topDeal.id }
       })
 
-      // Update notified set
+      // Update notified set so this deal won't notify again
       newDealsToNotify.forEach((d) => notifiedSet.add(d.id))
       // Keep only recent 50 IDs in storage
       const updatedList = Array.from(notifiedSet).slice(-50)
@@ -152,3 +169,4 @@ export function checkAndNotifyNewDeals(products = [], userCoords = null) {
     console.warn('Error checking deal notifications:', err)
   }
 }
+
