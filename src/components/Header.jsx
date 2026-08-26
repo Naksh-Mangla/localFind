@@ -32,8 +32,8 @@ export function Header({
     <>
       {/* 📱 Mobile TopAppBar - Clean Linear/Apple Minimal Chrome */}
       <header className="md:hidden bg-surface/90 apple-frosted w-full z-20 flex items-center justify-between px-3 h-14 border-b border-surface-variant/40 sticky top-0 pt-[env(safe-area-inset-top,0px)]">
-        {/* Brand + Credit + Location */}
-        <div className="flex items-center gap-1.5 max-w-[64%] min-w-0">
+        {/* Brand Logo & Location Pill */}
+        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
           <div
             onClick={() => setActiveView('discover')}
             className="flex items-center gap-1 cursor-pointer flex-shrink-0 active:scale-95 transition-transform"
@@ -43,13 +43,12 @@ export function Header({
               alt="LocalFind" 
               className="w-7 h-7 rounded-full object-contain flex-shrink-0" 
             />
-            <span className="text-[8px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20 tracking-wider">
-              NAKSH
-            </span>
           </div>
+
+          {/* Location Chip with Status Dot */}
           <button
             onClick={onDetectLocation}
-            className="flex items-center gap-1.5 min-w-0 p-1 px-2 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/60"
+            className="flex items-center gap-1.5 min-w-0 py-1 px-2.5 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/70 flex-1 max-w-[200px]"
             title={
               locationStatus === 'gps' || locationStatus === 'success'
                 ? '🛰️ Live Satellite GPS Active'
@@ -60,7 +59,7 @@ export function Header({
                 : 'Tap to change location'
             }
           >
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
               locationStatus === 'gps' || locationStatus === 'success'
                 ? 'bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]'
                 : locationStatus === 'manual'
@@ -71,26 +70,26 @@ export function Header({
                 ? 'bg-rose-500'
                 : 'bg-zinc-400 animate-pulse'
             }`}></span>
-            <span className="text-[11px] font-semibold text-on-surface truncate max-w-[100px]">
-              {userLocationName || 'Location'}
+            <span className="text-[11px] font-bold text-on-surface truncate">
+              {userLocationName || 'Select Area'}
             </span>
-            <span className="material-symbols-outlined text-[12px] text-on-surface-variant/60">expand_more</span>
+            <span className="material-symbols-outlined text-[13px] text-on-surface-variant/60 flex-shrink-0">expand_more</span>
           </button>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5 flex-shrink-0">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {onToggleDealAlerts && (
             <button
               onClick={onToggleDealAlerts}
               title={dealAlertsActive ? 'Deal Alerts Active' : 'Enable Deal Alerts'}
-              className={`p-2 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
+              className={`p-1.5 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
                 dealAlertsActive
                   ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
                   : 'bg-surface-container-high/60 text-on-surface-variant border-surface-variant/40 hover:text-on-surface'
               }`}
             >
-              <span className="material-symbols-outlined text-[17px]">
+              <span className="material-symbols-outlined text-[16px]">
                 {dealAlertsActive ? 'notifications_active' : 'notifications'}
               </span>
             </button>
@@ -101,9 +100,9 @@ export function Header({
               onClick={onRefreshProducts}
               disabled={refreshing}
               title={`Sync status: ${syncRAG.tooltip} (Last synced: ${syncRAG.label})`}
-              className="p-2 rounded-full border border-surface-variant/40 bg-surface-container-high/60 text-on-surface-variant hover:text-on-surface transition-all active:scale-90"
+              className="p-1.5 rounded-full border border-surface-variant/40 bg-surface-container-high/60 text-on-surface-variant hover:text-on-surface transition-all active:scale-90"
             >
-              <span className={`material-symbols-outlined text-[17px] ${refreshing ? 'animate-spin text-primary' : ''}`}>
+              <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin text-primary' : ''}`}>
                 sync
               </span>
             </button>
@@ -112,7 +111,7 @@ export function Header({
           {user ? (
             <button
               onClick={() => setActiveView('merchant')}
-              className="flex items-center gap-1 bg-primary text-on-primary px-3 py-1.5 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all"
+              className="flex items-center gap-1 bg-primary text-on-primary px-2.5 py-1 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all"
             >
               <img
                 src={getAvatarUrl(user)}
@@ -123,14 +122,14 @@ export function Header({
                 }}
                 className="w-4 h-4 rounded-full object-cover"
               />
-              <span>Shop</span>
+              <span className="text-[11px]">Shop</span>
             </button>
           ) : (
             <button
               onClick={onOpenSignIn}
-              className="bg-primary text-on-primary px-3 py-1.5 rounded-full text-xs font-bold shadow-crisp-xs flex items-center gap-1 active:scale-95 transition-all"
+              className="bg-primary text-on-primary px-2.5 py-1 rounded-full text-[11px] font-bold shadow-crisp-xs flex items-center gap-1 active:scale-95 transition-all"
             >
-              <span className="material-symbols-outlined text-[14px]">storefront</span>
+              <span className="material-symbols-outlined text-[13px]">storefront</span>
               <span>Sell</span>
             </button>
           )}

@@ -86,7 +86,7 @@ const StoreStatusBadge = React.memo(function StoreStatusBadge({ openingTime, clo
   )
 })
 
-// 🍎 Apple Museum Gallery Style Product Card with 60+ FPS Virtual Containment
+// 🍎 Apple Museum Gallery Style Product Card with Clean Visual Hierarchy
 const ProductCard = React.memo(function ProductCard({
   product,
   onSelectProduct,
@@ -107,6 +107,7 @@ const ProductCard = React.memo(function ProductCard({
           : 'border-surface-variant/40 hover:border-primary/40'
       }`}
     >
+      {/* Product Image Area with Separated Top Badges */}
       <div className="relative w-full aspect-square overflow-hidden bg-surface-variant/40">
         <img
           src={product.image_url || DEFAULT_IMG}
@@ -120,77 +121,78 @@ const ProductCard = React.memo(function ProductCard({
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
         />
 
-        {/* Apple Translucent Capsule Badges */}
-        <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-3 sm:right-3 flex items-center justify-between pointer-events-none gap-1">
-          {flashInfo.isLive ? (
-            <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black shadow-crisp-xs flex items-center gap-0.5 sm:gap-1 pointer-events-auto animate-softGaze">
-              <span className="text-[9px] sm:text-[10px]">⚡</span>
-              <span>{flashInfo.discountPercent}% OFF</span>
-            </span>
-          ) : (
-            <span className="bg-surface/85 apple-frosted px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-bold shadow-crisp-xs border border-surface-variant/30 flex items-center gap-1 pointer-events-auto">
-              <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
-              <span className={itemRAG.textClass}>{itemRAG.label}</span>
-            </span>
-          )}
-          {product.isOwner ? (
-            <span
-              className="apple-frosted px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-bold shadow-crisp-xs border border-primary/40 bg-primary/15 text-primary flex items-center gap-0.5"
-            >
-              <span className="material-symbols-outlined text-[11px] text-primary">
-                storefront
+        {/* Top Floating Badge Bar - Clean Separated Architecture */}
+        <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10">
+          {/* Left Badge: Flash discount OR Live freshness dot */}
+          <div>
+            {flashInfo.isLive ? (
+              <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 text-white px-2 py-0.5 rounded-full text-[9px] font-black shadow-crisp-xs flex items-center gap-1 pointer-events-auto animate-softGaze">
+                <span>⚡</span>
+                <span>{flashInfo.discountPercent}% OFF</span>
               </span>
-              <span>Shop (0m)</span>
-            </span>
-          ) : product.distanceKm !== null && (
-            <span
-              className={`apple-frosted px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-bold shadow-crisp-xs border flex items-center gap-0.5 ${
-                isDistant
-                  ? 'bg-amber-600/90 text-white border-amber-600/60'
-                  : 'bg-surface/85 text-on-surface border-surface-variant/40'
-              }`}
-            >
-              <span className={`material-symbols-outlined text-[11px] ${isDistant ? '' : 'text-primary'}`}>
-                directions_walk
+            ) : (
+              <span className="bg-black/50 backdrop-blur-md text-white px-2 py-0.5 rounded-full text-[8px] font-bold shadow-crisp-xs border border-white/10 flex items-center gap-1 pointer-events-auto">
+                <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
+                <span className="text-white/90">{itemRAG.label}</span>
               </span>
-              <span>{formatDistance(product.distanceKm)}</span>
-            </span>
-          )}
-
-          <div className="flex items-center gap-1 ml-auto pointer-events-auto">
-            {/* Wishlist Action Button with 40px Hit Area */}
-            <button
-              onClick={(e) => onToggleWishlist(product.id, e)}
-              title={isWishlisted ? 'Remove from Saved Wishlist' : 'Save to Wishlist'}
-              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-crisp-xs transition-all active:scale-75 ${
-                isWishlisted
-                  ? 'bg-rose-500 text-white shadow-rose-500/25 ring-2 ring-rose-500/20'
-                  : 'bg-surface/85 apple-frosted text-on-surface-variant hover:text-rose-500 border border-surface-variant/40 hover:bg-surface'
-              }`}
-            >
-              <span className={`material-symbols-outlined text-[14px] sm:text-[16px] transition-transform ${isWishlisted ? 'fill-current animate-heartBeat' : ''}`}>
-                favorite
-              </span>
-            </button>
+            )}
           </div>
+
+          {/* Right Action: Clean Frosted Glass Wishlist Heart */}
+          <button
+            onClick={(e) => onToggleWishlist(product.id, e)}
+            title={isWishlisted ? 'Remove from Saved Wishlist' : 'Save to Wishlist'}
+            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-crisp-xs transition-all active:scale-75 pointer-events-auto backdrop-blur-md ${
+              isWishlisted
+                ? 'bg-rose-500 text-white shadow-rose-500/25 ring-2 ring-rose-500/20'
+                : 'bg-black/40 text-white/90 hover:text-rose-400 hover:bg-black/60 border border-white/20'
+            }`}
+          >
+            <span className={`material-symbols-outlined text-[15px] sm:text-[16px] transition-transform ${isWishlisted ? 'fill-current animate-heartBeat' : ''}`}>
+              favorite
+            </span>
+          </button>
         </div>
       </div>
 
+      {/* Product Content Body with Clean Structured Rows */}
       <div className="p-2.5 sm:p-4 flex flex-col flex-grow">
-        <div className="flex justify-between items-start mb-0.5 sm:mb-1">
-          <h3 className="font-title-md text-xs sm:text-sm md:text-base font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors tracking-tight">
-            {product.name}
-          </h3>
-        </div>
+        {/* Title */}
+        <h3 className="font-title-md text-xs sm:text-sm md:text-base font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors tracking-tight mb-1">
+          {product.name}
+        </h3>
 
-        <div className="flex items-center justify-between gap-1 mb-2 sm:mb-3">
-          <p className="font-body-sm text-[10px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1">
+        {/* Shop Name + Distance & Opening Status Row */}
+        <div className="flex items-center justify-between gap-1.5 mb-1.5 flex-wrap">
+          <p className="font-body-sm text-[10px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1 font-medium">
             {product.shop_name}
           </p>
           <StoreStatusBadge openingTime={product.opening_time} closingTime={product.closing_time} />
         </div>
 
-        <div className="mt-auto flex items-end justify-between pt-1.5 sm:pt-2 border-t border-surface-variant/25">
+        {/* Distance Metadata Pill in Body (Never overlaps photo) */}
+        <div className="mb-2 flex items-center gap-1">
+          {product.isOwner ? (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+              <span className="material-symbols-outlined text-[11px]">storefront</span>
+              <span>Your Shop (0m)</span>
+            </span>
+          ) : product.distanceKm !== null ? (
+            <span className={`inline-flex items-center gap-0.5 text-[9px] font-bold px-2 py-0.5 rounded-full border ${
+              isDistant
+                ? 'bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30'
+                : 'bg-surface-container-high text-on-surface-variant border-surface-variant/50'
+            }`}>
+              <span className={`material-symbols-outlined text-[11px] ${isDistant ? 'text-amber-600' : 'text-primary'}`}>
+                directions_walk
+              </span>
+              <span>{formatDistance(product.distanceKm)}</span>
+            </span>
+          ) : null}
+        </div>
+
+        {/* Price & Action Bottom Row */}
+        <div className="mt-auto flex items-end justify-between pt-2 border-t border-surface-variant/25">
           <div>
             {flashInfo.isLive ? (
               <div className="flex flex-col">
@@ -211,9 +213,9 @@ const ProductCard = React.memo(function ProductCard({
             )}
           </div>
 
-          {/* Apple Signature Pill CTA */}
+          {/* Apple Signature View CTA */}
           <button
-            className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-0.5 sm:gap-1 active:scale-95 ${
+            className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-0.5 sm:gap-1 active:scale-95 ${
               isDistant
                 ? 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant'
                 : 'bg-primary hover:bg-primary/90 text-on-primary shadow-sm hover:shadow-primary/20'
@@ -621,7 +623,7 @@ export function BuyerDiscover({
             </div>
           </div>
 
-          {/* 🔘 Minimal Filter Dropdown Trigger Button */}
+          {/* 🔘 Filter Button & Modern Responsive Filter Sheet/Popover */}
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowFiltersDropdown((prev) => !prev)}
@@ -640,118 +642,140 @@ export function BuyerDiscover({
               )}
             </button>
 
-            {/* Popover Dropdown Menu */}
+            {/* Filter Modal / Bottom Sheet */}
             {showFiltersDropdown && (
-              <div className="absolute right-0 top-full mt-2.5 w-72 sm:w-80 bg-surface/95 apple-frosted border border-surface-variant/80 rounded-3xl shadow-crisp-xl p-4.5 z-50 animate-popIn">
-                <div className="flex items-center justify-between pb-3 mb-3 border-b border-surface-variant/40">
-                  <div className="flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-primary text-sm">tune</span>
-                    <span className="font-title-md text-xs font-bold text-on-surface">Filter Products</span>
-                  </div>
-                  {(selectedCategory !== 'All' || maxRadiusKm !== 2 || showOnlyWishlist) && (
-                    <button
-                      onClick={() => {
-                        setSelectedCategory('All')
-                        setMaxRadiusKm(2)
-                        setShowOnlyWishlist(false)
-                      }}
-                      className="text-[10px] font-bold text-primary hover:underline"
-                    >
-                      Reset All
-                    </button>
-                  )}
-                </div>
+              <>
+                {/* Mobile Backdrop Scrim */}
+                <div 
+                  className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 md:hidden animate-fadeIn"
+                  onClick={() => setShowFiltersDropdown(false)}
+                />
 
-                {/* ❤️ Saved Wishlist Filter Toggle Inside Dropdown */}
-                <div className="mb-3.5 pb-3 border-b border-surface-variant/40">
-                  <button
-                    type="button"
-                    onClick={() => setShowOnlyWishlist((prev) => !prev)}
-                    className={`w-full flex items-center justify-between p-2.5 px-3 rounded-2xl border transition-all text-xs font-bold ${
-                      showOnlyWishlist
-                        ? 'bg-rose-500 text-white border-rose-600 shadow-rose-500/20 shadow-sm'
-                        : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border-surface-variant/40'
-                    }`}
-                  >
+                {/* Container: Bottom Sheet on Mobile, Floating Popover on Desktop */}
+                <div className="fixed md:absolute bottom-0 md:bottom-auto left-0 md:left-auto right-0 md:right-0 md:top-full md:mt-2.5 w-full md:w-80 bg-surface md:bg-surface/95 apple-frosted border-t md:border border-surface-variant/80 rounded-t-[32px] md:rounded-3xl shadow-crisp-xl p-5 md:p-4.5 z-50 animate-slide-up-sheet md:animate-popIn max-h-[85vh] overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] md:pb-4.5">
+                  {/* Mobile Grab Handle */}
+                  <div className="w-12 h-1 bg-on-surface/20 rounded-full mx-auto -mt-2 mb-3.5 md:hidden"></div>
+
+                  <div className="flex items-center justify-between pb-3 mb-3 border-b border-surface-variant/40">
                     <div className="flex items-center gap-2">
-                      <span className={`material-symbols-outlined text-base ${showOnlyWishlist ? 'fill-current animate-heartBeat' : 'text-rose-500'}`}>
-                        favorite
-                      </span>
-                      <span>Show Saved Wishlist</span>
+                      <span className="material-symbols-outlined text-primary text-base">tune</span>
+                      <span className="font-title-md text-sm md:text-xs font-bold text-on-surface">Filter & Customize</span>
                     </div>
-                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
-                      showOnlyWishlist ? 'bg-white text-rose-600' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                    }`}>
-                      {wishlistIds.length} {wishlistIds.length === 1 ? 'item' : 'items'}
-                    </span>
-                  </button>
-                </div>
-
-                {/* Category Selection */}
-                <div className="mb-3.5">
-                  <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
-                    Category ({selectedCategory})
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {CATEGORIES.map((cat) => {
-                      const isActive = selectedCategory === cat.label
-                      return (
+                    <div className="flex items-center gap-2">
+                      {(selectedCategory !== 'All' || maxRadiusKm !== 2 || showOnlyWishlist) && (
                         <button
-                          key={cat.label}
-                          onClick={() => setSelectedCategory(cat.label)}
-                          className={`flex items-center gap-1.5 px-3 py-2 rounded-full font-label-caps text-[11px] transition-all text-left ${
-                            isActive
-                              ? 'bg-primary text-on-primary font-bold shadow-crisp-xs ring-2 ring-primary/20'
-                              : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/40'
-                          }`}
+                          onClick={() => {
+                            setSelectedCategory('All')
+                            setMaxRadiusKm(2)
+                            setShowOnlyWishlist(false)
+                          }}
+                          className="text-[11px] md:text-[10px] font-bold text-primary hover:underline px-2 py-0.5"
                         >
-                          <span className="material-symbols-outlined text-[14px]">{cat.icon}</span>
-                          <span className="truncate">{cat.label}</span>
+                          Reset
                         </button>
-                      )
-                    })}
+                      )}
+                      <button
+                        onClick={() => setShowFiltersDropdown(false)}
+                        className="w-7 h-7 rounded-full bg-surface-container-high flex items-center justify-center text-on-surface-variant hover:text-on-surface md:hidden"
+                      >
+                        <span className="material-symbols-outlined text-sm">close</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* ❤️ Saved Wishlist Filter Toggle */}
+                  <div className="mb-4 pb-3 border-b border-surface-variant/40">
+                    <button
+                      type="button"
+                      onClick={() => setShowOnlyWishlist((prev) => !prev)}
+                      className={`w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-xs font-bold ${
+                        showOnlyWishlist
+                          ? 'bg-rose-500 text-white border-rose-600 shadow-rose-500/20 shadow-sm'
+                          : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border-surface-variant/40'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`material-symbols-outlined text-lg ${showOnlyWishlist ? 'fill-current animate-heartBeat' : 'text-rose-500'}`}>
+                          favorite
+                        </span>
+                        <span>Show Saved Wishlist</span>
+                      </div>
+                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-black ${
+                        showOnlyWishlist ? 'bg-white text-rose-600' : 'bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                      }`}>
+                        {wishlistIds.length} {wishlistIds.length === 1 ? 'item' : 'items'}
+                      </span>
+                    </button>
+                  </div>
+
+                  {/* Distance Radius Selection */}
+                  <div className="mb-4">
+                    <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
+                      Search Radius
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { label: '2 km (Nearby)', value: 2 },
+                        { label: '5 km', value: 5 },
+                        { label: '10 km', value: 10 },
+                        { label: 'All Distances', value: 'all' }
+                      ].map((rad) => {
+                        const isActive = maxRadiusKm === rad.value
+                        return (
+                          <button
+                            key={rad.label}
+                            onClick={() => setMaxRadiusKm(rad.value)}
+                            className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all text-center ${
+                              isActive
+                                ? 'bg-primary text-on-primary shadow-crisp-xs ring-2 ring-primary/20'
+                                : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/40'
+                            }`}
+                          >
+                            {rad.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Category Selection */}
+                  <div className="mb-4">
+                    <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
+                      Category ({selectedCategory})
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {CATEGORIES.map((cat) => {
+                        const isActive = selectedCategory === cat.label
+                        return (
+                          <button
+                            key={cat.label}
+                            onClick={() => setSelectedCategory(cat.label)}
+                            className={`flex items-center gap-2 px-3 py-2.5 rounded-xl font-label-caps text-xs transition-all text-left ${
+                              isActive
+                                ? 'bg-primary text-on-primary font-bold shadow-crisp-xs ring-2 ring-primary/20'
+                                : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/40'
+                            }`}
+                          >
+                            <span className="material-symbols-outlined text-[16px]">{cat.icon}</span>
+                            <span className="truncate">{cat.label}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Apply CTA Button */}
+                  <div className="mt-4 pt-3 border-t border-surface-variant/40">
+                    <button
+                      onClick={() => setShowFiltersDropdown(false)}
+                      className="w-full bg-primary hover:bg-primary/90 text-on-primary py-3 rounded-full text-xs font-bold transition-all shadow-sm active:scale-95 text-center flex items-center justify-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-base">check</span>
+                      <span>Apply Filters</span>
+                    </button>
                   </div>
                 </div>
-
-                {/* Distance Radius Selection */}
-                <div>
-                  <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2">
-                    Search Radius
-                  </label>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[
-                      { label: '2 km (Nearby)', value: 2 },
-                      { label: '5 km', value: 5 },
-                      { label: '10 km', value: 10 },
-                      { label: 'All Distances', value: 'all' }
-                    ].map((rad) => {
-                      const isActive = maxRadiusKm === rad.value
-                      return (
-                        <button
-                          key={rad.label}
-                          onClick={() => setMaxRadiusKm(rad.value)}
-                          className={`px-3 py-2 rounded-full text-[11px] font-bold transition-all text-center ${
-                            isActive
-                              ? 'bg-primary text-on-primary shadow-crisp-xs ring-2 ring-primary/20'
-                              : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/40'
-                          }`}
-                        >
-                          {rad.label}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-surface-variant/40">
-                  <button
-                    onClick={() => setShowFiltersDropdown(false)}
-                    className="w-full bg-primary hover:bg-primary/90 text-on-primary py-2.5 rounded-full text-xs font-bold transition-all shadow-sm active:scale-95 text-center"
-                  >
-                    Apply Filters
-                  </button>
-                </div>
-              </div>
+              </>
             )}
           </div>
         </div>
@@ -1155,8 +1179,8 @@ export function BuyerDiscover({
       )}
 
       {/* 🌟 Sleek Minimalist Footer Credit */}
-      <footer className="mt-14 pt-6 border-t border-surface-variant/30 text-center pb-8">
-        <p className="text-xs text-on-surface-variant flex items-center justify-center gap-2 font-medium">
+      <footer className="mt-14 pt-6 border-t border-surface-variant/30 text-center pb-8 flex flex-col items-center gap-2">
+        <p className="text-xs text-on-surface-variant flex items-center justify-center gap-2 font-medium flex-wrap">
           <span>LocalFind • Hyperlocal Physical Commerce</span>
           <span className="opacity-40">•</span>
           <span className="inline-flex items-center gap-1 font-bold text-on-surface">
@@ -1165,6 +1189,9 @@ export function BuyerDiscover({
             <span>by <strong className="text-primary font-extrabold tracking-wide">NAKSH</strong></span>
           </span>
         </p>
+        <span className="text-[10px] font-mono font-bold bg-surface-container-high text-on-surface-variant/80 px-2.5 py-0.5 rounded-full border border-surface-variant/60">
+          v2.3.0
+        </span>
       </footer>
     </main>
   )
