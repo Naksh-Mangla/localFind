@@ -132,9 +132,10 @@ export default function App() {
     })
   }, [])
 
-  // Main location detection — auto-runs on app launch
+  // Main location detection — auto-runs on app launch and prioritizes exact GPS over manual entry
   const detectLocation = useCallback(async () => {
-    const hasSavedLocation = Boolean(localStorage.getItem('localfind_saved_location'))
+    const savedLocationStr = localStorage.getItem('localfind_saved_location')
+    const hasSavedLocation = Boolean(savedLocationStr)
     
     if (!hasSavedLocation) {
       setUserLocationName('📍 Getting your location...')
@@ -147,18 +148,19 @@ export default function App() {
       const { latitude: lat, longitude: lng, accuracy } = pos.coords
       console.log(`📍 GPS locked: ${lat}, ${lng} (±${Math.round(accuracy)}m), mode: ${mode}`)
       
-      if (mode === 'high' && accuracy <= 150) {
-        // High accuracy GPS: Save location automatically for 100% offline & future visits
+      // If valid GPS coordinates are acquired (satellite lock or Wi-Fi geo under 3km), automatically switch to live GPS!
+      if (accuracy <= 3000 || mode === 'high') {
         setUserCoords({ lat, lng, accuracy })
         setLocationStatus('success')
         fetchAddressName(lat, lng, '', true)
         setIsFirstTimeFallback(false)
         setShowLocationPicker(false)
+        console.log('✅ Automatically switched to real-time GPS location!')
       } else {
-        // Approximate / IP location detected
+        // Broad IP location (> 3000m)
         if (hasSavedLocation) {
-          // Keep previously saved accurate location
-          console.log('Using previously saved user location instead of inaccurate IP location')
+          // Keep user's saved location
+          console.log('Using saved location instead of broad IP location')
         } else {
           // First time user with inaccurate GPS: Open manual location modal
           console.warn('Inaccurate location on first visit, requesting manual location entry')
