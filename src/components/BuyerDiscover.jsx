@@ -101,7 +101,7 @@ const ProductCard = React.memo(function ProductCard({
   return (
     <div
       onClick={() => onSelectProduct(product)}
-      className={`product-card-contain bg-surface-container-lowest rounded-3xl shadow-crisp-xs hover:apple-product-shadow overflow-hidden border flex flex-col group cursor-pointer transition-all duration-300 touch-press ${
+      className={`product-card-contain bg-surface-container-lowest rounded-2xl sm:rounded-3xl shadow-crisp-xs hover:apple-product-shadow overflow-hidden border flex flex-col group cursor-pointer transition-all duration-300 touch-press ${
         isDistant 
           ? 'border-amber-500/30 hover:border-amber-500/60' 
           : 'border-surface-variant/40 hover:border-primary/40'
@@ -121,54 +121,54 @@ const ProductCard = React.memo(function ProductCard({
         />
 
         {/* Apple Translucent Capsule Badges */}
-        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none gap-1">
+        <div className="absolute top-2 left-2 right-2 sm:top-3 sm:left-3 sm:right-3 flex items-center justify-between pointer-events-none gap-1">
           {flashInfo.isLive ? (
-            <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 text-white px-3 py-1 rounded-full text-[9px] font-black shadow-crisp-xs flex items-center gap-1 pointer-events-auto animate-softGaze">
-              <span className="text-[10px]">⚡</span>
+            <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 text-white px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-black shadow-crisp-xs flex items-center gap-0.5 sm:gap-1 pointer-events-auto animate-softGaze">
+              <span className="text-[9px] sm:text-[10px]">⚡</span>
               <span>{flashInfo.discountPercent}% OFF</span>
             </span>
           ) : (
-            <span className="bg-surface/80 apple-frosted px-3 py-1 rounded-full text-[9px] font-bold shadow-crisp-xs border border-surface-variant/30 flex items-center gap-1 pointer-events-auto">
+            <span className="bg-surface/85 apple-frosted px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[8px] sm:text-[9px] font-bold shadow-crisp-xs border border-surface-variant/30 flex items-center gap-1 pointer-events-auto">
               <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
               <span className={itemRAG.textClass}>{itemRAG.label}</span>
             </span>
           )}
           {product.isOwner ? (
             <span
-              className="apple-frosted px-2.5 py-1 rounded-full text-[9px] font-bold shadow-crisp-xs border border-primary/40 bg-primary/15 text-primary flex items-center gap-0.5"
+              className="apple-frosted px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-bold shadow-crisp-xs border border-primary/40 bg-primary/15 text-primary flex items-center gap-0.5"
             >
-              <span className="material-symbols-outlined text-[12px] text-primary">
+              <span className="material-symbols-outlined text-[11px] text-primary">
                 storefront
               </span>
-              <span>Your Shop (0m)</span>
+              <span>Shop (0m)</span>
             </span>
           ) : product.distanceKm !== null && (
             <span
-              className={`apple-frosted px-2.5 py-1 rounded-full text-[9px] font-bold shadow-crisp-xs border flex items-center gap-0.5 ${
+              className={`apple-frosted px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] font-bold shadow-crisp-xs border flex items-center gap-0.5 ${
                 isDistant
                   ? 'bg-amber-600/90 text-white border-amber-600/60'
-                  : 'bg-surface/80 text-on-surface border-surface-variant/40'
+                  : 'bg-surface/85 text-on-surface border-surface-variant/40'
               }`}
             >
-              <span className={`material-symbols-outlined text-[12px] ${isDistant ? '' : 'text-primary'}`}>
+              <span className={`material-symbols-outlined text-[11px] ${isDistant ? '' : 'text-primary'}`}>
                 directions_walk
               </span>
               <span>{formatDistance(product.distanceKm)}</span>
             </span>
           )}
 
-          <div className="flex items-center gap-1.5 ml-auto pointer-events-auto">
-            {/* Apple Circular Action Chip */}
+          <div className="flex items-center gap-1 ml-auto pointer-events-auto">
+            {/* Wishlist Action Button with 40px Hit Area */}
             <button
               onClick={(e) => onToggleWishlist(product.id, e)}
               title={isWishlisted ? 'Remove from Saved Wishlist' : 'Save to Wishlist'}
-              className={`w-7 h-7 rounded-full flex items-center justify-center shadow-crisp-xs transition-all active:scale-75 ${
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-crisp-xs transition-all active:scale-75 ${
                 isWishlisted
                   ? 'bg-rose-500 text-white shadow-rose-500/25 ring-2 ring-rose-500/20'
-                  : 'bg-surface/80 apple-frosted text-on-surface-variant hover:text-rose-500 border border-surface-variant/40 hover:bg-surface'
+                  : 'bg-surface/85 apple-frosted text-on-surface-variant hover:text-rose-500 border border-surface-variant/40 hover:bg-surface'
               }`}
             >
-              <span className={`material-symbols-outlined text-[15px] transition-transform ${isWishlisted ? 'fill-current animate-heartBeat' : ''}`}>
+              <span className={`material-symbols-outlined text-[14px] sm:text-[16px] transition-transform ${isWishlisted ? 'fill-current animate-heartBeat' : ''}`}>
                 favorite
               </span>
             </button>
@@ -176,36 +176,36 @@ const ProductCard = React.memo(function ProductCard({
         </div>
       </div>
 
-      <div className="p-4 flex flex-col flex-grow">
-        <div className="flex justify-between items-start mb-1">
-          <h3 className="font-title-md text-sm sm:text-base font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors tracking-tight">
+      <div className="p-2.5 sm:p-4 flex flex-col flex-grow">
+        <div className="flex justify-between items-start mb-0.5 sm:mb-1">
+          <h3 className="font-title-md text-xs sm:text-sm md:text-base font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors tracking-tight">
             {product.name}
           </h3>
         </div>
 
-        <div className="flex items-center justify-between gap-1 mb-3">
-          <p className="font-body-sm text-[11px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1">
+        <div className="flex items-center justify-between gap-1 mb-2 sm:mb-3">
+          <p className="font-body-sm text-[10px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1">
             {product.shop_name}
           </p>
           <StoreStatusBadge openingTime={product.opening_time} closingTime={product.closing_time} />
         </div>
 
-        <div className="mt-auto flex items-end justify-between pt-2 border-t border-surface-variant/25">
+        <div className="mt-auto flex items-end justify-between pt-1.5 sm:pt-2 border-t border-surface-variant/25">
           <div>
             {flashInfo.isLive ? (
               <div className="flex flex-col">
                 <FlashCountdownBadge deal={product} />
-                <div className="flex items-baseline gap-1.5 mt-0.5">
-                  <span className="font-headline-lg-mobile text-base sm:text-lg md:text-xl font-bold text-rose-600">
+                <div className="flex items-baseline gap-1 mt-0.5">
+                  <span className="font-headline-lg-mobile text-sm sm:text-base md:text-lg font-bold text-rose-600">
                     ₹{flashInfo.discountedPrice}
                   </span>
-                  <span className="text-xs text-on-surface-variant line-through opacity-70 font-medium">
+                  <span className="text-[10px] sm:text-xs text-on-surface-variant line-through opacity-70 font-medium">
                     ₹{flashInfo.originalPrice}
                   </span>
                 </div>
               </div>
             ) : (
-              <span className="font-headline-lg-mobile text-base sm:text-lg md:text-xl font-black text-primary">
+              <span className="font-headline-lg-mobile text-sm sm:text-base md:text-lg font-black text-primary">
                 ₹{product.price}
               </span>
             )}
@@ -213,15 +213,14 @@ const ProductCard = React.memo(function ProductCard({
 
           {/* Apple Signature Pill CTA */}
           <button
-            className={`px-4 py-1.5 rounded-full font-label-caps text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-1 active:scale-95 ${
+            className={`px-2.5 sm:px-4 py-1 sm:py-1.5 rounded-full font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-0.5 sm:gap-1 active:scale-95 ${
               isDistant
                 ? 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant'
                 : 'bg-primary hover:bg-primary/90 text-on-primary shadow-sm hover:shadow-primary/20'
             }`}
           >
-            <span className="hidden sm:inline">Details</span>
-            <span className="sm:hidden">View</span>
-            <span className="material-symbols-outlined text-[14px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+            <span>View</span>
+            <span className="material-symbols-outlined text-[12px] sm:text-[14px]">arrow_forward</span>
           </button>
         </div>
       </div>

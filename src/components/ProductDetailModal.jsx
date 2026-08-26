@@ -64,12 +64,15 @@ export function ProductDetailModal({ product, onClose }) {
   return (
     <div 
       onClick={onClose}
-      className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-fadeIn"
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-surface rounded-3xl shadow-crisp-xl overflow-y-auto my-auto border border-surface-variant/70 max-h-[92vh] flex flex-col scroll-smooth animate-popIn"
+        className="relative w-full max-w-2xl bg-surface rounded-t-[32px] sm:rounded-3xl shadow-crisp-xl overflow-y-auto border border-surface-variant/70 max-h-[92vh] flex flex-col scroll-smooth animate-slide-up-sheet sm:animate-popIn pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
+        {/* Mobile Drag Handle */}
+        <div className="w-12 h-1 bg-on-surface/20 rounded-full mx-auto mt-2.5 mb-1 sm:hidden"></div>
+
         {/* Floating Action Buttons (Sticky at top of modal) */}
         <div className="sticky top-3 left-0 right-0 z-20 flex justify-between items-center px-4 pointer-events-none -mb-14">
           <button

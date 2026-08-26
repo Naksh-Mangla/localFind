@@ -372,6 +372,29 @@ h1, h2, h3, .font-headline-lg, .font-display-lg {
   scrollbar-color: rgba(156, 62, 32, 0.2) transparent;
 }
 
+/* 📱 Mobile UX & Touch Ergonomics (ui-ux-pro-max & awesome-design-md) */
+@layer base {
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@keyframes slideUpSheet {
+  from {
+    transform: translateY(100%);
+    opacity: 0.8;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slide-up-sheet {
+  animation: slideUpSheet 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* 🖨️ Clean Standee Print Stylesheet */
 @media print {
   body * {

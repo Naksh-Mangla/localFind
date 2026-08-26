@@ -452,30 +452,30 @@ export default function App() {
         isFirstTimeFallback={isFirstTimeFallback}
       />
 
-      {/* 🍎 Apple-Style Floating Frosted Glass Dock */}
-      <nav className="md:hidden fixed bottom-3 left-6 right-6 z-40 max-w-xs mx-auto bg-surface/85 apple-frosted shadow-crisp-lg border border-surface-variant/40 rounded-full p-1 flex justify-around items-center transition-all duration-300">
+      {/* 🍎 Apple-Style Floating Frosted Glass Dock with Safe Area Bottom Support */}
+      <nav className="md:hidden fixed bottom-3 left-4 right-4 z-40 max-w-xs mx-auto bg-surface/90 apple-frosted shadow-crisp-xl border border-surface-variant/60 rounded-full p-1.5 flex justify-around items-center transition-all duration-300 mb-[env(safe-area-inset-bottom,0px)]">
         <button
           onClick={() => setActiveView('discover')}
-          className={`flex items-center justify-center gap-1.5 py-2 px-5 rounded-full transition-all duration-200 active:scale-95 ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-full transition-all duration-200 active:scale-95 min-h-[42px] ${
             activeView === 'discover'
               ? 'bg-primary text-on-primary font-bold shadow-crisp-xs scale-[1.02]'
-              : 'text-on-surface-variant hover:text-primary'
+              : 'text-on-surface-variant hover:text-on-surface font-semibold'
           }`}
         >
-          <span className="material-symbols-outlined text-[17px]">explore</span>
-          <span className="font-label-caps text-[11px] font-bold">Explore</span>
+          <span className="material-symbols-outlined text-[18px]">explore</span>
+          <span className="font-label-caps text-xs font-bold">Explore</span>
         </button>
 
         <button
           onClick={() => setActiveView('merchant')}
-          className={`flex items-center justify-center gap-1.5 py-2 px-5 rounded-full transition-all duration-200 active:scale-95 ${
+          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-full transition-all duration-200 active:scale-95 min-h-[42px] ${
             activeView === 'merchant'
               ? 'bg-primary text-on-primary font-bold shadow-crisp-xs scale-[1.02]'
-              : 'text-on-surface-variant hover:text-primary'
+              : 'text-on-surface-variant hover:text-on-surface font-semibold'
           }`}
         >
-          <span className="material-symbols-outlined text-[17px]">storefront</span>
-          <span className="font-label-caps text-[11px] font-bold">My Shop</span>
+          <span className="material-symbols-outlined text-[18px]">storefront</span>
+          <span className="font-label-caps text-xs font-bold">My Shop</span>
         </button>
       </nav>
     </div>

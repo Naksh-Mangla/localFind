@@ -140,12 +140,15 @@ export function LocationPickerModal({
   return (
     <div 
       onClick={isFirstTimeFallback ? undefined : onClose}
-      className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-fadeIn"
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[94vh] overflow-y-auto my-auto flex flex-col gap-4"
+        className="bg-surface rounded-t-[32px] sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[94vh] overflow-y-auto flex flex-col gap-4 animate-slide-up-sheet sm:animate-popIn pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"
       >
+        {/* Mobile Drag Handle */}
+        <div className="w-12 h-1 bg-on-surface/20 rounded-full mx-auto -mt-1 mb-0.5 sm:hidden"></div>
+
         {/* Header */}
         <div className="flex items-start justify-between pb-3 border-b border-surface-variant/40">
           <div className="flex items-center gap-2.5">

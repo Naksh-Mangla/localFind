@@ -31,18 +31,25 @@ export function Header({
   return (
     <>
       {/* 📱 Mobile TopAppBar - Clean Linear/Apple Minimal Chrome */}
-      <header className="md:hidden bg-surface/90 apple-frosted w-full z-20 flex items-center justify-between px-3.5 h-15 border-b border-surface-variant/40 sticky top-0">
-        {/* Brand + Location */}
-        <div className="flex items-center gap-2 max-w-[65%] min-w-0">
-          <img 
-            src="/logo.svg" 
-            alt="LocalFind" 
+      <header className="md:hidden bg-surface/90 apple-frosted w-full z-20 flex items-center justify-between px-3 h-14 border-b border-surface-variant/40 sticky top-0 pt-[env(safe-area-inset-top,0px)]">
+        {/* Brand + Credit + Location */}
+        <div className="flex items-center gap-1.5 max-w-[64%] min-w-0">
+          <div
             onClick={() => setActiveView('discover')}
-            className="w-8 h-8 rounded-full object-contain flex-shrink-0 cursor-pointer active:scale-90 transition-transform" 
-          />
+            className="flex items-center gap-1 cursor-pointer flex-shrink-0 active:scale-95 transition-transform"
+          >
+            <img 
+              src="/logo.svg" 
+              alt="LocalFind" 
+              className="w-7 h-7 rounded-full object-contain flex-shrink-0" 
+            />
+            <span className="text-[8px] font-black bg-primary/10 text-primary px-1.5 py-0.5 rounded-full border border-primary/20 tracking-wider">
+              NAKSH
+            </span>
+          </div>
           <button
             onClick={onDetectLocation}
-            className="flex items-center gap-1.5 min-w-0 p-1.5 px-2.5 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/60"
+            className="flex items-center gap-1.5 min-w-0 p-1 px-2 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/60"
             title={
               locationStatus === 'gps' || locationStatus === 'success'
                 ? '🛰️ Live Satellite GPS Active'
@@ -64,10 +71,10 @@ export function Header({
                 ? 'bg-rose-500'
                 : 'bg-zinc-400 animate-pulse'
             }`}></span>
-            <span className="text-xs font-semibold text-on-surface truncate max-w-[120px]">
+            <span className="text-[11px] font-semibold text-on-surface truncate max-w-[100px]">
               {userLocationName || 'Location'}
             </span>
-            <span className="material-symbols-outlined text-[13px] text-on-surface-variant/60">expand_more</span>
+            <span className="material-symbols-outlined text-[12px] text-on-surface-variant/60">expand_more</span>
           </button>
         </div>
 
