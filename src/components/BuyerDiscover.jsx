@@ -866,58 +866,53 @@ export function BuyerDiscover({
         )}
       </section>
 
-      {/* ⚡ 24-Hour Flash Deals Psychological Aurora Banner */}
+      {/* ⚡ 24-Hour Flash Deals Section - Refined Minimalist Apple/Linear Card */}
       {!loading && activeFlashDeals.length > 0 && (
         <section className="mb-8 relative">
-          {/* Main Aurora Glass Container */}
-          <div className="relative overflow-hidden rounded-3xl border border-amber-500/40 flash-aurora-bg p-4 sm:p-5 md:p-6 shadow-crisp-md backdrop-blur-md">
-            {/* Shimmer Light Sweep */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden opacity-30">
-              <div className="w-1/2 h-full bg-gradient-to-r from-transparent via-white to-transparent transform -skew-x-12 animate-shimmer-sweep"></div>
-            </div>
-
-            {/* Banner Header Ribbon */}
+          {/* Main Clean Surface Container */}
+          <div className="relative overflow-hidden rounded-3xl border border-surface-variant/70 bg-surface-container-low/70 p-4 sm:p-5 shadow-crisp-xs backdrop-blur-md">
+            {/* Banner Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 relative z-10">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-500 via-rose-500 to-pink-600 text-white flex items-center justify-center shadow-lg shadow-amber-500/25 flex-shrink-0 animate-flame">
-                  <span className="text-xl">⚡</span>
+                <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold text-base flex-shrink-0">
+                  ⚡
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
-                    <h2 className="font-headline-lg text-base sm:text-lg md:text-xl font-black text-on-surface tracking-tight flex items-center gap-1.5">
+                    <h2 className="font-title-md text-sm sm:text-base font-bold text-on-surface tracking-tight flex items-center gap-1.5">
                       <span>Aaj Ka Offer • Flash Deals</span>
-                      <span className="text-[10px] bg-gradient-to-r from-amber-500 to-rose-500 text-white font-black px-2 py-0.5 rounded-full shadow-crisp-xs animate-pulse">
+                      <span className="text-[9px] bg-rose-500 text-white font-extrabold px-2 py-0.5 rounded-full">
                         LIVE
                       </span>
                     </h2>
                   </div>
-                  <p className="text-[11px] sm:text-xs text-on-surface-variant font-medium">
-                    Limited-time discounted bargains from verified local shops in your area
+                  <p className="text-[11px] text-on-surface-variant font-medium">
+                    Limited-time neighborhood bargains from verified local shops
                   </p>
                 </div>
               </div>
 
-              {/* Header Right: Live Deals Count & Urgency Badge & Alert Toggle */}
+              {/* Header Right: Live Deals Count & Urgency Badge */}
               <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
                 {activeFlashDeals[0] && <LiveHUDTimer deal={activeFlashDeals[0]} />}
-                <span className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-2.5 py-1 rounded-full border border-amber-500/30">
-                  {activeFlashDeals.length} {activeFlashDeals.length === 1 ? 'Deal' : 'Deals'} Live
+                <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/15 px-2.5 py-1 rounded-full border border-amber-500/30">
+                  {activeFlashDeals.length} {activeFlashDeals.length === 1 ? 'Deal' : 'Deals'}
                 </span>
                 {onToggleDealAlerts && (
                   <button
                     type="button"
                     onClick={onToggleDealAlerts}
                     title={dealAlertsActive ? 'Local Deal Alerts Active (Tap to mute)' : 'Get notified when new flash deals launch'}
-                    className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all active:scale-95 shadow-2xs ${
+                    className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all active:scale-95 ${
                       dealAlertsActive
-                        ? 'bg-amber-500 text-white border-amber-600 shadow-amber-500/30'
-                        : 'bg-surface/80 hover:bg-surface text-amber-700 dark:text-amber-300 border-amber-500/40'
+                        ? 'bg-amber-500 text-white border-amber-600'
+                        : 'bg-surface hover:bg-surface-variant text-on-surface-variant border-surface-variant/60'
                     }`}
                   >
                     <span className="material-symbols-outlined text-[13px]">
                       {dealAlertsActive ? 'notifications_active' : 'notifications'}
                     </span>
-                    <span>{dealAlertsActive ? 'Alerts On' : 'Notify Me'}</span>
+                    <span>{dealAlertsActive ? 'Alerts On' : 'Notify'}</span>
                   </button>
                 )}
               </div>
