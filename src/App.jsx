@@ -64,7 +64,12 @@ export default function App() {
   const [locationStatus, setLocationStatus] = useState(() => {
     try {
       const saved = localStorage.getItem('localfind_saved_location')
-      if (saved) return 'success'
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (parsed.isManual || parsed.isGPS === false) return 'manual'
+        if (parsed.isGPS) return 'gps'
+        return 'manual'
+      }
     } catch {}
     return 'loading'
   })
@@ -120,21 +125,18 @@ export default function App() {
           addr.town ||
           'Live GPS Location'
         
-        setUserLocationName(statusPrefix ? `${statusPrefix} - ${name}` : name)
+        const displayName = statusPrefix ? `${statusPrefix} - ${name}` : name
+        setUserLocationName(displayName)
         
         if (shouldSave) {
-          let existingData = {}
-          try {
-            existingData = JSON.parse(localStorage.getItem('localfind_saved_location') || '{}')
-          } catch {}
           localStorage.setItem(
             'localfind_saved_location',
             JSON.stringify({
-              ...existingData,
               lat,
               lng,
-              locationName: name,
-              isGPS: true
+              locationName: displayName,
+              isGPS: true,
+              isManual: false
             })
           )
         }
@@ -146,18 +148,14 @@ export default function App() {
     const fallbackName = `GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`
     setUserLocationName(statusPrefix ? `${statusPrefix} - ${fallbackName}` : fallbackName)
     if (shouldSave) {
-      let existingData = {}
-      try {
-        existingData = JSON.parse(localStorage.getItem('localfind_saved_location') || '{}')
-      } catch {}
       localStorage.setItem(
         'localfind_saved_location',
         JSON.stringify({
-          ...existingData,
           lat,
           lng,
           locationName: fallbackName,
-          isGPS: true
+          isGPS: true,
+          isManual: false
         })
       )
     }
@@ -179,7 +177,6 @@ export default function App() {
           console.warn('High-accuracy GPS failed, trying low-accuracy fallback...')
           navigator.geolocation.getCurrentPosition(
             (pos) => {
-              // Ignore low-accuracy positions if accuracy radius is unrealistically huge (> 50,000 meters / 50 km)
               if (pos.coords.accuracy > 50000) {
                 console.warn(`Low-accuracy GPS rejected due to huge accuracy radius: ±${Math.round(pos.coords.accuracy)}m`)
                 resolve({ pos: null, mode: null })
@@ -187,7 +184,7 @@ export default function App() {
                 resolve({ pos, mode: 'low' })
               }
             },
-            () => resolve({ pos: null, mode: null }), // Both failed
+            () => resolve({ pos: null, mode: null }),
             { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
           )
         },
@@ -196,7 +193,7 @@ export default function App() {
     })
   }, [])
 
-  // Main location detection — auto-runs on app launch and preserves saved manual location
+  // Main location detection — auto-runs on app launch and strictly preserves saved manual location
   const detectLocation = useCallback(async () => {
     const savedLocationStr = localStorage.getItem('localfind_saved_location')
     let parsedSaved = null
@@ -206,10 +203,22 @@ export default function App() {
 
     const hasSavedLocation = Boolean(parsedSaved?.lat && parsedSaved?.lng)
     
-    if (hasSavedLocation) {
-      setUserCoords({ lat: parsedSaved.lat, lng: parsedSaved.lng, accuracy: 10 })
-      setUserLocationName(parsedSaved.locationName || parsedSaved.address || 'Saved Location')
-      setLocationStatus('success')
+    // 🔒 Priority 1: User explicitly entered a manual location -> strictly preserve it!
+    if (hasSavedLocation && (parsedSaved?.isManual || parsedSaved?.isGPS === false)) {
+      setUserCoords({ lat: parsedSaved.lat, lng: parsedSaved.lng, accuracy: parsedSaved.accuracy || 10 })
+      setUserLocationName(parsedSaved.locationName || parsedSaved.address || 'Saved Area')
+      setLocationStatus('manual')
+      setIsFirstTimeFallback(false)
+      setShowLocationPicker(false)
+      console.log('📍 Preserved user manual location:', parsedSaved.locationName)
+      return
+    }
+
+    // 🔒 Priority 2: User had saved GPS
+    if (hasSavedLocation && parsedSaved?.isGPS) {
+      setUserCoords({ lat: parsedSaved.lat, lng: parsedSaved.lng, accuracy: parsedSaved.accuracy || 10 })
+      setUserLocationName(parsedSaved.locationName || 'GPS Location')
+      setLocationStatus('gps')
       setIsFirstTimeFallback(false)
       setShowLocationPicker(false)
     } else {
@@ -223,24 +232,27 @@ export default function App() {
       const { latitude: lat, longitude: lng, accuracy } = pos.coords
       console.log(`📍 Location retrieved: ${lat}, ${lng} (±${Math.round(accuracy)}m), mode: ${mode}`)
       
-      // True high-accuracy GPS (typically <= 1500m on mobile devices)
-      const isAccurateGPS = Number.isFinite(accuracy) && accuracy <= 1500
+      // True high-accuracy physical device GPS (satellite lock <= 250m on high accuracy)
+      const isTrueGPS = Number.isFinite(accuracy) && accuracy <= 250 && mode === 'high'
 
-      // Only switch automatically if accurate GPS is acquired AND user hasn't explicitly locked a manual location
-      if (isAccurateGPS && (!hasSavedLocation || parsedSaved?.isGPS)) {
+      if (isTrueGPS) {
         setUserCoords({ lat, lng, accuracy })
-        setLocationStatus('success')
+        setLocationStatus('gps')
         fetchAddressName(lat, lng, '', true)
         setIsFirstTimeFallback(false)
         setShowLocationPicker(false)
         console.log('✅ Locked high-accuracy live GPS location!')
-      } else if (!hasSavedLocation) {
-        // First time user with broad IP location: Open manual location modal to get exact pincode/area
-        console.warn('Inaccurate/broad IP location (±' + Math.round(accuracy) + 'm). Prompting user for Pincode/Area.')
-        setIsFirstTimeFallback(true)
-        setShowLocationPicker(true)
+      } else {
+        // Approximate Wi-Fi / IP Location (Show AMBER, NOT GREEN)
+        console.warn(`Approximate IP/Wi-Fi location (±${Math.round(accuracy)}m). Prompting user for exact area.`)
+        setUserCoords({ lat, lng, accuracy })
         setLocationStatus('approx')
-        setUserLocationName('Enter your area')
+        fetchAddressName(lat, lng, 'Approx', false)
+
+        if (!hasSavedLocation) {
+          setIsFirstTimeFallback(true)
+          setShowLocationPicker(true)
+        }
       }
     } else {
       // GPS completely unavailable / denied
@@ -307,11 +319,12 @@ export default function App() {
   // Handle manual location selection from LocationPickerModal
   const handleSelectManualLocation = useCallback(({ lat, lng, accuracy, locationName, pincode, address, landmark }) => {
     const newCoords = { lat, lng, accuracy: accuracy || 10 }
-    const displayName = locationName || address || 'Custom Location'
+    const displayName = locationName || address || 'Custom Area'
     setUserCoords(newCoords)
     setUserLocationName(displayName)
-    setLocationStatus('success')
+    setLocationStatus('manual')
     setIsFirstTimeFallback(false)
+    setShowLocationPicker(false)
 
     // Persist to localStorage for 100% reliability
     try {
@@ -320,17 +333,41 @@ export default function App() {
         JSON.stringify({
           lat,
           lng,
+          accuracy: 10,
           locationName: displayName,
           pincode,
           address,
           landmark,
-          isGPS: false
+          isGPS: false,
+          isManual: true
         })
       )
     } catch (e) {
       console.warn('Could not save location to localStorage', e)
     }
   }, [])
+
+  // Explicit user action to override manual location with live device GPS
+  const handleForceLiveGPS = useCallback(async () => {
+    setUserLocationName('📍 Acquiring live GPS...')
+    setLocationStatus('loading')
+    setShowLocationPicker(false)
+
+    const { pos, mode } = await getGPSPosition()
+    if (pos) {
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords
+      const isTrueGPS = Number.isFinite(accuracy) && accuracy <= 250 && mode === 'high'
+      setUserCoords({ lat, lng, accuracy })
+      setLocationStatus(isTrueGPS ? 'gps' : 'approx')
+      fetchAddressName(lat, lng, isTrueGPS ? '' : 'Approx', isTrueGPS)
+      if (isTrueGPS) {
+        setIsFirstTimeFallback(false)
+      }
+    } else {
+      setLocationStatus('error')
+      setShowLocationPicker(true)
+    }
+  }, [getGPSPosition, fetchAddressName])
 
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body-sm">
@@ -410,7 +447,7 @@ export default function App() {
         onClose={() => setShowLocationPicker(false)}
         currentLocationName={userLocationName}
         onSelectLocation={handleSelectManualLocation}
-        onUseGPS={detectLocation}
+        onUseGPS={handleForceLiveGPS}
         locationStatus={locationStatus}
         isFirstTimeFallback={isFirstTimeFallback}
       />

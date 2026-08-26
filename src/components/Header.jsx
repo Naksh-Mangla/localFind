@@ -43,10 +43,26 @@ export function Header({
           <button
             onClick={onDetectLocation}
             className="flex items-center gap-1.5 min-w-0 p-1.5 px-2.5 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/60"
-            title="Tap to change location"
+            title={
+              locationStatus === 'gps' || locationStatus === 'success'
+                ? '🛰️ Live Satellite GPS Active'
+                : locationStatus === 'manual'
+                ? '📍 Locked Manual Area'
+                : locationStatus === 'approx'
+                ? '⚠️ Approximate IP / Network Location (Tap to enter your exact area)'
+                : 'Tap to change location'
+            }
           >
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
-              locationStatus === 'success' ? 'bg-emerald-500 animate-pulse' : locationStatus === 'approx' ? 'bg-amber-500' : 'bg-primary'
+              locationStatus === 'gps' || locationStatus === 'success'
+                ? 'bg-emerald-500 animate-pulse shadow-[0_0_6px_rgba(16,185,129,0.8)]'
+                : locationStatus === 'manual'
+                ? 'bg-primary'
+                : locationStatus === 'approx'
+                ? 'bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.8)]'
+                : locationStatus === 'error'
+                ? 'bg-rose-500'
+                : 'bg-zinc-400 animate-pulse'
             }`}></span>
             <span className="text-xs font-semibold text-on-surface truncate max-w-[120px]">
               {userLocationName || 'Location'}
@@ -137,13 +153,34 @@ export function Header({
           <button
             onClick={onDetectLocation}
             className="flex items-center gap-2 bg-surface-container-high/60 hover:bg-surface-container-high border border-surface-variant/50 hover:border-primary/40 rounded-full px-3.5 py-1.5 text-xs text-on-surface transition-all active:scale-95 group"
-            title="Click to change your area or pin code"
+            title={
+              locationStatus === 'gps' || locationStatus === 'success'
+                ? '🛰️ Live Satellite GPS Active (Click to change)'
+                : locationStatus === 'manual'
+                ? '📍 Locked Manual Area (Click to change)'
+                : locationStatus === 'approx'
+                ? '⚠️ Approximate IP / Network Location (Click to enter your exact Pin Code & Area)'
+                : 'Click to change your area or pin code'
+            }
           >
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-              locationStatus === 'success' ? 'bg-emerald-500 animate-pulse' : locationStatus === 'approx' ? 'bg-amber-500' : 'bg-primary'
+              locationStatus === 'gps' || locationStatus === 'success'
+                ? 'bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]'
+                : locationStatus === 'manual'
+                ? 'bg-primary'
+                : locationStatus === 'approx'
+                ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] ring-2 ring-amber-500/20'
+                : locationStatus === 'error'
+                ? 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]'
+                : 'bg-zinc-400 animate-pulse'
             }`}></span>
             <span className="font-medium text-on-surface-variant">Location:</span>
             <span className="font-bold text-on-surface max-w-[180px] truncate">{userLocationName}</span>
+            {locationStatus === 'approx' && (
+              <span className="bg-amber-500/15 text-amber-700 dark:text-amber-300 text-[10px] font-bold px-1.5 py-0.2 rounded border border-amber-500/30">
+                Approx
+              </span>
+            )}
             <span className="material-symbols-outlined text-sm text-on-surface-variant/70 group-hover:text-primary transition-colors">
               expand_more
             </span>

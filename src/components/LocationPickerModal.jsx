@@ -311,7 +311,9 @@ export function LocationPickerModal({
                     accuracy: 10,
                     locationName: area.name.split(',')[0],
                     pincode: area.pincode,
-                    address: area.name
+                    address: area.name,
+                    isManual: true,
+                    isGPS: false
                   })
                   onClose()
                 }}
