@@ -2,16 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
+/* 🍎 Apple Design System Foundations & Typography */
+:root {
+  --apple-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  --apple-blur: saturate(180%) blur(20px);
 }
 
+html {
+  font-family: var(--apple-font);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  letter-spacing: -0.011em;
+}
+
+body {
+  min-height: 100dvh;
+  scroll-behavior: smooth;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Apple-style Display & Title Tight Tracking */
+h1, h2, h3, .font-headline-lg, .font-display-lg {
+  letter-spacing: -0.022em;
+}
+
+/* Animations */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -46,18 +64,6 @@
     opacity: 1;
     transform: scale(1);
   }
-}
-
-.animate-fadeIn {
-  animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-slideUp {
-  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-.animate-popIn {
-  animation: popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes pulseGlow {
@@ -96,90 +102,162 @@
   }
 }
 
-.animate-pulseGlow {
-  animation: pulseGlow 2.5s infinite;
+@keyframes heartBeat {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.3); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.2); }
+  70% { transform: scale(1); }
 }
 
-.animate-shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 2s infinite;
+@keyframes softGaze {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
 }
 
-.animate-bounceSubtle {
-  animation: bounceSubtle 1.8s ease-in-out infinite;
-}
+@layer utilities {
+  /* Hide Scrollbar */
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 
-.animate-floatIcon {
-  animation: floatIcon 3.5s ease-in-out infinite;
-}
+  /* Animation Classes */
+  .animate-fadeIn {
+    animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 
-/* 🍎 Apple Design System Foundations (SF Pro tight tracking & museum blur) */
-:root {
-  --apple-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
-  --apple-blur: saturate(180%) blur(20px);
-}
+  .animate-slideUp {
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 
-html {
-  font-family: var(--apple-font);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
-  letter-spacing: -0.011em;
-}
+  .animate-popIn {
+    animation: popIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  }
 
-/* Apple-style Display & Title Tight Tracking */
-h1, h2, h3, .font-headline-lg, .font-display-lg {
-  letter-spacing: -0.022em;
-}
+  .animate-pulseGlow {
+    animation: pulseGlow 2.5s infinite;
+  }
 
-.apple-frosted {
-  backdrop-filter: var(--apple-blur);
-  -webkit-backdrop-filter: var(--apple-blur);
-}
+  .animate-shimmer {
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.2) 50%, rgba(255,255,255,0) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
 
-/* Apple signature product elevation */
-.apple-product-shadow {
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.04);
-}
+  .animate-bounceSubtle {
+    animation: bounceSubtle 1.8s ease-in-out infinite;
+  }
 
-.dark .apple-product-shadow {
-  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), 0 2px 6px -2px rgba(0, 0, 0, 0.2);
-}
+  .animate-floatIcon {
+    animation: floatIcon 3.5s ease-in-out infinite;
+  }
 
-img {
-  image-rendering: -webkit-optimize-contrast;
-}
+  .animate-heartBeat {
+    animation: heartBeat 0.8s ease-in-out;
+  }
 
-/* Crisp high-DPI micro-shadows & borders */
-.shadow-crisp-xs {
-  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-}
+  .animate-softGaze {
+    animation: softGaze 4s ease-in-out infinite;
+  }
 
-.shadow-crisp-sm {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
-}
+  /* Apple Frosted Glass */
+  .apple-frosted {
+    backdrop-filter: var(--apple-blur);
+    -webkit-backdrop-filter: var(--apple-blur);
+  }
 
-.shadow-crisp-md {
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.03);
-}
+  /* Glassmorphic Panel */
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+  }
 
-.shadow-crisp-lg {
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -4px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.04);
-}
+  .dark .glass-panel {
+    background: rgba(30, 26, 24, 0.82);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+  }
 
-.shadow-crisp-xl {
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05);
-}
+  /* Apple Product Elevation */
+  .apple-product-shadow {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.04);
+  }
 
-/* Micro-interaction active feedback */
-.touch-press {
-  transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease, box-shadow 0.15s ease;
-}
-.touch-press:active {
-  transform: scale(0.97);
-  filter: brightness(0.97);
+  .dark .apple-product-shadow {
+    box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), 0 2px 6px -2px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Crisp high-DPI micro-shadows & borders */
+  .shadow-crisp-xs {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  }
+
+  .shadow-crisp-sm {
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.03);
+  }
+
+  .shadow-crisp-md {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06), 0 2px 4px -2px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.03);
+  }
+
+  .shadow-crisp-lg {
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -4px rgba(0, 0, 0, 0.03), 0 0 0 1px rgba(0, 0, 0, 0.04);
+  }
+
+  .shadow-crisp-xl {
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 8px 10px -6px rgba(0, 0, 0, 0.04), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Micro-interaction active feedback */
+  .touch-press {
+    transition: transform 0.15s cubic-bezier(0.16, 1, 0.3, 1), filter 0.15s ease, box-shadow 0.15s ease;
+  }
+  .touch-press:active {
+    transform: scale(0.97);
+    filter: brightness(0.97);
+  }
+
+  /* Soft card hover */
+  .soft-card-hover {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .soft-card-hover:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px -8px rgba(156, 62, 32, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+  }
+
+  /* 🚀 60+ FPS Low-End Mobile Virtual Containment */
+  .product-card-contain {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 320px;
+    contain: layout style paint;
+  }
+
+  .flash-card-contain {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+  }
+
+  /* Smooth GPU acceleration layer */
+  .gpu-layer {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
 }
 
 /* Refined crisp slim scrollbars */
@@ -198,82 +276,7 @@ img {
   background: rgba(156, 62, 32, 0.45);
 }
 
-body {
-  min-height: max(884px, 100dvh);
-  scroll-behavior: smooth;
-  text-size-adjust: 100%;
-  -webkit-tap-highlight-color: transparent;
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(156, 62, 32, 0.2) transparent;
 }
-
-@keyframes heartBeat {
-  0% { transform: scale(1); }
-  14% { transform: scale(1.3); }
-  28% { transform: scale(1); }
-  42% { transform: scale(1.2); }
-  70% { transform: scale(1); }
-}
-
-.animate-heartBeat {
-  animation: heartBeat 0.8s ease-in-out;
-}
-
-@keyframes softGaze {
-  0%, 100% {
-    opacity: 0.85;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 1;
-    transform: scale(1.03);
-  }
-}
-
-.animate-softGaze {
-  animation: softGaze 4s ease-in-out infinite;
-}
-
-/* Glassmorphic card styling with ambient soft border */
-.glass-panel {
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-}
-
-.dark .glass-panel {
-  background: rgba(30, 26, 24, 0.82);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-/* Soft ambient card glow on hover */
-.soft-card-hover {
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.soft-card-hover:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 30px -8px rgba(156, 62, 32, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
-}
-
-/* 🚀 60+ FPS Low-End Mobile Virtual Containment */
-.product-card-contain {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 320px;
-  contain: layout style paint;
-}
-
-.flash-card-contain {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 120px;
-}
-
-/* Smooth GPU accelerated transitions without layout reflows */
-.gpu-layer {
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  perspective: 1000px;
-}
-
-
