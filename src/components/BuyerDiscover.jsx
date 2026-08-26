@@ -253,6 +253,16 @@ export function BuyerDiscover({
   const [showOnlyWishlist, setShowOnlyWishlist] = useState(false)
   const dropdownRef = useRef(null)
 
+  // 📱 Target Shop Filter (from QR Standee scan)
+  const [targetShopId, setTargetShopId] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      return params.get('shopId') || null
+    } catch {
+      return null
+    }
+  })
+
   // Wishlist state
   const [wishlistIds, setWishlistIds] = useState(() => {
     try {
@@ -414,17 +424,38 @@ export function BuyerDiscover({
     })
   }, [products, userCoords, currentUser])
 
+  // Find shop details if arriving via QR Standee scan
+  const targetShop = useMemo(() => {
+    if (!targetShopId || !indexedProductsWithDistance || indexedProductsWithDistance.length === 0) return null
+    const matchedProduct = indexedProductsWithDistance.find((p) => String(p.shop_id) === String(targetShopId))
+    if (!matchedProduct) return null
+    return {
+      id: matchedProduct.shop_id,
+      name: matchedProduct.shop_name,
+      address: matchedProduct.address_text || '',
+      whatsapp: matchedProduct.whatsapp_number,
+      openingTime: matchedProduct.opening_time,
+      closingTime: matchedProduct.closing_time,
+      distanceKm: matchedProduct.distanceKm
+    }
+  }, [targetShopId, indexedProductsWithDistance])
+
   // 2. High-Performance Query Filter with LRU Caching
   const filteredProducts = useMemo(() => {
     const queryDesc = parseQueryDescriptor(deferredSearchQuery)
     const categoryLower = selectedCategory.toLowerCase()
 
     // Generate cache key
-    const cacheKey = `${deferredSearchQuery}::${selectedCategory}::${showOnlyWishlist ? wishlistIds.join(',') : 'all'}`
+    const cacheKey = `${deferredSearchQuery}::${selectedCategory}::${targetShopId || 'all'}::${showOnlyWishlist ? wishlistIds.join(',') : 'all'}`
     const cached = searchLRUCache.get(cacheKey)
     if (cached) return cached
 
     const results = indexedProductsWithDistance.filter((item) => {
+      // 📱 Target Shop check (from QR Standee scan)
+      if (targetShopId && String(item.shop_id) !== String(targetShopId)) {
+        return false
+      }
+
       // Wishlist check
       if (showOnlyWishlist && !wishlistSet.has(item.id)) {
         return false
@@ -445,14 +476,14 @@ export function BuyerDiscover({
 
     searchLRUCache.set(cacheKey, results)
     return results
-  }, [indexedProductsWithDistance, selectedCategory, deferredSearchQuery, showOnlyWishlist, wishlistSet, wishlistIds])
+  }, [indexedProductsWithDistance, selectedCategory, deferredSearchQuery, targetShopId, showOnlyWishlist, wishlistSet, wishlistIds])
 
   // 3. Hyperlocal Products (within selected radius)
   const hyperlocalProducts = useMemo(() => {
     return filteredProducts
       .filter((p) => !p.is_affiliate_fallback)
       .filter((p) => {
-        if (maxRadiusKm === 'all' || p.distanceKm === null) return true
+        if (targetShopId || maxRadiusKm === 'all' || p.distanceKm === null) return true
         return p.distanceKm <= maxRadiusKm
       })
       .sort((a, b) => {
@@ -460,21 +491,22 @@ export function BuyerDiscover({
         if (b.distanceKm === null) return -1
         return a.distanceKm - b.distanceKm
       })
-  }, [filteredProducts, maxRadiusKm])
+  }, [filteredProducts, maxRadiusKm, targetShopId])
 
   // 4. Distant Products (outside selected radius)
   const distantLocalProducts = useMemo(() => {
-    if (maxRadiusKm === 'all') return []
+    if (targetShopId || maxRadiusKm === 'all') return []
     return filteredProducts
       .filter((p) => !p.is_affiliate_fallback)
       .filter((p) => p.distanceKm !== null && p.distanceKm > maxRadiusKm)
       .sort((a, b) => a.distanceKm - b.distanceKm)
-  }, [filteredProducts, maxRadiusKm])
+  }, [filteredProducts, maxRadiusKm, targetShopId])
 
   // 5. Active Flash Deals
   const activeFlashDeals = useMemo(() => {
     return indexedProductsWithDistance
       .filter((p) => {
+        if (targetShopId && String(p.shop_id) !== String(targetShopId)) return false
         if (!p.is_flash_deal || !p.flash_deal_ends_at) return false
         const info = getFlashDealInfo(p)
         return info.isLive
@@ -484,7 +516,7 @@ export function BuyerDiscover({
         if (b.distanceKm === null) return -1
         return a.distanceKm - b.distanceKm
       })
-  }, [indexedProductsWithDistance])
+  }, [indexedProductsWithDistance, targetShopId])
 
   // 6. Online Fallback Options
   const fallbackProducts = useMemo(() => {
@@ -493,6 +525,43 @@ export function BuyerDiscover({
 
   return (
     <main className="pt-4 md:pt-6 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
+      {/* 🏪 Direct Storefront QR Standee Header Banner */}
+      {targetShop && (
+        <div className="mb-5 p-4 sm:p-5 bg-gradient-to-r from-primary/10 via-amber-500/10 to-orange-500/10 border border-primary/30 rounded-3xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-crisp-xs animate-popIn">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-primary text-on-primary flex items-center justify-center shadow-crisp-sm flex-shrink-0">
+              <span className="material-symbols-outlined text-2xl">storefront</span>
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-headline-lg text-lg sm:text-xl font-bold text-on-surface">
+                  {targetShop.name}
+                </h2>
+                <span className="text-[10px] bg-primary text-on-primary font-bold px-2 py-0.5 rounded-full">
+                  QR Counter Showcase
+                </span>
+              </div>
+              <p className="text-xs text-on-surface-variant line-clamp-1 mt-0.5">
+                📍 {targetShop.address || 'Verified Neighborhood Store'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <button
+              onClick={() => {
+                setTargetShopId(null)
+                window.history.replaceState({}, '', window.location.pathname)
+              }}
+              className="bg-surface hover:bg-surface-variant text-on-surface px-3.5 py-1.5 rounded-full text-xs font-bold border border-surface-variant/70 shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1"
+            >
+              <span className="material-symbols-outlined text-sm">explore</span>
+              <span>Explore All Nearby Stores</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filter Section - Apple Capsule System */}
       <section className="mb-5 bg-surface py-2">
         <div className="relative w-full flex items-center gap-2 sm:gap-2.5">

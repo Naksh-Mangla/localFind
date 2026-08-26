@@ -372,3 +372,25 @@ h1, h2, h3, .font-headline-lg, .font-display-lg {
   scrollbar-color: rgba(156, 62, 32, 0.2) transparent;
 }
 
+/* 🖨️ Clean Standee Print Stylesheet */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-standee,
+  #printable-standee * {
+    visibility: visible;
+  }
+  #printable-standee {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%) scale(1.15);
+    width: 90%;
+    max-width: 520px;
+    margin: 0 auto;
+    box-shadow: none !important;
+    border: 2px solid #9c3e20 !important;
+  }
+}
+

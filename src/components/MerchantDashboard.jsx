@@ -3,6 +3,7 @@ import { apiFetch } from '../lib/api'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { CustomSelect } from './CustomSelect'
+import { StoreQRStandeeModal } from './StoreQRStandeeModal'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
 import { getFlashDealInfo } from '../utils/flashDeals'
@@ -40,6 +41,7 @@ export function MerchantDashboard({
   const [lng, setLng] = useState(userCoords?.lng || 77.2090)
   const [creatingShop, setCreatingShop] = useState(false)
   const [showEditShopModal, setShowEditShopModal] = useState(false)
+  const [showQRStandeeModal, setShowQRStandeeModal] = useState(false)
 
   // Product management state
   const [products, setProducts] = useState([])
@@ -62,6 +64,7 @@ export function MerchantDashboard({
       if (e.key === 'Escape') {
         setShowAddProductModal(false)
         setShowEditShopModal(false)
+        setShowQRStandeeModal(false)
         setDeleteTargetId(null)
       }
     }
@@ -1024,6 +1027,16 @@ export function MerchantDashboard({
             <span>Edit Profile</span>
           </button>
 
+          {/* 📄 Download Store QR Standee Button */}
+          <button
+            onClick={() => setShowQRStandeeModal(true)}
+            className="bg-surface-container-high text-on-surface hover:bg-surface-variant px-4 py-2.5 rounded-full text-xs font-bold transition-all border border-surface-variant/70 flex items-center justify-center gap-1.5 shadow-crisp-xs active:scale-95 hover:border-primary/40 text-primary"
+            title="Generate and print physical QR standee for your billing counter"
+          >
+            <span className="material-symbols-outlined text-sm">qr_code_scanner</span>
+            <span>Store QR Standee</span>
+          </button>
+
           <button
             onClick={signOut}
             className="col-span-2 sm:col-span-1 bg-surface-container-high hover:bg-rose-500/10 text-on-surface hover:text-rose-600 px-4 py-2.5 rounded-full text-xs font-bold transition-all border border-surface-variant/70 flex items-center justify-center gap-1.5 shadow-crisp-xs active:scale-95 sm:ml-auto"
@@ -1627,6 +1640,15 @@ export function MerchantDashboard({
         onCancel={() => setDeleteTargetId(null)}
         onConfirm={confirmDeleteProduct}
       />
+
+      {/* 📄 Printable Store QR Standee Generator Modal */}
+      {showQRStandeeModal && shop && (
+        <StoreQRStandeeModal
+          shop={shop}
+          products={products}
+          onClose={() => setShowQRStandeeModal(false)}
+        />
+      )}
     </main>
   )
 }
