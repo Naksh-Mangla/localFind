@@ -62,24 +62,24 @@ export function Header({
 
   return (
     <>
-      {/* Mobile TopAppBar - Standard Scrollable Layout */}
-      <header className="md:hidden bg-surface/95 shadow-xs w-full z-20 flex items-center justify-between px-3.5 h-16 border-b border-surface-variant/50">
+      {/* Mobile TopAppBar - Soft Frosted Glass Layout */}
+      <header className="md:hidden bg-surface/90 backdrop-blur-md shadow-crisp-xs w-full z-20 flex items-center justify-between px-3.5 h-16 border-b border-surface-variant/40 sticky top-0">
         {/* Left: Brand logo & Compact Location Pill */}
         <div className="flex items-center gap-2 max-w-[65%] overflow-hidden">
           <img 
             src="/logo.svg" 
             alt="LocalFind Logo" 
             onClick={() => setActiveView('discover')}
-            className="w-8 h-8 rounded-xl shadow-2xs object-contain flex-shrink-0 cursor-pointer active:scale-95 transition-transform" 
+            className="w-8 h-8 rounded-2xl shadow-crisp-xs object-contain flex-shrink-0 cursor-pointer active:scale-90 transition-transform" 
           />
           <div
-            className="flex items-center gap-1.5 min-w-0 cursor-pointer p-1.5 rounded-xl hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/40 bg-surface-container-low"
+            className="flex items-center gap-1.5 min-w-0 cursor-pointer p-1.5 px-2.5 rounded-2xl hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/40 bg-surface-container-low/80 backdrop-blur-sm"
             onClick={onDetectLocation}
             title="Tap to change location"
           >
             <div className="flex flex-col min-w-0">
               <div className="flex items-center gap-1 leading-none mb-0.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${statusColors.dotColor} flex-shrink-0`}></span>
+                <span className={`w-1.5 h-1.5 rounded-full ${statusColors.dotColor} flex-shrink-0 ${locationStatus === 'success' ? 'animate-pulse' : ''}`}></span>
                 <span className="text-[8px] font-extrabold text-on-surface-variant tracking-wider uppercase truncate">
                   LOCATION
                 </span>
@@ -99,7 +99,7 @@ export function Header({
               onClick={onRefreshProducts}
               disabled={refreshing}
               title={`Sync status: ${syncRAG.tooltip} (Last synced: ${syncRAG.label})`}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border shadow-2xs transition-all active:scale-90 ${syncRAG.colorClass}`}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-2xl text-[10px] font-bold border shadow-crisp-xs transition-all active:scale-90 ${syncRAG.colorClass}`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${syncRAG.dotClass} ${refreshing ? 'animate-ping' : ''}`}></span>
               <span className={`material-symbols-outlined text-[13px] ${refreshing ? 'animate-spin' : ''}`}>
@@ -112,7 +112,7 @@ export function Header({
           {user ? (
             <button
               onClick={() => setActiveView('merchant')}
-              className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-on-primary px-2.5 py-1.5 rounded-xl text-[11px] font-bold shadow-2xs active:scale-95 transition-all border border-white/20"
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-on-primary px-3 py-1.5 rounded-2xl text-[11px] font-bold shadow-crisp-xs active:scale-95 transition-all border border-white/20"
             >
               <img
                 src={getAvatarUrl(user)}
@@ -128,7 +128,7 @@ export function Header({
           ) : (
             <button
               onClick={onOpenSignIn}
-              className="bg-primary hover:bg-primary/90 text-on-primary px-2.5 py-1.5 rounded-xl text-[10px] font-bold shadow-2xs flex items-center gap-1 active:scale-95 transition-all border border-white/20"
+              className="bg-primary hover:bg-primary/90 text-on-primary px-3 py-1.5 rounded-2xl text-[10px] font-bold shadow-crisp-xs flex items-center gap-1 active:scale-95 transition-all border border-white/20"
             >
               <span className="material-symbols-outlined text-[14px]">storefront</span>
               <span className="text-[10px] font-bold">Sell</span>
@@ -137,8 +137,8 @@ export function Header({
         </div>
       </header>
 
-      {/* Desktop TopAppBar - Standard Scrollable Layout */}
-      <header className="hidden md:flex bg-surface/90 shadow-xs w-full z-20 items-center justify-between px-container-margin h-20 border-b border-surface-variant/40">
+      {/* Desktop TopAppBar - Frosted Glass Layout */}
+      <header className="hidden md:flex bg-surface/90 backdrop-blur-md shadow-crisp-xs w-full z-30 items-center justify-between px-6 py-3.5 border-b border-surface-variant/40 sticky top-0">
         <div className="flex items-center gap-5">
           <div
             onClick={() => setActiveView('discover')}

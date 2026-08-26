@@ -178,6 +178,58 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+@keyframes heartBeat {
+  0% { transform: scale(1); }
+  14% { transform: scale(1.3); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.2); }
+  70% { transform: scale(1); }
+}
+
+.animate-heartBeat {
+  animation: heartBeat 0.8s ease-in-out;
+}
+
+@keyframes softGaze {
+  0%, 100% {
+    opacity: 0.85;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.03);
+  }
+}
+
+.animate-softGaze {
+  animation: softGaze 4s ease-in-out infinite;
+}
+
+/* Glassmorphic card styling with ambient soft border */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+}
+
+.dark .glass-panel {
+  background: rgba(30, 26, 24, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Soft ambient card glow on hover */
+.soft-card-hover {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.soft-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 30px -8px rgba(156, 62, 32, 0.12), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+}
+
 /* 🚀 60+ FPS Low-End Mobile Virtual Containment */
 .product-card-contain {
   content-visibility: auto;
@@ -196,4 +248,5 @@ body {
   backface-visibility: hidden;
   perspective: 1000px;
 }
+
 

@@ -61,25 +61,25 @@ export function ProductDetailModal({ product, onClose }) {
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-surface rounded-2xl shadow-2xl overflow-y-auto my-auto border border-surface-variant max-h-[92vh] flex flex-col scroll-smooth"
+        className="relative w-full max-w-2xl bg-surface rounded-3xl shadow-crisp-xl overflow-y-auto my-auto border border-surface-variant/70 max-h-[92vh] flex flex-col scroll-smooth animate-popIn"
       >
         {/* Floating Action Buttons (Sticky at top of modal) */}
         <div className="sticky top-3 left-0 right-0 z-20 flex justify-between items-center px-4 pointer-events-none -mb-14">
           <button
             onClick={onClose}
-            className="pointer-events-auto w-10 h-10 rounded-full bg-surface/90 backdrop-blur-md shadow-md flex items-center justify-center text-on-surface hover:bg-surface-variant transition-transform active:scale-95 border border-surface-variant"
+            className="pointer-events-auto w-10 h-10 rounded-full bg-surface/85 backdrop-blur-md shadow-crisp-sm flex items-center justify-center text-on-surface hover:bg-surface transition-transform active:scale-90 border border-surface-variant/40"
           >
-            <span className="material-symbols-outlined">arrow_back</span>
+            <span className="material-symbols-outlined text-lg">arrow_back</span>
           </button>
           
           <div className="flex items-center gap-2 pointer-events-auto">
             {product.distanceKm !== null && product.distanceKm !== undefined && (
-              <div className="bg-secondary text-on-secondary px-3 py-1.5 rounded-full text-xs font-semibold shadow-md flex items-center gap-1">
+              <div className="bg-secondary text-on-secondary px-3.5 py-1.5 rounded-full text-xs font-bold shadow-crisp-sm flex items-center gap-1">
                 <span className="material-symbols-outlined text-sm">directions_walk</span>
                 <span>{formatDistance(product.distanceKm)}</span>
               </div>
             )}
-            {/* Wishlist Heart Button inside Modal */}
+            {/* Wishlist Heart Button inside Modal with Heartbeat Animation */}
             <button
               onClick={() => {
                 try {
@@ -89,16 +89,19 @@ export function ProductDetailModal({ product, onClose }) {
                     : [...saved, product.id]
                   localStorage.setItem('localfind_wishlist', JSON.stringify(next))
                   setIsWishlisted(next.includes(product.id))
-                  // trigger custom storage event for sync
                   window.dispatchEvent(new Event('storage'))
                 } catch (e) {
                   console.warn(e)
                 }
               }}
               title="Save to Wishlist"
-              className="w-10 h-10 rounded-full bg-surface/90 backdrop-blur-md shadow-md flex items-center justify-center text-rose-500 hover:bg-surface-variant transition-transform active:scale-95 border border-surface-variant"
+              className={`w-10 h-10 rounded-full backdrop-blur-md shadow-crisp-sm flex items-center justify-center transition-all active:scale-90 border ${
+                isWishlisted
+                  ? 'bg-rose-500 text-white border-rose-600 shadow-rose-500/20'
+                  : 'bg-surface/85 text-on-surface-variant hover:text-rose-500 hover:bg-surface border-surface-variant/40'
+              }`}
             >
-              <span className={`material-symbols-outlined text-xl ${isWishlisted ? 'fill-current' : ''}`}>
+              <span className={`material-symbols-outlined text-xl ${isWishlisted ? 'fill-current animate-heartBeat' : ''}`}>
                 favorite
               </span>
             </button>
@@ -117,7 +120,7 @@ export function ProductDetailModal({ product, onClose }) {
             className="w-full h-full object-cover"
           />
           {flashInfo.isLive && (
-            <div className="absolute bottom-3 left-3 bg-gradient-to-r from-amber-500 to-rose-600 text-white px-3 py-1 rounded-full text-xs font-black flex items-center gap-1.5 shadow-lg border border-white/40">
+            <div className="absolute bottom-3 left-3 bg-gradient-to-r from-amber-500 via-rose-500 to-pink-600 text-white px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 shadow-crisp-md border border-white/40 animate-softGaze">
               <span className="animate-bounce">⚡</span>
               <span>AAJ KA OFFER: {flashInfo.discountPercent}% OFF ({flashInfo.countdownText})</span>
             </div>
@@ -129,7 +132,7 @@ export function ProductDetailModal({ product, onClose }) {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 flex-wrap mb-2">
-                <span className="inline-block bg-primary-container/20 text-primary px-3 py-1 rounded-full text-xs font-semibold">
+                <span className="inline-block bg-primary-container/20 text-primary px-3 py-1 rounded-full text-xs font-bold">
                   {product.category || 'General'}
                 </span>
                 <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${productRAG.colorClass}`}>
@@ -145,25 +148,25 @@ export function ProductDetailModal({ product, onClose }) {
               {flashInfo.isLive ? (
                 <div className="flex flex-col items-end">
                   <span className="font-display-lg text-3xl font-bold text-rose-600">₹{flashInfo.discountedPrice}</span>
-                  <span className="text-sm text-on-surface-variant line-through opacity-75 font-semibold">₹{flashInfo.originalPrice}</span>
+                  <span className="text-sm text-on-surface-variant line-through opacity-70 font-medium">₹{flashInfo.originalPrice}</span>
                 </div>
               ) : (
-                <span className="font-display-lg text-3xl font-bold text-primary">₹{product.price}</span>
+                <span className="font-display-lg text-3xl font-black text-primary">₹{product.price}</span>
               )}
             </div>
           </div>
 
           {/* Shopkeeper Details Box */}
-          <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0 mt-0.5">
+          <div className="bg-surface-container-low/80 p-4.5 rounded-2xl border border-surface-variant/60 flex flex-col gap-3 shadow-crisp-xs">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg shrink-0 mt-0.5 shadow-crisp-xs">
                 <span className="material-symbols-outlined">storefront</span>
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h3 className="font-title-md font-bold text-on-surface text-base">{product.shop_name}</h3>
                   {product.owner_name && (
-                    <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">
+                    <span className="text-[10px] bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold">
                       Owner: {product.owner_name}
                     </span>
                   )}
@@ -179,7 +182,7 @@ export function ProductDetailModal({ product, onClose }) {
                   <span>{product.address_text || 'Local Shop Address'}</span>
                 </p>
                 {product.description && (
-                  <p className="text-xs text-on-surface-variant/90 italic bg-surface p-2.5 rounded-lg border border-surface-variant/40 mt-2">
+                  <p className="text-xs text-on-surface-variant/90 italic bg-surface/90 p-3 rounded-xl border border-surface-variant/40 mt-2">
                     "{product.description}"
                   </p>
                 )}
@@ -190,12 +193,12 @@ export function ProductDetailModal({ product, onClose }) {
           {/* 💬 1-Tap Hinglish WhatsApp Quick Inquiry Templates */}
           {!product.is_affiliate_fallback && (
             <div className="pt-2">
-              <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm text-[#25D366]">bolt</span>
-                <span>1-Tap WhatsApp Quick Inquiries (Hinglish):</span>
+                <span>1-Tap WhatsApp Quick Inquiries:</span>
               </label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {[
                   {
                     icon: '📦',
@@ -220,9 +223,9 @@ export function ProductDetailModal({ product, onClose }) {
                       href={queryUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-surface-container-high hover:bg-[#25D366]/15 hover:border-[#25D366]/50 text-on-surface hover:text-emerald-700 dark:hover:text-emerald-400 p-2.5 rounded-xl text-xs font-semibold border border-surface-variant/70 flex items-center gap-2 transition-all shadow-2xs active:scale-95 group text-left"
+                      className="bg-surface-container-high/80 hover:bg-[#25D366]/15 hover:border-[#25D366]/50 text-on-surface hover:text-emerald-700 dark:hover:text-emerald-400 p-3 rounded-2xl text-xs font-semibold border border-surface-variant/70 flex items-center gap-2.5 transition-all shadow-crisp-xs active:scale-95 group text-left"
                     >
-                      <span className="text-base">{template.icon}</span>
+                      <span className="text-lg">{template.icon}</span>
                       <div className="flex flex-col min-w-0">
                         <span className="font-bold text-[11px] truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                           {template.chipText}
@@ -254,7 +257,7 @@ export function ProductDetailModal({ product, onClose }) {
                   href={whatsappUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20"
+                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20 hover:shadow-[#25D366]/20"
                 >
                   <span className="material-symbols-outlined text-lg">chat</span>
                   <span>Ask Custom on WhatsApp</span>
@@ -263,7 +266,7 @@ export function ProductDetailModal({ product, onClose }) {
                   href={mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="w-full bg-primary text-on-primary hover:bg-primary/90 py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20"
+                  className="w-full bg-primary text-on-primary hover:bg-primary/90 py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20 hover:shadow-primary/20"
                 >
                   <span className="material-symbols-outlined text-lg">near_me</span>
                   <span>Get Directions</span>
