@@ -248,7 +248,8 @@ async function handleListProducts(env) {
     `SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
             p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
             p.version, p.updated_at, p.created_at,
-            s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text
+            s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
+            s.owner_id AS owner_id, s.owner_id AS shop_owner_id
      FROM products p
      JOIN shops s ON s.id = p.shop_id
      ORDER BY p.created_at DESC
