@@ -62,18 +62,18 @@ export function Header({
 
   return (
     <>
-      {/* Mobile TopAppBar - Soft Frosted Glass Layout */}
-      <header className="md:hidden bg-surface/90 backdrop-blur-md shadow-crisp-xs w-full z-20 flex items-center justify-between px-3.5 h-16 border-b border-surface-variant/40 sticky top-0">
+      {/* Mobile TopAppBar - Apple Frosted Glass Layout */}
+      <header className="md:hidden bg-surface/80 apple-frosted shadow-crisp-xs w-full z-20 flex items-center justify-between px-3.5 h-16 border-b border-surface-variant/40 sticky top-0">
         {/* Left: Brand logo & Compact Location Pill */}
         <div className="flex items-center gap-2 max-w-[65%] overflow-hidden">
           <img 
             src="/logo.svg" 
             alt="LocalFind Logo" 
             onClick={() => setActiveView('discover')}
-            className="w-8 h-8 rounded-2xl shadow-crisp-xs object-contain flex-shrink-0 cursor-pointer active:scale-90 transition-transform" 
+            className="w-8 h-8 rounded-full shadow-crisp-xs object-contain flex-shrink-0 cursor-pointer active:scale-90 transition-transform" 
           />
           <div
-            className="flex items-center gap-1.5 min-w-0 cursor-pointer p-1.5 px-2.5 rounded-2xl hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/40 bg-surface-container-low/80 backdrop-blur-sm"
+            className="flex items-center gap-1.5 min-w-0 cursor-pointer p-1.5 px-3 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/40 bg-surface-container-low/80"
             onClick={onDetectLocation}
             title="Tap to change location"
           >
@@ -92,14 +92,14 @@ export function Header({
           </div>
         </div>
 
-        {/* Right: Action Buttons (Structured & Symmetrical) */}
+        {/* Right: Action Buttons (Apple Capsule Pills) */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
           {onRefreshProducts && (
             <button
               onClick={onRefreshProducts}
               disabled={refreshing}
               title={`Sync status: ${syncRAG.tooltip} (Last synced: ${syncRAG.label})`}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-2xl text-[10px] font-bold border shadow-crisp-xs transition-all active:scale-90 ${syncRAG.colorClass}`}
+              className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-[10px] font-bold border shadow-crisp-xs transition-all active:scale-90 ${syncRAG.colorClass}`}
             >
               <span className={`w-1.5 h-1.5 rounded-full ${syncRAG.dotClass} ${refreshing ? 'animate-ping' : ''}`}></span>
               <span className={`material-symbols-outlined text-[13px] ${refreshing ? 'animate-spin' : ''}`}>
@@ -112,7 +112,7 @@ export function Header({
           {user ? (
             <button
               onClick={() => setActiveView('merchant')}
-              className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-on-primary px-3 py-1.5 rounded-2xl text-[11px] font-bold shadow-crisp-xs active:scale-95 transition-all border border-white/20"
+              className="flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-on-primary px-3.5 py-1.5 rounded-full text-[11px] font-bold shadow-crisp-xs active:scale-95 transition-all border border-white/20"
             >
               <img
                 src={getAvatarUrl(user)}
@@ -128,7 +128,7 @@ export function Header({
           ) : (
             <button
               onClick={onOpenSignIn}
-              className="bg-primary hover:bg-primary/90 text-on-primary px-3 py-1.5 rounded-2xl text-[10px] font-bold shadow-crisp-xs flex items-center gap-1 active:scale-95 transition-all border border-white/20"
+              className="bg-primary hover:bg-primary/90 text-on-primary px-3.5 py-1.5 rounded-full text-[10px] font-bold shadow-crisp-xs flex items-center gap-1 active:scale-95 transition-all border border-white/20"
             >
               <span className="material-symbols-outlined text-[14px]">storefront</span>
               <span className="text-[10px] font-bold">Sell</span>
@@ -137,14 +137,14 @@ export function Header({
         </div>
       </header>
 
-      {/* Desktop TopAppBar - Frosted Glass Layout */}
-      <header className="hidden md:flex bg-surface/90 backdrop-blur-md shadow-crisp-xs w-full z-30 items-center justify-between px-6 py-3.5 border-b border-surface-variant/40 sticky top-0">
+      {/* Desktop TopAppBar - Apple Frosted Glass Layout */}
+      <header className="hidden md:flex bg-surface/80 apple-frosted shadow-crisp-xs w-full z-30 items-center justify-between px-6 py-3.5 border-b border-surface-variant/40 sticky top-0">
         <div className="flex items-center gap-5">
           <div
             onClick={() => setActiveView('discover')}
             className="flex items-center gap-2.5 cursor-pointer group"
           >
-            <img src="/logo.svg" alt="LocalFind Logo" className="w-9 h-9 rounded-xl shadow-xs object-contain group-hover:scale-105 transition-transform" />
+            <img src="/logo.svg" alt="LocalFind Logo" className="w-9 h-9 rounded-full shadow-crisp-xs object-contain group-hover:scale-105 transition-transform" />
             <div className="flex items-baseline gap-1.5">
               <h1 className="font-display-lg text-2xl font-bold text-primary tracking-tight">
                 LocalFind
@@ -194,9 +194,9 @@ export function Header({
         <nav className="flex items-center gap-3">
           <button
             onClick={() => setActiveView('discover')}
-            className={`font-title-md text-sm flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all font-semibold active:scale-95 ${
+            className={`font-title-md text-sm flex items-center gap-2 px-5 py-2.5 rounded-full transition-all font-semibold active:scale-95 ${
               activeView === 'discover'
-                ? 'bg-primary text-on-primary font-bold shadow-sm ring-2 ring-primary/20'
+                ? 'bg-primary text-on-primary font-bold shadow-crisp-xs ring-2 ring-primary/20 scale-[1.02]'
                 : 'text-on-surface-variant hover:bg-surface-variant/70 border border-transparent hover:border-surface-variant'
             }`}
           >
@@ -206,9 +206,9 @@ export function Header({
 
           <button
             onClick={() => setActiveView('merchant')}
-            className={`font-title-md text-sm flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all font-semibold active:scale-95 ${
+            className={`font-title-md text-sm flex items-center gap-2 px-5 py-2.5 rounded-full transition-all font-semibold active:scale-95 ${
               activeView === 'merchant'
-                ? 'bg-primary text-on-primary font-bold shadow-sm ring-2 ring-primary/20'
+                ? 'bg-primary text-on-primary font-bold shadow-crisp-xs ring-2 ring-primary/20 scale-[1.02]'
                 : 'text-on-surface-variant hover:bg-surface-variant/70 border border-transparent hover:border-surface-variant'
             }`}
           >
@@ -235,7 +235,7 @@ export function Header({
           ) : (
             <button
               onClick={onOpenSignIn}
-              className="ml-2 bg-secondary text-on-secondary hover:bg-secondary/90 px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm flex items-center gap-2 active:scale-95"
+              className="ml-2 bg-secondary text-on-secondary hover:bg-secondary/90 px-5 py-2.5 rounded-full text-sm font-bold transition-all shadow-crisp-xs flex items-center gap-2 active:scale-95"
             >
               <span className="material-symbols-outlined text-lg">account_circle</span>
               <span>Merchant Sign In</span>

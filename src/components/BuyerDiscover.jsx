@@ -57,7 +57,7 @@ const StoreStatusBadge = React.memo(function StoreStatusBadge({ openingTime, clo
   )
 })
 
-// 📦 Memoized 60+ FPS Product Card with Soft Aesthetics & CSS Virtual Containment
+// 🍎 Apple Museum Gallery Style Product Card with 60+ FPS Virtual Containment
 const ProductCard = React.memo(function ProductCard({
   product,
   onSelectProduct,
@@ -72,13 +72,13 @@ const ProductCard = React.memo(function ProductCard({
   return (
     <div
       onClick={() => onSelectProduct(product)}
-      className={`product-card-contain soft-card-hover bg-surface-container-lowest rounded-2xl sm:rounded-3xl shadow-crisp-xs overflow-hidden border flex flex-col group cursor-pointer transition-all duration-300 touch-press ${
+      className={`product-card-contain bg-surface-container-lowest rounded-3xl shadow-crisp-xs hover:apple-product-shadow overflow-hidden border flex flex-col group cursor-pointer transition-all duration-300 touch-press ${
         isDistant 
           ? 'border-amber-500/30 hover:border-amber-500/60' 
-          : 'border-surface-variant/50 hover:border-primary/40 hover:shadow-crisp-md'
+          : 'border-surface-variant/40 hover:border-primary/40'
       }`}
     >
-      <div className="relative w-full aspect-square overflow-hidden bg-surface-variant/50">
+      <div className="relative w-full aspect-square overflow-hidden bg-surface-variant/40">
         <img
           src={product.image_url || DEFAULT_IMG}
           alt={product.name}
@@ -88,18 +88,18 @@ const ProductCard = React.memo(function ProductCard({
             e.target.onerror = null
             e.target.src = DEFAULT_IMG
           }}
-          className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
         />
 
-        {/* Soft Glassmorphic Badges Overlay */}
-        <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none gap-1">
+        {/* Apple Translucent Capsule Badges */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none gap-1">
           {flashInfo.isLive ? (
-            <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black shadow-sm flex items-center gap-1 pointer-events-auto animate-softGaze">
+            <span className="bg-gradient-to-r from-amber-500 via-rose-500 to-pink-500 text-white px-3 py-1 rounded-full text-[9px] font-black shadow-crisp-xs flex items-center gap-1 pointer-events-auto animate-softGaze">
               <span className="text-[10px]">⚡</span>
               <span>{flashInfo.discountPercent}% OFF</span>
             </span>
           ) : (
-            <span className="bg-surface/85 backdrop-blur-md px-2.5 py-0.5 rounded-full text-[9px] font-bold shadow-crisp-xs border border-surface-variant/30 flex items-center gap-1 pointer-events-auto">
+            <span className="bg-surface/80 apple-frosted px-3 py-1 rounded-full text-[9px] font-bold shadow-crisp-xs border border-surface-variant/30 flex items-center gap-1 pointer-events-auto">
               <span className={`w-1.5 h-1.5 rounded-full ${itemRAG.dotClass}`}></span>
               <span className={itemRAG.textClass}>{itemRAG.label}</span>
             </span>
@@ -108,10 +108,10 @@ const ProductCard = React.memo(function ProductCard({
           <div className="flex items-center gap-1.5 ml-auto pointer-events-auto">
             {product.distanceKm !== null && (
               <span
-                className={`backdrop-blur-md px-2 py-0.5 rounded-full text-[9px] font-bold shadow-crisp-xs border flex items-center gap-0.5 ${
+                className={`apple-frosted px-2.5 py-1 rounded-full text-[9px] font-bold shadow-crisp-xs border flex items-center gap-0.5 ${
                   isDistant
                     ? 'bg-amber-600/90 text-white border-amber-600/60'
-                    : 'bg-surface/85 text-on-surface border-surface-variant/40'
+                    : 'bg-surface/80 text-on-surface border-surface-variant/40'
                 }`}
               >
                 <span className={`material-symbols-outlined text-[12px] ${isDistant ? '' : 'text-primary'}`}>
@@ -121,14 +121,14 @@ const ProductCard = React.memo(function ProductCard({
               </span>
             )}
 
-            {/* Animated 1-Tap Wishlist Heart Button */}
+            {/* Apple Circular Action Chip */}
             <button
               onClick={(e) => onToggleWishlist(product.id, e)}
               title={isWishlisted ? 'Remove from Saved Wishlist' : 'Save to Wishlist'}
               className={`w-7 h-7 rounded-full flex items-center justify-center shadow-crisp-xs transition-all active:scale-75 ${
                 isWishlisted
                   ? 'bg-rose-500 text-white shadow-rose-500/25 ring-2 ring-rose-500/20'
-                  : 'bg-surface/85 backdrop-blur-md text-on-surface-variant hover:text-rose-500 border border-surface-variant/40 hover:bg-surface'
+                  : 'bg-surface/80 apple-frosted text-on-surface-variant hover:text-rose-500 border border-surface-variant/40 hover:bg-surface'
               }`}
             >
               <span className={`material-symbols-outlined text-[15px] transition-transform ${isWishlisted ? 'fill-current animate-heartBeat' : ''}`}>
@@ -139,43 +139,44 @@ const ProductCard = React.memo(function ProductCard({
         </div>
       </div>
 
-      <div className="p-3.5 sm:p-4 flex flex-col flex-grow">
+      <div className="p-4 flex flex-col flex-grow">
         <div className="flex justify-between items-start mb-1">
-          <h3 className="font-title-md text-xs sm:text-sm md:text-base font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors">
+          <h3 className="font-title-md text-sm sm:text-base font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors tracking-tight">
             {product.name}
           </h3>
         </div>
 
-        <div className="flex items-center justify-between gap-1 mb-2.5">
+        <div className="flex items-center justify-between gap-1 mb-3">
           <p className="font-body-sm text-[11px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1">
             {product.shop_name}
           </p>
           <StoreStatusBadge openingTime={product.opening_time} closingTime={product.closing_time} />
         </div>
 
-        <div className="mt-auto flex items-end justify-between pt-1.5 border-t border-surface-variant/30">
+        <div className="mt-auto flex items-end justify-between pt-2 border-t border-surface-variant/25">
           <div>
             {flashInfo.isLive ? (
               <div className="flex flex-col">
                 <FlashCountdownBadge deal={product} />
-                <div className="flex items-baseline gap-1 mt-0.5">
-                  <span className="font-headline-lg-mobile text-sm sm:text-lg md:text-xl font-bold text-rose-600">
+                <div className="flex items-baseline gap-1.5 mt-0.5">
+                  <span className="font-headline-lg-mobile text-base sm:text-lg md:text-xl font-bold text-rose-600">
                     ₹{flashInfo.discountedPrice}
                   </span>
-                  <span className="text-[10px] sm:text-xs text-on-surface-variant line-through opacity-70 font-medium">
+                  <span className="text-xs text-on-surface-variant line-through opacity-70 font-medium">
                     ₹{flashInfo.originalPrice}
                   </span>
                 </div>
               </div>
             ) : (
-              <span className="font-headline-lg-mobile text-sm sm:text-lg md:text-xl font-black text-primary">
+              <span className="font-headline-lg-mobile text-base sm:text-lg md:text-xl font-black text-primary">
                 ₹{product.price}
               </span>
             )}
           </div>
 
+          {/* Apple Signature Pill CTA */}
           <button
-            className={`px-3 sm:px-4 py-1.5 rounded-xl font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-1 active:scale-95 group-hover:translate-x-0.5 ${
+            className={`px-4 py-1.5 rounded-full font-label-caps text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-1 active:scale-95 ${
               isDistant
                 ? 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant'
                 : 'bg-primary hover:bg-primary/90 text-on-primary shadow-sm hover:shadow-primary/20'
@@ -183,7 +184,7 @@ const ProductCard = React.memo(function ProductCard({
           >
             <span className="hidden sm:inline">Details</span>
             <span className="sm:hidden">View</span>
-            <span className="material-symbols-outlined text-[13px] sm:text-[15px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+            <span className="material-symbols-outlined text-[14px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
           </button>
         </div>
       </div>
@@ -440,12 +441,12 @@ export function BuyerDiscover({
 
   return (
     <main className="pt-4 md:pt-6 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
-      {/* Search and Filter Section */}
+      {/* Search and Filter Section - Apple Capsule System */}
       <section className="mb-5 bg-surface py-2">
         <div className="relative w-full flex items-center gap-2 sm:gap-2.5">
-          {/* Main Search Input with Soft Ambient Glow */}
+          {/* Main Search Input - Apple Pill Design */}
           <div className="relative flex-1 group">
-            <span className="material-symbols-outlined absolute left-3.5 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">
+            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">
               search
             </span>
             <input
@@ -453,23 +454,23 @@ export function BuyerDiscover({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search 'Cheeni', 'Charger'..."
-              className="w-full bg-surface-container-high/80 backdrop-blur-sm border border-surface-variant/70 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-2xl py-2.5 sm:py-3 pl-10 sm:pl-12 pr-8 sm:pr-10 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs"
+              className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-2.5 sm:py-3 pl-11 sm:pl-12 pr-8 sm:pr-10 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant/50 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant/50 transition-colors"
               >
                 <span className="material-symbols-outlined text-xs sm:text-sm">close</span>
               </button>
             )}
           </div>
 
-          {/* Hindi / English Voice Search Button */}
+          {/* Hindi / English Voice Search Button - Apple Capsule */}
           <button
             onClick={toggleVoiceSearch}
             title={isListening ? 'Stop listening' : `Tap to speak (${speechLanguage === 'hi-IN' ? 'Hindi / Hinglish' : 'English'})`}
-            className={`flex-shrink-0 flex items-center justify-center p-2.5 sm:p-3 rounded-2xl transition-all shadow-crisp-xs active:scale-90 border ${
+            className={`flex-shrink-0 flex items-center justify-center p-2.5 sm:p-3 rounded-full transition-all shadow-crisp-xs active:scale-90 border ${
               isListening
                 ? 'bg-rose-500 text-white animate-pulse ring-4 ring-rose-500/30 border-rose-600 shadow-rose-500/20'
                 : 'bg-primary text-on-primary hover:bg-primary/90 border-white/20 hover:shadow-primary/20 shadow-sm'
@@ -480,24 +481,24 @@ export function BuyerDiscover({
             </span>
           </button>
 
-          {/* Language Toggle (हिन्दी / Eng) */}
+          {/* Language Toggle (हिन्दी / Eng) - Apple Pill */}
           <button
             onClick={() => setSpeechLanguage((prev) => (prev === 'hi-IN' ? 'en-IN' : 'hi-IN'))}
             title="Switch voice search language"
-            className="flex-shrink-0 bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border border-surface-variant/70 px-2.5 sm:px-3 py-2.5 rounded-2xl text-[10px] sm:text-[11px] font-bold transition-all shadow-crisp-xs active:scale-95 flex items-center gap-1"
+            className="flex-shrink-0 bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border border-surface-variant/60 px-3 sm:px-3.5 py-2.5 rounded-full text-[10px] sm:text-[11px] font-bold transition-all shadow-crisp-xs active:scale-95 flex items-center gap-1"
           >
             <span className="material-symbols-outlined text-[13px] text-primary">translate</span>
             <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
           </button>
 
-          {/* ❤️ Wishlist Quick Toggle Button with Badge Glow */}
+          {/* ❤️ Wishlist Quick Toggle Button with Apple Pill */}
           <button
             onClick={() => setShowOnlyWishlist((prev) => !prev)}
             title={showOnlyWishlist ? 'Show all products' : `View saved wishlist (${wishlistIds.length} items)`}
-            className={`flex-shrink-0 flex items-center justify-center gap-1 p-2.5 sm:p-3 rounded-2xl transition-all shadow-crisp-xs active:scale-90 border ${
+            className={`flex-shrink-0 flex items-center justify-center gap-1 p-2.5 sm:p-3 rounded-full transition-all shadow-crisp-xs active:scale-90 border ${
               showOnlyWishlist
                 ? 'bg-rose-500 text-white border-rose-600 ring-2 ring-rose-500/30 font-bold shadow-rose-500/20'
-                : 'bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border-surface-variant/70'
+                : 'bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border-surface-variant/60'
             }`}
           >
             <span className={`material-symbols-outlined text-lg sm:text-xl ${showOnlyWishlist ? 'fill-current animate-heartBeat' : 'text-rose-500'}`}>
@@ -515,10 +516,10 @@ export function BuyerDiscover({
             <button
               onClick={() => setShowFiltersDropdown((prev) => !prev)}
               title="Filter Categories & Radius"
-              className={`flex-shrink-0 flex items-center justify-center gap-1 p-2.5 sm:p-3 rounded-2xl transition-all shadow-crisp-xs active:scale-90 border ${
+              className={`flex-shrink-0 flex items-center justify-center gap-1 p-2.5 sm:p-3 rounded-full transition-all shadow-crisp-xs active:scale-90 border ${
                 showFiltersDropdown || selectedCategory !== 'All' || maxRadiusKm !== 2
                   ? 'bg-secondary text-on-secondary border-secondary ring-2 ring-secondary/20 font-bold'
-                  : 'bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border-surface-variant/70'
+                  : 'bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border-surface-variant/60'
               }`}
             >
               <span className="material-symbols-outlined text-lg sm:text-xl">
@@ -531,7 +532,7 @@ export function BuyerDiscover({
 
             {/* Popover Dropdown Menu */}
             {showFiltersDropdown && (
-              <div className="absolute right-0 top-full mt-2.5 w-72 sm:w-80 bg-surface/95 backdrop-blur-xl border border-surface-variant/80 rounded-3xl shadow-crisp-xl p-4.5 z-50 animate-popIn">
+              <div className="absolute right-0 top-full mt-2.5 w-72 sm:w-80 bg-surface/95 apple-frosted border border-surface-variant/80 rounded-3xl shadow-crisp-xl p-4.5 z-50 animate-popIn">
                 <div className="flex items-center justify-between pb-3 mb-3 border-b border-surface-variant/40">
                   <div className="flex items-center gap-1.5">
                     <span className="material-symbols-outlined text-primary text-sm">tune</span>
@@ -561,7 +562,7 @@ export function BuyerDiscover({
                         <button
                           key={cat.label}
                           onClick={() => setSelectedCategory(cat.label)}
-                          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl font-label-caps text-[11px] transition-all text-left ${
+                          className={`flex items-center gap-1.5 px-3 py-2 rounded-full font-label-caps text-[11px] transition-all text-left ${
                             isActive
                               ? 'bg-primary text-on-primary font-bold shadow-crisp-xs ring-2 ring-primary/20'
                               : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/40'
@@ -591,7 +592,7 @@ export function BuyerDiscover({
                         <button
                           key={rad.label}
                           onClick={() => setMaxRadiusKm(rad.value)}
-                          className={`px-3 py-2 rounded-xl text-[11px] font-bold transition-all text-center ${
+                          className={`px-3 py-2 rounded-full text-[11px] font-bold transition-all text-center ${
                             isActive
                               ? 'bg-primary text-on-primary shadow-crisp-xs ring-2 ring-primary/20'
                               : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/40'
@@ -607,7 +608,7 @@ export function BuyerDiscover({
                 <div className="mt-4 pt-3 border-t border-surface-variant/40">
                   <button
                     onClick={() => setShowFiltersDropdown(false)}
-                    className="w-full bg-primary hover:bg-primary/90 text-on-primary py-2.5 rounded-2xl text-xs font-bold transition-all shadow-sm active:scale-95 text-center"
+                    className="w-full bg-primary hover:bg-primary/90 text-on-primary py-2.5 rounded-full text-xs font-bold transition-all shadow-sm active:scale-95 text-center"
                   >
                     Apply Filters
                   </button>
@@ -617,7 +618,7 @@ export function BuyerDiscover({
           </div>
         </div>
 
-        {/* Quick Category Pills Bar */}
+        {/* Quick Category Pills Bar - Apple Capsule Chips */}
         <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar py-1.5 mt-1.5">
           {CATEGORIES.map((cat) => {
             const isActive = selectedCategory === cat.label
@@ -625,10 +626,10 @@ export function BuyerDiscover({
               <button
                 key={`chip-${cat.label}`}
                 onClick={() => setSelectedCategory(cat.label)}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
+                className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
                   isActive
                     ? 'bg-primary text-on-primary font-bold shadow-crisp-sm ring-2 ring-primary/20 scale-[1.02]'
-                    : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/60 shadow-crisp-xs'
+                    : 'bg-surface-container-high/80 hover:bg-surface-variant text-on-surface border border-surface-variant/50 shadow-crisp-xs'
                 }`}
               >
                 <span className="material-symbols-outlined text-[15px]">{cat.icon}</span>

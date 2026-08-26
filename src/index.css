@@ -114,11 +114,38 @@
   animation: floatIcon 3.5s ease-in-out infinite;
 }
 
+/* 🍎 Apple Design System Foundations (SF Pro tight tracking & museum blur) */
+:root {
+  --apple-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  --apple-blur: saturate(180%) blur(20px);
+}
+
 html {
+  font-family: var(--apple-font);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  letter-spacing: -0.011em;
+}
+
+/* Apple-style Display & Title Tight Tracking */
+h1, h2, h3, .font-headline-lg, .font-display-lg {
+  letter-spacing: -0.022em;
+}
+
+.apple-frosted {
+  backdrop-filter: var(--apple-blur);
+  -webkit-backdrop-filter: var(--apple-blur);
+}
+
+/* Apple signature product elevation */
+.apple-product-shadow {
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.08), 0 2px 6px -2px rgba(0, 0, 0, 0.04);
+}
+
+.dark .apple-product-shadow {
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.35), 0 2px 6px -2px rgba(0, 0, 0, 0.2);
 }
 
 img {

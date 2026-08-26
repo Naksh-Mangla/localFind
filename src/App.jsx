@@ -330,29 +330,29 @@ export default function App() {
         isFirstTimeFallback={isFirstTimeFallback}
       />
 
-      {/* Mobile Bottom Navigation Bar - Sleek & Compact Dock */}
-      <nav className="md:hidden bg-surface/95 backdrop-blur-xl shadow-[0px_-2px_12px_rgba(0,0,0,0.06)] fixed bottom-0 left-0 w-full z-40 flex justify-around items-center px-4 py-1.5 border-t border-surface-variant/40">
+      {/* 🍎 Apple-Style Floating Frosted Glass Dock */}
+      <nav className="md:hidden fixed bottom-3 left-6 right-6 z-40 max-w-xs mx-auto bg-surface/85 apple-frosted shadow-crisp-lg border border-surface-variant/40 rounded-full p-1 flex justify-around items-center transition-all duration-300">
         <button
           onClick={() => setActiveView('discover')}
-          className={`flex items-center justify-center gap-1.5 py-1.5 px-4 rounded-xl transition-all duration-200 active:scale-90 ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-5 rounded-full transition-all duration-200 active:scale-95 ${
             activeView === 'discover'
-              ? 'bg-primary text-on-primary font-bold shadow-xs'
+              ? 'bg-primary text-on-primary font-bold shadow-crisp-xs scale-[1.02]'
               : 'text-on-surface-variant hover:text-primary'
           }`}
         >
-          <span className="material-symbols-outlined text-[18px]">explore</span>
+          <span className="material-symbols-outlined text-[17px]">explore</span>
           <span className="font-label-caps text-[11px] font-bold">Explore</span>
         </button>
 
         <button
           onClick={() => setActiveView('merchant')}
-          className={`flex items-center justify-center gap-1.5 py-1.5 px-4 rounded-xl transition-all duration-200 active:scale-90 ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-5 rounded-full transition-all duration-200 active:scale-95 ${
             activeView === 'merchant'
-              ? 'bg-primary text-on-primary font-bold shadow-xs'
+              ? 'bg-primary text-on-primary font-bold shadow-crisp-xs scale-[1.02]'
               : 'text-on-surface-variant hover:text-primary'
           }`}
         >
-          <span className="material-symbols-outlined text-[18px]">storefront</span>
+          <span className="material-symbols-outlined text-[17px]">storefront</span>
           <span className="font-label-caps text-[11px] font-bold">My Shop</span>
         </button>
       </nav>
