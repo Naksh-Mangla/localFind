@@ -4,6 +4,7 @@ import { apiFetch } from './lib/api'
 import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
 import { LocationPickerModal } from './components/LocationPickerModal'
+import { isDealAlertsEnabled, enableDealAlerts, disableDealAlerts, checkAndNotifyNewDeals } from './utils/notifications'
 
 // Performance optimization: Robust lazy loader with automatic deployment chunk-stale retry
 const lazyWithRetry = (importFn) =>
@@ -68,11 +69,37 @@ export default function App() {
     return 'loading'
   })
 
+  // 🔔 Local Flash Deal Alerts Notification State
+  const [dealAlertsActive, setDealAlertsActive] = useState(() => isDealAlertsEnabled())
+
+  const handleToggleDealAlerts = async () => {
+    if (dealAlertsActive) {
+      disableDealAlerts()
+      setDealAlertsActive(false)
+    } else {
+      const enabled = await enableDealAlerts()
+      setDealAlertsActive(enabled)
+    }
+  }
+
   // Products state & sync tracking
   const [products, setProducts] = useState([])
   const [initialLoading, setInitialLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now())
+
+  // Listen for notification click event to open product detail modal
+  useEffect(() => {
+    const handleOpenProduct = (e) => {
+      const prodId = e.detail?.productId
+      if (prodId && products.length > 0) {
+        const found = products.find((p) => p.id === prodId)
+        if (found) setSelectedProduct(found)
+      }
+    }
+    window.addEventListener('openProductDetail', handleOpenProduct)
+    return () => window.removeEventListener('openProductDetail', handleOpenProduct)
+  }, [products])
 
   // Reverse geocode coordinates to human-readable street/neighborhood name
   const fetchAddressName = useCallback(async (lat, lng, statusPrefix = '', shouldSave = false) => {
@@ -241,6 +268,7 @@ export default function App() {
       const data = await apiFetch('/api/products')
       if (data && Array.isArray(data.products)) {
         setProducts(data.products)
+        checkAndNotifyNewDeals(data.products, userCoords)
       }
       setLastSyncedAt(Date.now())
     } catch (err) {
@@ -249,7 +277,7 @@ export default function App() {
       setInitialLoading(false)
       setIsRefreshing(false)
     }
-  }, [])
+  }, [userCoords])
 
   useEffect(() => {
     fetchProducts(false)
@@ -320,6 +348,8 @@ export default function App() {
         onRefreshProducts={() => fetchProducts(true)}
         refreshing={isRefreshing}
         lastSyncedAt={lastSyncedAt}
+        dealAlertsActive={dealAlertsActive}
+        onToggleDealAlerts={handleToggleDealAlerts}
       />
 
       {/* View Router with Smooth Transitions */}
@@ -337,6 +367,8 @@ export default function App() {
               lastSyncedAt={lastSyncedAt}
               onChangeLocation={() => setShowLocationPicker(true)}
               locationStatus={locationStatus}
+              dealAlertsActive={dealAlertsActive}
+              onToggleDealAlerts={handleToggleDealAlerts}
             />
           </div>
         ) : (

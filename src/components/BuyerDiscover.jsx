@@ -239,7 +239,9 @@ export function BuyerDiscover({
   refreshing,
   lastSyncedAt,
   onChangeLocation,
-  locationStatus
+  locationStatus,
+  dealAlertsActive = false,
+  onToggleDealAlerts
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   // ⚡ Non-blocking deferred search query for 60+ FPS responsive typing on 1.6 GHz processors
@@ -803,12 +805,29 @@ export function BuyerDiscover({
                 </div>
               </div>
 
-              {/* Header Right: Live Deals Count & Urgency Badge */}
-              <div className="flex items-center gap-2 self-start sm:self-auto">
+              {/* Header Right: Live Deals Count & Urgency Badge & Alert Toggle */}
+              <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
                 {activeFlashDeals[0] && <LiveHUDTimer deal={activeFlashDeals[0]} />}
                 <span className="text-[10px] sm:text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-500/20 px-2.5 py-1 rounded-full border border-amber-500/30">
                   {activeFlashDeals.length} {activeFlashDeals.length === 1 ? 'Deal' : 'Deals'} Live
                 </span>
+                {onToggleDealAlerts && (
+                  <button
+                    type="button"
+                    onClick={onToggleDealAlerts}
+                    title={dealAlertsActive ? 'Local Deal Alerts Active (Tap to mute)' : 'Get notified when new flash deals launch'}
+                    className={`flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border transition-all active:scale-95 shadow-2xs ${
+                      dealAlertsActive
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-amber-500/30'
+                        : 'bg-surface/80 hover:bg-surface text-amber-700 dark:text-amber-300 border-amber-500/40'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[13px]">
+                      {dealAlertsActive ? 'notifications_active' : 'notifications'}
+                    </span>
+                    <span>{dealAlertsActive ? 'Alerts On' : 'Notify Me'}</span>
+                  </button>
+                )}
               </div>
             </div>
 

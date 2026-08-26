@@ -11,7 +11,9 @@ export function Header({
   onOpenSignIn,
   onRefreshProducts,
   refreshing,
-  lastSyncedAt
+  lastSyncedAt,
+  dealAlertsActive = false,
+  onToggleDealAlerts
 }) {
   // Live ticker to keep relative sync time up to date every 10 seconds
   const [, setTick] = useState(0)
@@ -94,6 +96,22 @@ export function Header({
 
         {/* Right: Action Buttons (Apple Capsule Pills) */}
         <div className="flex items-center gap-1.5 flex-shrink-0">
+          {onToggleDealAlerts && (
+            <button
+              onClick={onToggleDealAlerts}
+              title={dealAlertsActive ? 'Local Deal Alerts Active (Tap to mute)' : 'Turn on Local Flash Deal Alerts'}
+              className={`p-1.5 px-2 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
+                dealAlertsActive
+                  ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 shadow-2xs'
+                  : 'bg-surface-container-high/80 text-on-surface-variant border-surface-variant/50 hover:text-on-surface'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                {dealAlertsActive ? 'notifications_active' : 'notifications'}
+              </span>
+            </button>
+          )}
+
           {onRefreshProducts && (
             <button
               onClick={onRefreshProducts}
@@ -173,6 +191,24 @@ export function Header({
               <span>Change</span>
             </span>
           </button>
+
+          {/* Desktop Deal Alerts Notification Button */}
+          {onToggleDealAlerts && (
+            <button
+              onClick={onToggleDealAlerts}
+              title={dealAlertsActive ? 'Local Deal Alerts Active (Tap to mute)' : 'Turn on Local Flash Deal Alerts'}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-bold border transition-all active:scale-95 shadow-xs ${
+                dealAlertsActive
+                  ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/40 shadow-amber-500/10'
+                  : 'bg-surface-container-high/80 text-on-surface-variant border-surface-variant/50 hover:text-on-surface'
+              }`}
+            >
+              <span className="material-symbols-outlined text-base">
+                {dealAlertsActive ? 'notifications_active' : 'notifications'}
+              </span>
+              <span>{dealAlertsActive ? 'Deal Alerts On' : 'Deal Alerts'}</span>
+            </button>
+          )}
 
           {/* Desktop Live Sync Teller with RAG Badge */}
           {onRefreshProducts && (
