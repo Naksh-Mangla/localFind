@@ -18,6 +18,14 @@ export function LocationPickerModal({
   // Load previous values if available
   useEffect(() => {
     try {
+      const savedAddress = localStorage.getItem('localfind_user_address')
+      if (savedAddress) {
+        const parsed = JSON.parse(savedAddress)
+        if (parsed.pincode) setPincode(parsed.pincode)
+        if (parsed.address) setAddress(parsed.address)
+        if (parsed.landmark) setLandmark(parsed.landmark)
+        return
+      }
       const saved = localStorage.getItem('localfind_saved_location')
       if (saved) {
         const parsed = JSON.parse(saved)
@@ -86,6 +94,17 @@ export function LocationPickerModal({
         const lng = parseFloat(place.lon)
         const areaName = address.trim() + (pincode ? ` (${pincode.trim()})` : '')
 
+        try {
+          localStorage.setItem(
+            'localfind_user_address',
+            JSON.stringify({
+              pincode: pincode.trim(),
+              address: address.trim(),
+              landmark: landmark.trim()
+            })
+          )
+        } catch {}
+
         onSelectLocation({
           lat,
           lng,
@@ -93,7 +112,8 @@ export function LocationPickerModal({
           locationName: areaName,
           pincode: pincode.trim(),
           address: address.trim(),
-          landmark: landmark.trim()
+          landmark: landmark.trim(),
+          isManual: true
         })
         onClose()
       } else {
