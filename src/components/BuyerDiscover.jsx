@@ -494,52 +494,62 @@ export function BuyerDiscover({
       {/* Search and Filter Section - Apple Capsule System */}
       <section className="mb-5 bg-surface py-2">
         <div className="relative w-full flex items-center gap-2 sm:gap-2.5">
-          {/* Main Search Input - Apple Pill Design */}
-          <div className="relative flex-1 group">
-            <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-lg group-focus-within:text-primary transition-colors">
+          {/* Main Integrated Search Bar with Embedded Mic & Language Switcher */}
+          <div className="relative flex-1 group flex items-center">
+            {/* Search Magnifying Glass Icon */}
+            <span className="material-symbols-outlined absolute left-3.5 sm:left-4 top-1/2 -translate-y-1/2 text-on-surface-variant text-base sm:text-lg group-focus-within:text-primary transition-colors pointer-events-none">
               search
             </span>
+
+            {/* Main Search Input */}
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search 'Cheeni', 'Charger'..."
-              className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-2.5 sm:py-3 pl-11 sm:pl-12 pr-8 sm:pr-10 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs"
+              placeholder="Search 'Cheeni', 'Milk', 'Charger'..."
+              className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-2.5 sm:py-3 pl-10 sm:pl-11 pr-24 sm:pr-28 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs"
             />
-            {searchQuery && (
+
+            {/* Embedded Action Controls (Clear + Language Toggle + Mic) */}
+            <div className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 sm:gap-1.5">
+              {/* Clear search text */}
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  title="Clear search text"
+                  className="p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant/50 transition-colors"
+                >
+                  <span className="material-symbols-outlined text-xs sm:text-sm">close</span>
+                </button>
+              )}
+
+              {/* Language Switcher Capsule Inside Search Bar */}
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant/50 transition-colors"
+                type="button"
+                onClick={() => setSpeechLanguage((prev) => (prev === 'hi-IN' ? 'en-IN' : 'hi-IN'))}
+                title={`Switch voice language (${speechLanguage === 'hi-IN' ? 'Hindi / Hinglish' : 'English'})`}
+                className="bg-surface/85 hover:bg-surface text-on-surface border border-surface-variant/70 hover:border-primary/40 px-2 sm:px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-extrabold transition-all shadow-2xs active:scale-95 flex items-center gap-0.5"
               >
-                <span className="material-symbols-outlined text-xs sm:text-sm">close</span>
+                <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
               </button>
-            )}
+
+              {/* Embedded Mic Button with Glowing Pulse State */}
+              <button
+                type="button"
+                onClick={toggleVoiceSearch}
+                title={isListening ? 'Stop listening' : `Voice search (${speechLanguage === 'hi-IN' ? 'बोलकर खोजें' : 'Speak to search'})`}
+                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all shadow-crisp-xs active:scale-90 ${
+                  isListening
+                    ? 'bg-rose-500 text-white animate-pulse ring-4 ring-rose-500/30 shadow-rose-500/30'
+                    : 'bg-primary hover:bg-primary/90 text-on-primary shadow-sm hover:shadow-primary/20'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm sm:text-base">
+                  {isListening ? 'graphic_eq' : 'mic'}
+                </span>
+              </button>
+            </div>
           </div>
-
-          {/* Hindi / English Voice Search Button - Apple Capsule */}
-          <button
-            onClick={toggleVoiceSearch}
-            title={isListening ? 'Stop listening' : `Tap to speak (${speechLanguage === 'hi-IN' ? 'Hindi / Hinglish' : 'English'})`}
-            className={`flex-shrink-0 flex items-center justify-center p-2.5 sm:p-3 rounded-full transition-all shadow-crisp-xs active:scale-90 border ${
-              isListening
-                ? 'bg-rose-500 text-white animate-pulse ring-4 ring-rose-500/30 border-rose-600 shadow-rose-500/20'
-                : 'bg-primary text-on-primary hover:bg-primary/90 border-white/20 hover:shadow-primary/20 shadow-sm'
-            }`}
-          >
-            <span className="material-symbols-outlined text-lg sm:text-xl">
-              {isListening ? 'graphic_eq' : 'mic'}
-            </span>
-          </button>
-
-          {/* Language Toggle (हिन्दी / Eng) - Apple Pill */}
-          <button
-            onClick={() => setSpeechLanguage((prev) => (prev === 'hi-IN' ? 'en-IN' : 'hi-IN'))}
-            title="Switch voice search language"
-            className="flex-shrink-0 bg-surface-container-high/90 hover:bg-surface-variant text-on-surface border border-surface-variant/60 px-3 sm:px-3.5 py-2.5 rounded-full text-[10px] sm:text-[11px] font-bold transition-all shadow-crisp-xs active:scale-95 flex items-center gap-1"
-          >
-            <span className="material-symbols-outlined text-[13px] text-primary">translate</span>
-            <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
-          </button>
 
           {/* ❤️ Wishlist Quick Toggle Button with Apple Pill */}
           <button
