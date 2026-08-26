@@ -103,10 +103,13 @@ export function disableDealAlerts() {
 /**
  * Send a browser push notification (with ServiceWorker & window.Notification support)
  */
-export async function sendLocalNotification({ title, body, icon = '/logo.svg', tag, data = {} }) {
+export async function sendLocalNotification({ title, body, icon = '/icon-192.png', tag, data = {} }) {
   if (!isNotificationSupported() || (typeof Notification !== 'undefined' && Notification.permission !== 'granted')) {
     return null
   }
+
+  // Resolve absolute URL for Android Chrome & mobile web push notification handlers
+  const resolvedIcon = typeof window !== 'undefined' ? new URL(icon, window.location.origin).href : icon
 
   try {
     // 1. Try Service Worker showNotification (Mandatory for Android Chrome & mobile PWAs)
@@ -116,8 +119,8 @@ export async function sendLocalNotification({ title, body, icon = '/logo.svg', t
         if (registration && typeof registration.showNotification === 'function') {
           return await registration.showNotification(title, {
             body,
-            icon,
-            badge: icon,
+            icon: resolvedIcon,
+            badge: resolvedIcon,
             tag: tag || 'localfind-deal',
             data,
             renotify: true,
@@ -133,8 +136,8 @@ export async function sendLocalNotification({ title, body, icon = '/logo.svg', t
     if (typeof Notification !== 'undefined') {
       const notification = new Notification(title, {
         body,
-        icon,
-        badge: icon,
+        icon: resolvedIcon,
+        badge: resolvedIcon,
         tag: tag || 'localfind-deal',
         data,
         renotify: true,
