@@ -297,15 +297,22 @@ export default function App() {
 
   // Periodic background sync (every 30s) + Instant Sync on tab focus
   useEffect(() => {
-    const interval = setInterval(() => {
-      fetchProducts(false)
-    }, 30000)
+    let lastAutoSync = 0
 
-    const handleVisibilityOrFocus = () => {
-      if (document.visibilityState === 'visible') {
-        fetchProducts(false)
-      }
+    const maybeFetch = (isPolling = false) => {
+      // Skip all network work while the tab is hidden — saves battery & mobile data.
+      if (document.visibilityState !== 'visible') return
+      // Throttle: avoid double-fetch when visibilitychange + focus fire together,
+      // and skip redundant polls right after a manual/auto refresh.
+      const now = Date.now()
+      if (now - lastAutoSync < (isPolling ? 25000 : 3000)) return
+      lastAutoSync = now
+      fetchProducts(false)
     }
+
+    const interval = setInterval(() => maybeFetch(true), 30000)
+
+    const handleVisibilityOrFocus = () => maybeFetch(false)
     document.addEventListener('visibilitychange', handleVisibilityOrFocus)
     window.addEventListener('focus', handleVisibilityOrFocus)
 

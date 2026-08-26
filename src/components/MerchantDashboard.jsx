@@ -59,6 +59,24 @@ export function MerchantDashboard({
   const [savingProduct, setSavingProduct] = useState(false)
   const [uploadProgress, setUploadProgress] = useState('')
 
+  // Track blob object URLs so they are revoked (prevents memory leaks across uploads)
+  const objectUrlRef = React.useRef(null)
+
+  const createTrackedObjectUrl = (file) => {
+    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
+    const url = URL.createObjectURL(file)
+    objectUrlRef.current = url
+    return url
+  }
+
+  // Revoke any pending blob URL once the product modal closes
+  useEffect(() => {
+    if (!showAddProductModal && objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current)
+      objectUrlRef.current = null
+    }
+  }, [showAddProductModal])
+
   // Close modals on Escape key press
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -1244,7 +1262,7 @@ export function MerchantDashboard({
                             showToast(`Photo compressed by ${Math.round((1 - newKB / origKB) * 100)}% (${origKB} KB ➔ ${newKB} KB)!`, 'success', 'Photo Compressed')
                           } catch (err) {
                             setImageFile(file)
-                            setProductImageUrl(URL.createObjectURL(file))
+                            setProductImageUrl(createTrackedObjectUrl(file))
                           }
                         }
                       }}

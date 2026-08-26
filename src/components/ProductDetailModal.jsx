@@ -3,14 +3,16 @@ import { formatDistance } from '../utils/haversine'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
 import { getFlashDealInfo } from '../utils/flashDeals'
+import { sanitizeHttpUrl, sanitizeImageUrl } from '../utils/safeUrl'
 
 export function ProductDetailModal({ product, onClose }) {
-  if (!product) return null
-
+  // Hooks must run unconditionally on every render (Rules of Hooks).
+  // The `!product` early-return used to sit ABOVE these hooks, which would crash
+  // React if the component ever mounted with a null product and later received one.
   const [isWishlisted, setIsWishlisted] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
-      return saved.includes(product.id)
+      return saved.includes(product?.id)
     } catch {
       return false
     }
@@ -37,9 +39,16 @@ export function ProductDetailModal({ product, onClose }) {
     }
   }, [product.id, onClose])
 
+  if (!product) return null
+
   const productRAG = getRAGStatus(product.updated_at || product.created_at)
   const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
   const flashInfo = getFlashDealInfo(product)
+
+  // Server data is sanitized again at render time (defense-in-depth against
+  // javascript:/data: URLs injected into the DB by any writer).
+  const safeImageSrc = sanitizeImageUrl(product.image_url) || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'
+  const safeAffiliateLink = product.is_affiliate_fallback ? sanitizeHttpUrl(product.affiliate_link) : null
 
   const finalPrice = flashInfo.isLive ? flashInfo.discountedPrice : product.price
   let cleanWhatsapp = (product.whatsapp_number || '').replace(/[^0-9]/g, '')
@@ -126,7 +135,7 @@ export function ProductDetailModal({ product, onClose }) {
         {/* Hero Product Image */}
         <div className="relative w-full aspect-video md:aspect-[16/9] bg-surface-container-high overflow-hidden shrink-0">
           <img
-            src={product.image_url || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'}
+            src={safeImageSrc}
             alt={product.name}
             onError={(e) => {
               e.target.onerror = null
@@ -256,9 +265,9 @@ export function ProductDetailModal({ product, onClose }) {
 
           {/* Zero-Cost Direct Connect Buttons */}
           <div className="flex flex-col gap-3 pt-2">
-            {product.is_affiliate_fallback && product.affiliate_link ? (
+            {safeAffiliateLink ? (
               <a
-                href={product.affiliate_link}
+                href={safeAffiliateLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full bg-secondary text-on-secondary hover:bg-secondary/90 py-3.5 px-6 rounded-2xl font-title-md text-center font-bold transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2 active:scale-98 border border-white/20"

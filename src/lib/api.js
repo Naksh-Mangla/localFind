@@ -29,14 +29,16 @@ export async function apiFetch(path, options = {}) {
         headers['Content-Type'] = 'application/json'
       }
 
-      // Avoid stale browser cache on GET requests
-      const url = !isGet
-        ? `${API_URL}${path}`
-        : `${API_URL}${path}${path.includes('?') ? '&' : '?'}_t=${Date.now()}`
+      // NOTE: no cache-buster query param here. The worker serves GET /api/products with
+      // Cache-Control (max-age=15, s-maxage=30) so the browser + Cloudflare edge cache can
+      // absorb polls. A unique `_t` param per request would bypass both and send every poll
+      // straight to D1.
+      const url = `${API_URL}${path}`
 
       const res = await fetch(url, {
         ...options,
-        headers
+        headers,
+        credentials: 'omit'
       })
 
       const body = await res.json().catch(() => null)
