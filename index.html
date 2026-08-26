@@ -62,10 +62,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Work+Sans:wght@500;600;700&display=swap" rel="stylesheet"/>
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet"/>
   </head>
   <body class="bg-surface text-on-surface font-body-sm text-body-sm antialiased selection:bg-primary/20 selection:text-primary min-h-screen">
-    <div id="root"></div>
+    <div id="root">
+      <!-- 🛡️ Instant Pre-Boot Splash (Prevents FOUC / Component Flash) -->
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background-color: #fff8f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: #9c3e20; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px -4px rgba(156, 62, 32, 0.25); margin-bottom: 16px;">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+        </div>
+        <div style="font-size: 20px; font-weight: 800; color: #9c3e20; letter-spacing: -0.02em;">LocalFind</div>
+        <div style="font-size: 11px; color: #77574e; margin-top: 4px; font-weight: 600;">Connecting local neighborhood shops</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

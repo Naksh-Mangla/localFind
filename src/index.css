@@ -29,6 +29,30 @@ h1, h2, h3, .font-headline-lg, .font-display-lg {
   letter-spacing: -0.022em;
 }
 
+/* 🛡️ Strict Icon Font Sizing & FOUC Prevention */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: inherit;
+  line-height: 1;
+  display: inline-block;
+  width: 1.1em;
+  height: 1.1em;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+  overflow: hidden;
+  vertical-align: middle;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'liga';
+  user-select: none;
+  flex-shrink: 0;
+}
+
 /* Animations */
 @keyframes fadeIn {
   from {
