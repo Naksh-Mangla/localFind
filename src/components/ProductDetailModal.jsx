@@ -36,9 +36,15 @@ export function ProductDetailModal({ product, onClose }) {
     }
     window.addEventListener('storage', handleStorage)
     window.addEventListener('keydown', handleKeyDown)
+    
+    // Lock body scroll while modal is open to prevent page drift
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
     return () => {
       window.removeEventListener('storage', handleStorage)
       window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = originalOverflow
     }
   }, [product?.id, onClose])
 
@@ -58,35 +64,26 @@ export function ProductDetailModal({ product, onClose }) {
         triggerHaptic('success')
       } catch (err) {
         if (err.name !== 'AbortError') {
-          console.warn('Share error:', err)
+          console.warn('Native share failed, fallback to copy', err)
         }
       }
     } else {
       try {
-        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`)
-        triggerHaptic('light')
-        alert('Link copied to clipboard!')
-      } catch {}
+        await navigator.clipboard.writeText(window.location.href)
+        alert('Product link copied to clipboard!')
+      } catch (err) {
+        console.warn('Failed to copy link', err)
+      }
     }
   }
 
-  const productRAG = getRAGStatus(product.updated_at || product.created_at)
-  const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
-  const flashInfo = getFlashDealInfo(product)
+  const cleanWhatsapp = product.whatsapp_number ? product.whatsapp_number.replace(/[^0-9]/g, '') : ''
+  const isFlash = product.is_flash_deal && product.flash_deal_ends_at && new Date(product.flash_deal_ends_at).getTime() > Date.now()
+  const flashInfo = isFlash ? getFlashDealInfo(product) : null
 
-  // Server data is sanitized again at render time (defense-in-depth against
-  // javascript:/data: URLs injected into the DB by any writer).
-  const safeImageSrc = sanitizeImageUrl(product.image_url) || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'
-  const safeAffiliateLink = product.is_affiliate_fallback ? sanitizeHttpUrl(product.affiliate_link) : null
-
-  const finalPrice = flashInfo.isLive ? flashInfo.discountedPrice : product.price
-  let cleanWhatsapp = (product.whatsapp_number || '').replace(/[^0-9]/g, '')
-  if (cleanWhatsapp.length === 10) {
-    cleanWhatsapp = `91${cleanWhatsapp}`
-  }
   const whatsappMsg = encodeURIComponent(
-    flashInfo.isLive
-      ? `Hi! I saw your ⚡ Flash Deal for "${product.name}" at ₹${finalPrice} (${flashInfo.discountPercent}% OFF) on LocalFind. Is it available for pickup today?`
+    isFlash
+      ? `Hi, I saw the Flash Deal for "${product.name}" at ₹${flashInfo?.dealPrice} (${flashInfo?.discountPercent}% OFF) at ${product.shop_name} on LocalFind! Is it still in stock?`
       : `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
   )
   const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}`
@@ -99,14 +96,22 @@ export function ProductDetailModal({ product, onClose }) {
     : encodeURIComponent(`${product.shop_name || 'Local Shop'} ${product.address_text || ''}`.trim())
   const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationParam}`
 
+  const productRAG = getRAGStatus(product.updated_at || product.created_at)
+  const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
+  
+  // Server data is sanitized again at render time (defense-in-depth against
+  // javascript:/data: URLs injected into the DB by any writer).
+  const safeImageSrc = sanitizeImageUrl(product.image_url) || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'
+  const safeAffiliateLink = product.is_affiliate_fallback ? sanitizeHttpUrl(product.affiliate_link) : null
+
   return (
     <div 
       onClick={onClose}
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none animate-fadeIn"
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-surface rounded-t-[32px] sm:rounded-3xl shadow-crisp-xl overflow-y-auto border border-surface-variant/70 max-h-[92vh] flex flex-col scroll-smooth animate-slide-up-sheet sm:animate-popIn pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        className="relative w-full max-w-2xl bg-surface rounded-t-[32px] sm:rounded-3xl shadow-crisp-xl overflow-y-auto overscroll-contain border border-surface-variant/70 max-h-[90dvh] flex flex-col scroll-smooth animate-slide-up-sheet sm:animate-popIn select-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
         {/* Mobile Drag Handle */}
         <div className="w-12 h-1 bg-on-surface/20 rounded-full mx-auto mt-2.5 mb-1 sm:hidden"></div>

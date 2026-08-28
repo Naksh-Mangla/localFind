@@ -49,7 +49,15 @@ export function LocationPickerModal({
       }
     }
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+
+    // Lock body scroll while modal is open
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      document.body.style.overflow = originalOverflow
+    }
   }, [isOpen, onClose, isFirstTimeFallback])
 
   if (!isOpen) return null
@@ -58,47 +66,42 @@ export function LocationPickerModal({
   const handleSubmitLocation = async (e) => {
     e.preventDefault()
     if (!pincode || pincode.trim().length !== 6) {
-      setSearchError('Please enter a valid 6-digit Pin Code.')
+      setSearchError('Please enter a valid 6-digit Indian Pincode.')
       return
     }
-    if (!address.trim()) {
-      setSearchError('Please enter your Address / Area name.')
-      return
-    }
+
+    setSearching(true)
+    setSearchError('')
 
     try {
-      setSearching(true)
-      setSearchError('')
+      // 1. First attempt exact query: Address + Landmark + Pincode
+      const fullQuery = `${address ? address + ', ' : ''}${landmark ? landmark + ', ' : ''}${pincode}, India`
+      const url = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&limit=1&q=${encodeURIComponent(fullQuery)}`
+      
+      const res = await fetch(url, {
+        headers: { 'Accept-Language': 'en' }
+      })
+      const data = await res.json()
 
-      // Step 1: Try high-precision query with Address + Pincode
-      const fullQuery = [address.trim(), landmark.trim(), pincode.trim(), 'India']
-        .filter(Boolean)
-        .join(', ')
-
-      let res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          fullQuery
-        )}&countrycodes=in&limit=1&addressdetails=1`
-      )
-      let data = res.ok ? await res.json() : []
-
-      // Step 2: Fallback query if specific address isn't found
-      if (!data || data.length === 0) {
-        const fallbackQuery = `${pincode.trim()}, India`
-        res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-            fallbackQuery
-          )}&countrycodes=in&limit=1&addressdetails=1`
-        )
-        data = res.ok ? await res.json() : []
+      let lat, lng, areaName
+      if (data && data.length > 0) {
+        lat = parseFloat(data[0].lat)
+        lng = parseFloat(data[0].lon)
+        areaName = data[0].display_name.split(',')[0]
+      } else {
+        // 2. Fallback attempt with just Pincode
+        const pinUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=in&postalcode=${pincode.trim()}&limit=1`
+        const pinRes = await fetch(pinUrl, { headers: { 'Accept-Language': 'en' } })
+        const pinData = await pinRes.json()
+        if (pinData && pinData.length > 0) {
+          lat = parseFloat(pinData[0].lat)
+          lng = parseFloat(pinData[0].lon)
+          areaName = `${pinData[0].display_name.split(',')[0]} (Pincode ${pincode})`
+        }
       }
 
-      if (data && data.length > 0) {
-        const place = data[0]
-        const lat = parseFloat(place.lat)
-        const lng = parseFloat(place.lon)
-        const areaName = address.trim() + (pincode ? ` (${pincode.trim()})` : '')
-
+      if (lat && lng) {
+        // Save manual address for next time
         try {
           localStorage.setItem(
             'localfind_user_address',
@@ -138,18 +141,18 @@ export function LocationPickerModal({
     { name: 'Bandra, Mumbai', lat: 19.0596, lng: 72.8295, pincode: '400050' },
     { name: 'Indiranagar, Bengaluru', lat: 12.9784, lng: 77.6408, pincode: '560038' },
     { name: 'Sector 18, Noida', lat: 28.5708, lng: 77.3271, pincode: '201301' },
-    { name: 'Gachibowli, Hyderabad', lat: 17.4401, lng: 78.3489, pincode: '500032' },
-    { name: 'T. Nagar, Chennai', lat: 13.0418, lng: 80.2341, pincode: '600017' }
+    { name: 'Park Street, Kolkata', lat: 22.5535, lng: 88.3519, pincode: '700016' },
+    { name: 'T Nagar, Chennai', lat: 13.0418, lng: 80.2341, pincode: '600017' }
   ]
 
   return (
     <div 
       onClick={isFirstTimeFallback ? undefined : onClose}
-      className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-y-auto animate-fadeIn"
+      className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none animate-fadeIn"
     >
       <div 
         onClick={(e) => e.stopPropagation()}
-        className="bg-surface rounded-t-[32px] sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[94vh] overflow-y-auto flex flex-col gap-4 animate-slide-up-sheet sm:animate-popIn pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"
+        className="bg-surface rounded-t-[32px] sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[90dvh] overflow-y-auto overscroll-contain flex flex-col gap-4 animate-slide-up-sheet sm:animate-popIn select-auto pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"
       >
         {/* Mobile Drag Handle */}
         <div className="w-12 h-1 bg-on-surface/20 rounded-full mx-auto -mt-1 mb-0.5 sm:hidden"></div>

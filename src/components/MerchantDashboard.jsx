@@ -104,6 +104,18 @@ export function MerchantDashboard({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  // Lock body scroll when any modal is open to prevent page drift/wobble
+  useEffect(() => {
+    const isAnyModalOpen = showAddProductModal || showEditShopModal || showQRStandeeModal || Boolean(deleteTargetId)
+    if (isAnyModalOpen) {
+      const originalOverflow = document.body.style.overflow
+      document.body.style.overflow = 'hidden'
+      return () => {
+        document.body.style.overflow = originalOverflow
+      }
+    }
+  }, [showAddProductModal, showEditShopModal, showQRStandeeModal, deleteTargetId])
+
   // Load shop data for logged-in merchant
   const fetchMerchantShop = useCallback(async () => {
     if (!user) {
@@ -1210,12 +1222,15 @@ export function MerchantDashboard({
       {/* Add / Edit Product Modal */}
       {showAddProductModal && (
         <div
-          onClick={() => setShowAddProductModal(false)}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/70 backdrop-blur-md overflow-y-auto"
+          onClick={() => {
+            setShowAddProductModal(false)
+            setEditingProduct(null)
+          }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-surface rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[92dvh] overflow-y-auto my-auto animate-fadeIn pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+            className="bg-surface rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[90dvh] overflow-y-auto overscroll-contain animate-fadeIn flex flex-col select-auto pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between mb-4 pb-3 border-b border-surface-variant/40">
@@ -1571,11 +1586,11 @@ export function MerchantDashboard({
       {showEditShopModal && (
         <div
           onClick={() => setShowEditShopModal(false)}
-          className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[100] overflow-y-auto animate-fadeIn"
+          className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[100] overflow-hidden overscroll-none select-none animate-fadeIn"
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-surface-container-lowest p-5 sm:p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-4xl w-full max-h-[92dvh] overflow-y-auto my-auto pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
+            className="bg-surface-container-lowest p-5 sm:p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-4xl w-full max-h-[90dvh] overflow-y-auto overscroll-contain pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] flex flex-col select-auto"
           >
             <div className="flex items-center justify-between mb-4">
               <div>
