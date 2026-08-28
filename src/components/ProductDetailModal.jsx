@@ -136,7 +136,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
 
   const whatsappMsg = encodeURIComponent(
     isFlash
-      ? `Hi, I saw the Flash Deal for "${product.name}" at ₹${flashInfo?.dealPrice} (${flashInfo?.discountPercent}% OFF) at ${product.shop_name} on LocalFind! Is it still in stock?`
+      ? `Hi, I saw the Flash Deal for "${product.name}" at ₹${flashInfo?.discountedPrice} (${flashInfo?.discountPercent}% OFF) at ${product.shop_name} on LocalFind! Is it still in stock?`
       : `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
   )
   const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}`
@@ -303,7 +303,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
             }}
             className="w-full h-full object-cover"
           />
-          {flashInfo.isLive && (
+          {flashInfo?.isLive && (
             <div className="absolute bottom-3 left-3 bg-gradient-to-r from-amber-500 via-rose-500 to-pink-600 text-white px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-1.5 shadow-crisp-md border border-white/40 animate-softGaze">
               <span className="animate-bounce">⚡</span>
               <span>AAJ KA OFFER: {flashInfo.discountPercent}% OFF ({flashInfo.countdownText})</span>
@@ -329,7 +329,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
               </h2>
             </div>
             <div className="text-right flex-shrink-0">
-              {flashInfo.isLive ? (
+              {flashInfo?.isLive ? (
                 <div className="flex flex-col items-end">
                   <span className="font-display-lg text-3xl font-bold text-rose-600">₹{flashInfo.discountedPrice}</span>
                   <span className="text-sm text-on-surface-variant line-through opacity-70 font-medium">₹{flashInfo.originalPrice}</span>
