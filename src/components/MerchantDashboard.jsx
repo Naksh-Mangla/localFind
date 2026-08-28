@@ -9,6 +9,8 @@ import { getFlashDealInfo } from '../utils/flashDeals'
 import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
 import { triggerHaptic } from '../utils/haptics'
 
+const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
+
 const StoreQRStandeeModal = React.lazy(() => import('./StoreQRStandeeModal').then(m => ({ default: m.StoreQRStandeeModal })))
 
 export function MerchantDashboard({
@@ -949,25 +951,42 @@ export function MerchantDashboard({
               </div>
             </div>
 
-            {/* 5. Live GPS Coordinates & Sync Button */}
-            <div className="bg-primary/10 p-3.5 rounded-2xl border border-primary/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 my-1">
-              <div className="flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-primary text-2xl">my_location</span>
-                <div>
-                  <strong className="text-xs font-bold text-on-surface block">Store GPS Coordinates</strong>
-                  <span className="text-[11px] text-on-surface-variant font-mono font-semibold">
-                    {lat && lng ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Detecting GPS...'}
-                  </span>
+            {/* 5. Live GPS Coordinates + Draggable Free Map (Android-optimized, no API key) */}
+            <div className="bg-surface-container-low p-3.5 rounded-2xl border border-surface-variant/60 flex flex-col gap-3 my-1">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="material-symbols-outlined text-primary text-xl">my_location</span>
+                  <div>
+                    <strong className="text-xs font-bold text-on-surface block">Store GPS Coordinates</strong>
+                    <span className="text-[11px] text-on-surface-variant font-mono font-semibold">
+                      {lat && lng ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Detecting GPS...'}
+                    </span>
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleCaptureLiveGPS}
+                  className="bg-primary hover:bg-primary/90 text-on-primary px-3.5 py-2 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1.5 flex-shrink-0"
+                >
+                  <span className="material-symbols-outlined text-sm">near_me</span>
+                  <span>Live Spot</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={handleCaptureLiveGPS}
-                className="bg-primary hover:bg-primary/90 text-on-primary px-4 py-2 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center"
-              >
-                <span className="material-symbols-outlined text-sm">near_me</span>
-                <span>Set to My Live Spot</span>
-              </button>
+              {/* Free OSM mini-map: drag pin for 100% accuracy - lazy-loaded */}
+              <React.Suspense fallback={
+                <div className="h-[260px] w-full rounded-2xl bg-surface-container-high border border-surface-variant/40 flex items-center justify-center">
+                  <span className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                </div>
+              }>
+                <NearbyMap
+                  mode="edit"
+                  lat={lat}
+                  lng={lng}
+                  onLocationChange={({ lat: nLat, lng: nLng }) => { setLat(nLat); setLng(nLng) }}
+                  heightClass="h-[260px]"
+                />
+              </React.Suspense>
+              <p className="text-[11px] text-on-surface-variant text-center">Drag pin or tap map - location auto-saves with shop</p>
             </div>
 
             <button
@@ -1656,25 +1675,35 @@ export function MerchantDashboard({
                   </div>
                 </div>
 
-                {/* 5. Live GPS Coordinates & Sync Button */}
-                <div className="bg-primary/10 p-3.5 rounded-2xl border border-primary/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 my-1">
-                  <div className="flex items-center gap-2.5">
-                    <span className="material-symbols-outlined text-primary text-2xl">my_location</span>
-                    <div>
-                      <strong className="text-xs font-bold text-on-surface block">Store GPS Coordinates</strong>
-                      <span className="text-[11px] text-on-surface-variant font-mono font-semibold">
-                        {lat && lng ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Detecting GPS...'}
-                      </span>
+                {/* 5. Live GPS + Free Draggable Map (Android optimized) */}
+                <div className="bg-surface-container-low p-3 rounded-2xl border border-surface-variant/60 flex flex-col gap-3 my-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <span className="material-symbols-outlined text-primary text-xl">my_location</span>
+                      <div>
+                        <strong className="text-xs font-bold text-on-surface block">Store GPS Coordinates</strong>
+                        <span className="text-[11px] text-on-surface-variant font-mono font-semibold">
+                          {lat && lng ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : 'Detecting GPS...'}
+                        </span>
+                      </div>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleCaptureLiveGPS}
+                      className="bg-primary hover:bg-primary/90 text-on-primary px-3.5 py-2 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 flex items-center gap-1.5 flex-shrink-0"
+                    >
+                      <span className="material-symbols-outlined text-sm">near_me</span>
+                      <span>Live Spot</span>
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleCaptureLiveGPS}
-                    className="bg-primary hover:bg-primary/90 text-on-primary px-4 py-2 rounded-full text-xs font-bold shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1.5 self-stretch sm:self-auto justify-center"
-                  >
-                    <span className="material-symbols-outlined text-sm">near_me</span>
-                    <span>Sync to Live Spot</span>
-                  </button>
+                  <React.Suspense fallback={
+                    <div className="h-[240px] w-full rounded-2xl bg-surface-container-high border border-surface-variant/40 flex items-center justify-center">
+                      <span className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                    </div>
+                  }>
+                    <NearbyMap mode="edit" lat={lat} lng={lng} onLocationChange={({ lat: nLat, lng: nLng }) => { setLat(nLat); setLng(nLng) }} heightClass="h-[240px]" />
+                  </React.Suspense>
+                  <p className="text-[11px] text-on-surface-variant text-center">Drag pin or tap map to fine-tune location</p>
                 </div>
 
                 <div className="flex items-center gap-3 mt-auto pt-4">

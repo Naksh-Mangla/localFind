@@ -11,6 +11,9 @@ import {
 import { getFlashDealInfo } from '../utils/flashDeals'
 import { triggerHaptic } from '../utils/haptics'
 
+// Android-optimized: lazy-load free map only when user opens Map tab (saves 140KB on List view)
+const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
+
 const CATEGORIES = [
   { label: 'All', icon: 'interests' },
   { label: 'Handmade', icon: 'handyman' },
@@ -253,6 +256,7 @@ export function BuyerDiscover({
   const [maxRadiusKm, setMaxRadiusKm] = useState(2) // Default to 2km Hyperlocal radius
   const [showFiltersDropdown, setShowFiltersDropdown] = useState(false)
   const [showOnlyWishlist, setShowOnlyWishlist] = useState(false)
+  const [viewMode, setViewMode] = useState('list') // 'list' | 'map' - Android Map toggle
   const dropdownRef = useRef(null)
 
   // 📱 Target Shop Filter (from QR Standee scan)
@@ -526,6 +530,11 @@ export function BuyerDiscover({
     return filteredProducts.filter((p) => p.is_affiliate_fallback)
   }, [filteredProducts])
 
+  // 7. Map-ready products (all local, non-affiliate) - grouped by shop in NearbyMap for single pin per shop
+  const mapProducts = useMemo(() => {
+    return filteredProducts.filter((p) => !p.is_affiliate_fallback)
+  }, [filteredProducts])
+
   return (
     <main className="pt-4 md:pt-6 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
       {/* 🏪 Direct Storefront QR Standee Header Banner */}
@@ -649,12 +658,12 @@ export function BuyerDiscover({
               <>
                 {/* Mobile Backdrop Scrim */}
                 <div 
-                  className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 md:hidden animate-fadeIn"
+                  className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[600] md:hidden animate-fadeIn"
                   onClick={() => setShowFiltersDropdown(false)}
                 />
 
                 {/* Container: Bottom Sheet on Mobile, Floating Popover on Desktop */}
-                <div className="fixed md:absolute bottom-0 md:bottom-auto left-0 md:left-auto right-0 md:right-0 md:top-full md:mt-2.5 w-full md:w-80 bg-surface md:bg-surface/95 apple-frosted border-t md:border border-surface-variant/80 rounded-t-[32px] md:rounded-3xl shadow-crisp-xl p-5 md:p-4.5 z-50 animate-slide-up-sheet md:animate-popIn max-h-[85vh] overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] md:pb-4.5">
+                <div className="fixed md:absolute bottom-0 md:bottom-auto left-0 md:left-auto right-0 md:right-0 md:top-full md:mt-2.5 w-full md:w-80 bg-surface md:bg-surface/95 apple-frosted border-t md:border border-surface-variant/80 rounded-t-[32px] md:rounded-3xl shadow-crisp-xl p-5 md:p-4.5 z-[600] animate-slide-up-sheet md:animate-popIn max-h-[85vh] overflow-y-auto pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] md:pb-4.5">
                   {/* Mobile Grab Handle */}
                   <div className="w-12 h-1 bg-on-surface/20 rounded-full mx-auto -mt-2 mb-3.5 md:hidden"></div>
 
@@ -868,6 +877,65 @@ export function BuyerDiscover({
         )}
       </section>
 
+      {/* 🗺️ Android-Optimized List | Map Toggle - Segmented Control (thumb-friendly, haptic) */}
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex items-center bg-surface-container-high/70 p-1 rounded-full border border-surface-variant/50 shadow-crisp-xs">
+          <button
+            onClick={() => { triggerHaptic('selection'); setViewMode('list') }}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all min-h-[36px] ${viewMode === 'list' ? 'bg-surface text-primary shadow-crisp-xs' : 'text-on-surface-variant hover:text-on-surface'}`}
+            aria-pressed={viewMode === 'list'}
+          >
+            <span className="material-symbols-outlined text-[16px]">view_module</span>
+            <span>List</span>
+            <span className="hidden xs:inline text-[10px] opacity-60">({hyperlocalProducts.length})</span>
+          </button>
+          <button
+            onClick={() => { triggerHaptic('selection'); setViewMode('map') }}
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold transition-all min-h-[36px] ${viewMode === 'map' ? 'bg-primary text-on-primary shadow-crisp-xs' : 'text-on-surface-variant hover:text-on-surface'}`}
+            aria-pressed={viewMode === 'map'}
+          >
+            <span className="material-symbols-outlined text-[16px]">map</span>
+            <span>Map</span>
+            {mapProducts.length > 0 && <span className="bg-white/20 text-[10px] px-1.5 py-0.2 rounded-full">{mapProducts.length}</span>}
+          </button>
+        </div>
+        {viewMode === 'map' && (
+          <span className="text-[11px] font-medium text-on-surface-variant hidden sm:flex items-center gap-1">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> {mapProducts.length > 0 ? `${new Set(mapProducts.map(p=>p.shop_id)).size} shops on map` : 'No shops'}
+          </span>
+        )}
+      </div>
+
+      {/* 🗺️ Free OSM Map View - lazy-loaded, zero API key, Android GPU-optimized */}
+      {viewMode === 'map' && (
+        <section className="mb-8 animate-fadeIn">
+          <React.Suspense fallback={
+            <div className="h-[58vh] sm:h-[60vh] md:h-[520px] w-full rounded-3xl border border-surface-variant/30 bg-surface-container-low flex items-center justify-center">
+              <div className="flex items-center gap-2 bg-surface/90 apple-frosted px-4 py-2 rounded-full shadow-crisp-xs border border-surface-variant/50">
+                <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                <span className="text-xs font-bold text-on-surface">Loading free map…</span>
+              </div>
+            </div>
+          }>
+            <NearbyMap
+              mode="buyer"
+              userCoords={userCoords}
+              products={mapProducts}
+              maxRadiusKm={maxRadiusKm}
+              onSelectProduct={onSelectProduct}
+              onSelectShop={(shop) => {
+                const first = shop.products?.[0]
+                if (first) onSelectProduct(first)
+              }}
+            />
+          </React.Suspense>
+          <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-on-surface-variant">
+            <span className="material-symbols-outlined text-[13px] text-primary">info</span>
+            <span>Tap a shop pin → view items → get free directions</span>
+          </div>
+        </section>
+      )}
+
       {/* ⚡ 24-Hour Flash Deals Section - Refined Minimalist Apple/Linear Card */}
       {!loading && activeFlashDeals.length > 0 && (
         <section className="mb-8 relative">
@@ -1001,8 +1069,8 @@ export function BuyerDiscover({
         </section>
       )}
 
-      {/* 📍 Zone 3: Hyperlocal Nearby Products Grid */}
-      {!loading && (
+      {/* 📍 Zone 3: Hyperlocal Nearby Products Grid - hidden on Map view to keep Android DOM light */}
+      {viewMode === 'list' && !loading && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3.5 px-1">
             <div className="flex items-center gap-2">
@@ -1083,8 +1151,8 @@ export function BuyerDiscover({
         </section>
       )}
 
-      {/* 🚗 Zone 4: Stores Beyond Selected Radius */}
-      {!loading && distantLocalProducts.length > 0 && (
+      {/* 🚗 Zone 4: Stores Beyond Selected Radius - hidden on Map view */}
+      {viewMode === 'list' && !loading && distantLocalProducts.length > 0 && (
         <section className="mb-8 mt-10 pt-7 border-t border-surface-variant/40">
           <div className="flex items-center justify-between mb-4 px-1">
             <div className="flex items-center gap-2">
