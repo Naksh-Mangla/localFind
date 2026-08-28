@@ -1,17 +1,18 @@
-/**
- * Local Flash Deal Notification & Alert Manager
- * Robust multi-platform Web Notifications API with Service Worker fallback.
- */
+import { calculateDistanceKm } from './haversine'
 
 const NOTIFIED_DEALS_KEY = 'localfind_notified_deals'
 const ALERTS_ENABLED_KEY = 'localfind_deal_alerts_enabled'
 const SUBSCRIBED_AT_KEY = 'localfind_deal_alerts_subscribed_at'
+const MAX_NOTIFY_RADIUS_KM = 2.5 // Hyperlocal boundary
 
 /**
  * Check if the browser supports standard Web Notifications
  */
 export function isNotificationSupported() {
-  return typeof window !== 'undefined' && ('Notification' in window || ('serviceWorker' in navigator && 'PushManager' in window))
+  return (
+    typeof window !== 'undefined' &&
+    ('Notification' in window || ('serviceWorker' in navigator && 'PushManager' in window))
+  )
 }
 
 /**
@@ -35,31 +36,50 @@ export function isDealAlertsEnabled() {
 /**
  * Request notification permission and enable deal alerts
  * Seeds all existing deals so the user only gets notified for FUTURE deals from this exact moment onward.
+ * Supports modern Promises and legacy callback-based permissions (iOS Safari).
  * @param {Array} currentProducts - currently loaded products to baseline
  * @returns {Promise<boolean>} true if enabled successfully
  */
 export async function enableDealAlerts(currentProducts = []) {
   if (!isNotificationSupported()) {
-    alert('💡 Web Notifications are not supported on this browser.\n(If on iPhone Safari, tap "Share" → "Add to Home Screen" to enable notifications).')
+    alert(
+      '💡 Web Notifications are not supported on this browser.\n(If on iPhone Safari, tap "Share" → "Add to Home Screen" to enable notifications).'
+    )
     return false
   }
 
   if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
-    alert('⚠️ Notifications are currently blocked in your browser.\n\nTo enable:\n1. Tap the Lock (🔒) or Tune icon in your browser URL address bar.\n2. Set "Notifications" to "Allow".\n3. Tap the bell icon again.')
+    alert(
+      '⚠️ Notifications are currently blocked in your browser.\n\nTo enable:\n1. Tap the Lock (🔒) or Tune icon in your browser URL address bar.\n2. Set "Notifications" to "Allow".\n3. Tap the bell icon again.'
+    )
     return false
   }
 
   try {
     let permission = 'default'
-    if (typeof Notification !== 'undefined' && typeof Notification.requestPermission === 'function') {
-      permission = await Notification.requestPermission()
+    if (typeof Notification !== 'undefined') {
+      if (typeof Notification.requestPermission === 'function') {
+        try {
+          const req = Notification.requestPermission()
+          if (req && typeof req.then === 'function') {
+            permission = await req
+          } else {
+            // Safari callback fallback
+            permission = await new Promise((resolve) => Notification.requestPermission(resolve))
+          }
+        } catch {
+          permission = Notification.permission || 'default'
+        }
+      } else {
+        permission = Notification.permission || 'default'
+      }
     }
 
     if (permission === 'granted') {
       const now = Date.now()
       localStorage.setItem(ALERTS_ENABLED_KEY, 'true')
       localStorage.setItem(SUBSCRIBED_AT_KEY, String(now))
-      
+
       // Baseline all current active deals so they don't immediately trigger
       if (Array.isArray(currentProducts) && currentProducts.length > 0) {
         const existingLiveDealIds = currentProducts
@@ -73,7 +93,7 @@ export async function enableDealAlerts(currentProducts = []) {
       // Send a welcome test notification
       await sendLocalNotification({
         title: '⚡ Local Flash Deal Alerts Active!',
-        body: 'You will receive instant alerts when local shops launch 24-hr discounts.',
+        body: 'You will receive instant alerts when nearby local shops launch 24-hr discounts.',
         tag: 'localfind-welcome-alert'
       })
       return true
@@ -101,9 +121,16 @@ export function disableDealAlerts() {
 }
 
 /**
- * Send a browser push notification (with ServiceWorker & window.Notification support)
+ * Send a browser push notification (with ServiceWorker ready state & window.Notification support)
  */
-export async function sendLocalNotification({ title, body, icon = '/icon-192.png', badge = '/badge-96.png', tag, data = {} }) {
+export async function sendLocalNotification({
+  title,
+  body,
+  icon = '/icon-192.png',
+  badge = '/badge-96.png',
+  tag,
+  data = {}
+}) {
   if (!isNotificationSupported() || (typeof Notification !== 'undefined' && Notification.permission !== 'granted')) {
     return null
   }
@@ -116,20 +143,27 @@ export async function sendLocalNotification({ title, body, icon = '/icon-192.png
     // 1. Try Service Worker showNotification (Mandatory for Android Chrome & mobile PWAs)
     if ('serviceWorker' in navigator) {
       try {
-        const registration = await navigator.serviceWorker.getRegistration()
+        // Wait for active service worker registration
+        const registration = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((resolve) => setTimeout(() => resolve(null), 1500))
+        ]) || (await navigator.serviceWorker.getRegistration())
+
         if (registration && typeof registration.showNotification === 'function') {
-          return await registration.showNotification(title, {
+          await registration.showNotification(title, {
             body,
             icon: resolvedIcon,
             badge: resolvedBadge,
             tag: tag || 'localfind-deal',
             data,
             renotify: true,
-            silent: false
+            silent: false,
+            vibrate: [200, 100, 200]
           })
+          return true
         }
       } catch (swErr) {
-        console.warn('ServiceWorker showNotification attempt:', swErr)
+        console.warn('ServiceWorker showNotification attempt failed, trying fallback:', swErr)
       }
     }
 
@@ -164,7 +198,7 @@ export async function sendLocalNotification({ title, body, icon = '/icon-192.png
 }
 
 /**
- * Scans products and notifies user ONLY of new nearby flash deals launched AFTER subscription
+ * Scans products and notifies user ONLY of new nearby flash deals within 2.5 km launched AFTER subscription
  */
 export function checkAndNotifyNewDeals(products = [], userCoords = null) {
   if (!isDealAlertsEnabled() || !Array.isArray(products) || products.length === 0) {
@@ -176,19 +210,39 @@ export function checkAndNotifyNewDeals(products = [], userCoords = null) {
     const notifiedIds = JSON.parse(localStorage.getItem(NOTIFIED_DEALS_KEY) || '[]')
     const notifiedSet = new Set(notifiedIds)
 
-    // Filter active flash deals that are currently live
+    // 1. Filter active flash deals that are currently live
     const activeDeals = products.filter((p) => {
       if (!p.is_flash_deal || !p.flash_deal_ends_at) return false
       const endTime = new Date(p.flash_deal_ends_at).getTime()
       return Number.isFinite(endTime) && endTime > now
     })
 
-    // Only consider deals that have NOT yet been notified
-    const newDealsToNotify = activeDeals.filter((deal) => !notifiedSet.has(deal.id))
+    // 2. Filter only deals that have NOT yet been notified
+    const unnotifiedDeals = activeDeals.filter((deal) => !notifiedSet.has(deal.id))
 
-    if (newDealsToNotify.length > 0) {
-      // Pick the highest discount deal to notify
-      const topDeal = newDealsToNotify[0]
+    if (unnotifiedDeals.length === 0) return
+
+    // 3. Hyperlocal distance filter: ensure deal is within radius (<= 2.5 km) if user location is available
+    const nearbyDealsToNotify = unnotifiedDeals.filter((deal) => {
+      if (!userCoords || !Number.isFinite(userCoords.lat) || !Number.isFinite(userCoords.lng)) {
+        return true // Location not locked yet, permit alert
+      }
+      const shopLat = Number(deal.shop_lat ?? deal.lat)
+      const shopLng = Number(deal.shop_lng ?? deal.lng)
+      if (!Number.isFinite(shopLat) || !Number.isFinite(shopLng)) {
+        return true
+      }
+      const distKm = calculateDistanceKm(userCoords.lat, userCoords.lng, shopLat, shopLng)
+      return distKm !== null && distKm <= MAX_NOTIFY_RADIUS_KM
+    })
+
+    if (nearbyDealsToNotify.length === 0) return
+
+    // Sort by highest discount
+    nearbyDealsToNotify.sort((a, b) => (Number(b.flash_deal_discount) || 0) - (Number(a.flash_deal_discount) || 0))
+
+    if (nearbyDealsToNotify.length === 1) {
+      const topDeal = nearbyDealsToNotify[0]
       const discount = topDeal.flash_deal_discount || 20
       const shopName = topDeal.shop_name || 'Local Shop'
       const prodName = topDeal.name || 'Special Offer'
@@ -196,17 +250,28 @@ export function checkAndNotifyNewDeals(products = [], userCoords = null) {
 
       sendLocalNotification({
         title: `⚡ ${discount}% OFF at ${shopName}!`,
-        body: `${prodName} is now ${price} on Flash Deal! Tap to claim before offer ends.`,
+        body: `${prodName} is now ${price} on Flash Deal! Tap to view offer.`,
         tag: `flash-${topDeal.id}`,
         data: { productId: topDeal.id }
       })
 
-      // Update notified set so this deal won't notify again
-      newDealsToNotify.forEach((d) => notifiedSet.add(d.id))
-      // Keep only recent 50 IDs in storage
-      const updatedList = Array.from(notifiedSet).slice(-50)
-      localStorage.setItem(NOTIFIED_DEALS_KEY, JSON.stringify(updatedList))
+      notifiedSet.add(topDeal.id)
+    } else {
+      // Multiple nearby deals: Send bundled summary alert and record all
+      const topDeal = nearbyDealsToNotify[0]
+      sendLocalNotification({
+        title: `⚡ ${nearbyDealsToNotify.length} New Flash Deals Nearby!`,
+        body: `Up to ${topDeal.flash_deal_discount || 30}% OFF on items near you. Tap to explore.`,
+        tag: `flash-batch-${Date.now()}`,
+        data: { productId: topDeal.id }
+      })
+
+      nearbyDealsToNotify.forEach((d) => notifiedSet.add(d.id))
     }
+
+    // Keep only recent 50 IDs in storage
+    const updatedList = Array.from(notifiedSet).slice(-50)
+    localStorage.setItem(NOTIFIED_DEALS_KEY, JSON.stringify(updatedList))
   } catch (err) {
     console.warn('Error checking deal notifications:', err)
   }

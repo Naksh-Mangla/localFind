@@ -1,5 +1,5 @@
 // LocalFind High-Performance Offline Service Worker
-const CACHE_NAME = 'localfind-v2.3.1'
+const CACHE_NAME = 'localfind-v2.3.2'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -102,17 +102,14 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // If a window is already open, focus it
       for (const client of clientList) {
         if ('focus' in client) {
-          client.focus()
           if (productId) {
             client.postMessage({ type: 'OPEN_PRODUCT_DETAIL', productId })
           }
-          return
+          return client.focus()
         }
       }
-      // Otherwise open a new window
       if (self.clients.openWindow) {
         return self.clients.openWindow(productId ? `/?product=${productId}` : '/')
       }

@@ -118,17 +118,61 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now())
 
-  // Listen for notification click event to open product detail modal
+  // Listen for notification click events across Service Worker messages, custom events, and URL query params
   useEffect(() => {
+    // 1. Desktop Notification onclick custom event
     const handleOpenProduct = (e) => {
       const prodId = e.detail?.productId
       if (prodId && products.length > 0) {
-        const found = products.find((p) => p.id === prodId)
-        if (found) setSelectedProduct(found)
+        const found = products.find((p) => String(p.id) === String(prodId))
+        if (found) {
+          setSelectedProduct(found)
+          setActiveView('discover')
+        }
       }
     }
+
+    // 2. Mobile Service Worker notificationclick postMessage handler
+    const handleSWMessage = (e) => {
+      if (e.data?.type === 'OPEN_PRODUCT_DETAIL' && e.data?.productId) {
+        const prodId = e.data.productId
+        if (products.length > 0) {
+          const found = products.find((p) => String(p.id) === String(prodId))
+          if (found) {
+            setSelectedProduct(found)
+            setActiveView('discover')
+          }
+        }
+      }
+    }
+
+    // 3. Cold launch via notification URL (?product=xyz)
+    try {
+      const params = new URLSearchParams(window.location.search)
+      const urlProdId = params.get('product')
+      if (urlProdId && products.length > 0) {
+        const found = products.find((p) => String(p.id) === String(urlProdId))
+        if (found) {
+          setSelectedProduct(found)
+          setActiveView('discover')
+          // Clean URL param without page refresh
+          const cleanUrl = window.location.pathname + window.location.hash
+          window.history.replaceState({}, document.title, cleanUrl)
+        }
+      }
+    } catch {}
+
     window.addEventListener('openProductDetail', handleOpenProduct)
-    return () => window.removeEventListener('openProductDetail', handleOpenProduct)
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSWMessage)
+    }
+
+    return () => {
+      window.removeEventListener('openProductDetail', handleOpenProduct)
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSWMessage)
+      }
+    }
   }, [products])
 
   // Reverse geocode coordinates to human-readable street/neighborhood name
