@@ -100,10 +100,21 @@ export function MerchantDashboard({
     try {
       setLoadingShop(true)
       setShopError('')
-      const data = await apiFetch('/api/shops')
-      // Find shop owned by current user
-      const currentUid = user.uid || user.sub
-      const myShop = (data.shops || []).find((s) => s.owner_id === currentUid)
+
+      // Optimized: Fetch current merchant's shop directly (indexed by owner_id)
+      let myShop = null
+      try {
+        const myShopRes = await apiFetch('/api/my-shop')
+        if (myShopRes && myShopRes.shop) {
+          myShop = myShopRes.shop
+        }
+      } catch {
+        // Fallback to /api/shops if /api/my-shop fails
+        const data = await apiFetch('/api/shops')
+        const currentUid = user.uid || user.sub
+        myShop = (data.shops || []).find((s) => s.owner_id === currentUid) || null
+      }
+
       setShop(myShop || null)
 
       if (myShop) {
@@ -129,12 +140,9 @@ export function MerchantDashboard({
           }
         }
 
-        // Fetch products for this shop
-        const prodData = await apiFetch('/api/products')
-        const myProducts = (prodData.products || []).filter(
-          (p) => p.shop_id === myShop.id
-        )
-        setProducts(myProducts)
+        // Optimized: Fetch only this shop's products instead of entire database catalog
+        const prodData = await apiFetch(`/api/products?shop_id=${encodeURIComponent(myShop.id)}`)
+        setProducts(prodData.products || [])
       }
     } catch (err) {
       console.error('Failed to load merchant shop:', err)

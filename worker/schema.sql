@@ -31,4 +31,10 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_shops_owner ON shops(owner_id);
+CREATE INDEX IF NOT EXISTS idx_shops_coords ON shops(lat, lng);
 CREATE INDEX IF NOT EXISTS idx_products_shop ON products(shop_id);
+CREATE INDEX IF NOT EXISTS idx_products_shop_created ON products(shop_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_created ON products(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_updated ON products(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
+CREATE INDEX IF NOT EXISTS idx_products_flash ON products(is_flash_deal, flash_deal_ends_at);

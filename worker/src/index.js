@@ -180,10 +180,9 @@ async function handleCreateShop(request, env, user) {
     return json({ error: 'lng must be a number between -180 and 180' }, 400)
   }
 
-  // Atomic upsert on the unique(owner_id) index: removes the racy SELECT-then-INSERT
-  // pattern (concurrent first-time saves used to collide with a UNIQUE constraint 500).
+  // Atomic upsert with RETURNING id: eliminates redundant follow-up SELECT round-trip
   const id = crypto.randomUUID()
-  const res = await env.DB.prepare(
+  const row = await env.DB.prepare(
     `INSERT INTO shops (id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(owner_id) DO UPDATE SET
@@ -195,7 +194,8 @@ async function handleCreateShop(request, env, user) {
        whatsapp_number = excluded.whatsapp_number,
        lat = excluded.lat,
        lng = excluded.lng,
-       address_text = excluded.address_text`
+       address_text = excluded.address_text
+     RETURNING id`
   ).bind(
     id,
     user.sub,
@@ -208,15 +208,16 @@ async function handleCreateShop(request, env, user) {
     lat,
     lng,
     cleanText(body.address_text, 300)
-  ).run()
+  ).first()
 
-  if (!res.success) return json({ error: 'Failed to save shop' }, 500)
+  if (!row?.id) return json({ error: 'Failed to save shop' }, 500)
+  const updated = row.id !== id
+  return json({ id: row.id, ...(updated ? { updated: true } : { created: true }) })
+}
 
-  // On conflict SQLite keeps the ORIGINAL row id, so read back the persisted row to
-  // report the accurate id and whether this request created or updated the shop.
-  const row = await env.DB.prepare('SELECT id FROM shops WHERE owner_id = ?').bind(user.sub).first()
-  const updated = Boolean(row && row.id !== id)
-  return json(row ? { id: row.id, ...(updated ? { updated: true } : { created: true }) } : { error: 'Failed to save shop' }, row ? 200 : 500)
+async function handleGetMyShop(env, user) {
+  const shop = await env.DB.prepare('SELECT * FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  return json({ shop: shop || null })
 }
 
 async function handleCreateProduct(request, env, user) {
@@ -233,16 +234,17 @@ async function handleCreateProduct(request, env, user) {
     return json({ error: 'price must be a valid positive number' }, 400)
   }
 
-  const shop = await env.DB.prepare('SELECT id, owner_id FROM shops WHERE id = ?').bind(shop_id).first()
-  if (!shop) return json({ error: 'Shop not found' }, 404)
-  if (shop.owner_id !== user.sub) return json({ error: 'Forbidden: shop belongs to another user' }, 403)
+  // Fast ownership check via unique index
+  const shop = await env.DB.prepare('SELECT id FROM shops WHERE id = ? AND owner_id = ?').bind(shop_id, user.sub).first()
+  if (!shop) return json({ error: 'Forbidden: shop not found or belongs to another user' }, 403)
 
   const isFlashDeal = body.is_flash_deal ? 1 : 0
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
   const res = await env.DB.prepare(
     `INSERT INTO products (id, shop_id, name, price, category, image_url, is_affiliate_fallback, affiliate_link, is_flash_deal, flash_deal_discount, flash_deal_ends_at, version, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
+     RETURNING id`
   ).bind(
     id,
     shop_id,
@@ -256,10 +258,10 @@ async function handleCreateProduct(request, env, user) {
     isFlashDeal ? sanitizeDiscount(body.flash_deal_discount) : 0,
     isFlashDeal ? sanitizeFlashEndsAt(body.flash_deal_ends_at) : null,
     now
-  ).run()
+  ).first()
 
-  if (!res.success) return json({ error: 'Insert failed' }, 500)
-  return json({ id }, 201)
+  if (!res?.id) return json({ error: 'Insert failed' }, 500)
+  return json({ id: res.id }, 201)
 }
 
 async function handleUpdateProduct(request, env, user) {
@@ -276,21 +278,17 @@ async function handleUpdateProduct(request, env, user) {
     return json({ error: 'price must be a valid positive number' }, 400)
   }
 
-  const prod = await env.DB.prepare(
-    `SELECT p.id, s.owner_id FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = ?`
-  ).bind(id).first()
-
-  if (!prod) return json({ error: 'Product not found' }, 404)
-  if (prod.owner_id !== user.sub) return json({ error: 'Forbidden: product belongs to another shopkeeper' }, 403)
-
   const isFlashDeal = body.is_flash_deal ? 1 : 0
-  const res = await env.DB.prepare(
+
+  // Atomic single-trip update with subquery ownership authorization
+  const updatedRow = await env.DB.prepare(
     `UPDATE products
      SET name = ?, price = ?, category = ?, image_url = ?, is_affiliate_fallback = ?, affiliate_link = ?,
          is_flash_deal = ?, flash_deal_discount = ?, flash_deal_ends_at = ?,
          version = COALESCE(version, 1) + 1,
          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-     WHERE id = ?`
+     WHERE id = ? AND shop_id IN (SELECT id FROM shops WHERE owner_id = ?)
+     RETURNING id`
   ).bind(
     name,
     price,
@@ -301,10 +299,16 @@ async function handleUpdateProduct(request, env, user) {
     isFlashDeal,
     isFlashDeal ? sanitizeDiscount(body.flash_deal_discount) : 0,
     isFlashDeal ? sanitizeFlashEndsAt(body.flash_deal_ends_at) : null,
-    id
-  ).run()
+    id,
+    user.sub
+  ).first()
 
-  if (!res.success) return json({ error: 'Update failed' }, 500)
+  if (!updatedRow) {
+    const exists = await env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(id).first()
+    if (!exists) return json({ error: 'Product not found' }, 404)
+    return json({ error: 'Forbidden: product belongs to another shopkeeper' }, 403)
+  }
+
   return json({ success: true })
 }
 
@@ -312,15 +316,19 @@ async function handleDeleteProduct(request, env, user, url) {
   const id = url.searchParams.get('id')
   if (!id || id.length > 64) return json({ error: 'Product id parameter is required' }, 400)
 
-  const prod = await env.DB.prepare(
-    `SELECT p.id, s.owner_id FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = ?`
-  ).bind(id).first()
+  // Atomic single-trip delete with subquery ownership authorization
+  const deletedRow = await env.DB.prepare(
+    `DELETE FROM products
+     WHERE id = ? AND shop_id IN (SELECT id FROM shops WHERE owner_id = ?)
+     RETURNING id`
+  ).bind(id, user.sub).first()
 
-  if (!prod) return json({ error: 'Product not found' }, 404)
-  if (prod.owner_id !== user.sub) return json({ error: 'Forbidden: product belongs to another shopkeeper' }, 403)
+  if (!deletedRow) {
+    const exists = await env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(id).first()
+    if (!exists) return json({ error: 'Product not found' }, 404)
+    return json({ error: 'Forbidden: product belongs to another shopkeeper' }, 403)
+  }
 
-  const res = await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id).run()
-  if (!res.success) return json({ error: 'Delete failed' }, 500)
   return json({ success: true })
 }
 
@@ -329,28 +337,65 @@ async function handleListShops(env) {
   return json({ shops: results })
 }
 
-async function handleListProducts(env) {
-  const { results } = await env.DB.prepare(
-    `SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
-            p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
-            p.version, p.updated_at, p.created_at,
-            s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
-            s.owner_id AS owner_id, s.owner_id AS shop_owner_id
-     FROM products p
-     JOIN shops s ON s.id = p.shop_id
-     ORDER BY p.created_at DESC
-     LIMIT 250`
-  ).all()
+async function handleListProducts(env, url) {
+  const shopId = url ? url.searchParams.get('shop_id') : null
+  const category = url ? url.searchParams.get('category') : null
+  const flashOnly = url ? (url.searchParams.get('flash_deals_only') === '1' || url.searchParams.get('flash_deals_only') === 'true') : false
+  const since = url ? url.searchParams.get('since') : null
+  const limitParam = url ? Number(url.searchParams.get('limit')) : NaN
+  const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(500, limitParam) : 250
 
-  // Return response with 15-second Cloudflare CDN Edge Cache to reduce DB reads by ~85%
+  const conditions = []
+  const bindings = []
+
+  if (shopId) {
+    conditions.push('p.shop_id = ?')
+    bindings.push(cleanText(shopId, 64))
+  }
+  if (category && category !== 'All') {
+    conditions.push('p.category = ?')
+    bindings.push(cleanText(category, 40))
+  }
+  if (flashOnly) {
+    conditions.push("p.is_flash_deal = 1 AND (p.flash_deal_ends_at IS NULL OR p.flash_deal_ends_at > datetime('now'))")
+  }
+  if (since) {
+    const sanitizedSince = sanitizeFlashEndsAt(since)
+    if (sanitizedSince) {
+      conditions.push('(p.updated_at > ? OR p.created_at > ?)')
+      bindings.push(sanitizedSince, sanitizedSince)
+    }
+  }
+
+  const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const query = `
+    SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
+           p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
+           p.version, p.updated_at, p.created_at,
+           s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
+           s.owner_id AS owner_id, s.owner_id AS shop_owner_id
+    FROM products p
+    JOIN shops s ON s.id = p.shop_id
+    ${whereClause}
+    ORDER BY p.created_at DESC
+    LIMIT ?`
+  bindings.push(limit)
+
+  const stmt = env.DB.prepare(query)
+  const { results } = await stmt.bind(...bindings).all()
+
+  // Return response with Edge Cache for general queries, no-store for shop-specific/incremental
+  const isGlobalPublicQuery = !shopId && !since
+  const cacheControl = isGlobalPublicQuery
+    ? 'public, max-age=15, s-maxage=30, stale-while-revalidate=60'
+    : 'no-cache, no-store, must-revalidate'
+
   return new Response(JSON.stringify({ products: results, app_version: '2.3.0' }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
-      'Cache-Control': 'public, max-age=15, s-maxage=30, stale-while-revalidate=60',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
+      'Cache-Control': cacheControl,
+      ...corsHeaders()
     }
   })
 }
@@ -452,11 +497,15 @@ export default {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
         return await handleDeleteProduct(request, env, user, url)
       }
+      if (request.method === 'GET' && url.pathname === '/api/my-shop') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleGetMyShop(env, user)
+      }
       if (request.method === 'GET' && url.pathname === '/api/shops') {
         return await handleListShops(env)
       }
       if (request.method === 'GET' && url.pathname === '/api/products') {
-        return await handleListProducts(env)
+        return await handleListProducts(env, url)
       }
       return json({ error: 'Not found' }, 404)
     } catch (err) {
