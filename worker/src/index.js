@@ -3,7 +3,8 @@ class AuthError extends Error {}
 const corsHeaders = () => ({
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match',
+  'Access-Control-Expose-Headers': 'ETag, Cache-Control',
   'Access-Control-Max-Age': '86400',
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
@@ -432,7 +433,7 @@ async function handleListShops(env) {
   return json({ shops: results })
 }
 
-async function handleListProducts(env, url) {
+async function handleListProducts(env, url, request, ctx) {
   const shopId = url ? url.searchParams.get('shop_id') : null
   const category = url ? url.searchParams.get('category') : null
   const flashOnly = url ? (url.searchParams.get('flash_deals_only') === '1' || url.searchParams.get('flash_deals_only') === 'true') : false
@@ -468,7 +469,7 @@ async function handleListProducts(env, url) {
            p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
            p.version, p.updated_at, p.created_at,
            s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
-           s.owner_id AS owner_id, s.owner_id AS shop_owner_id,
+           s.owner_id AS owner_id,
            (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = p.shop_id) AS avg_rating,
            (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = p.shop_id) AS review_count
     FROM products p
@@ -482,7 +483,7 @@ async function handleListProducts(env, url) {
   try {
     const stmt = env.DB.prepare(query)
     const res = await stmt.bind(...bindings).all()
-    results = res.results
+    results = res.results || []
   } catch (err) {
     // Fallback if reviews table not yet migrated (first deploy) - don't break product feed
     if (String(err.message || '').includes('no such table: reviews')) {
@@ -491,7 +492,7 @@ async function handleListProducts(env, url) {
                p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
                p.version, p.updated_at, p.created_at,
                s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
-               s.owner_id AS owner_id, s.owner_id AS shop_owner_id,
+               s.owner_id AS owner_id,
                NULL AS avg_rating, 0 AS review_count
         FROM products p
         JOIN shops s ON s.id = p.shop_id
@@ -500,26 +501,56 @@ async function handleListProducts(env, url) {
         LIMIT ?`
       const stmt2 = env.DB.prepare(fallbackQuery)
       const res2 = await stmt2.bind(...bindings).all()
-      results = res2.results
+      results = res2.results || []
     } else {
       throw err
     }
   }
 
-  // Return response with Edge Cache for general queries, no-store for shop-specific/incremental
-  const isGlobalPublicQuery = !shopId && !since
+  // Determine if this is a global query eligible for Cloudflare Edge RAM & CDN caching
+  const isGlobalPublicQuery = !shopId && !since && (!category || category === 'All') && !flashOnly
   const cacheControl = isGlobalPublicQuery
-    ? 'public, max-age=15, s-maxage=30, stale-while-revalidate=60'
+    ? 'public, max-age=45, s-maxage=90, stale-while-revalidate=180'
     : 'no-cache, no-store, must-revalidate'
 
-  return new Response(JSON.stringify({ products: results, app_version: '2.3.0' }), {
+  // Generate lightweight deterministic ETag fingerprint from item count + latest updated/created timestamp
+  const latestRecord = results.length > 0 ? (results[0].updated_at || results[0].created_at || '0') : 'empty'
+  const etag = `W/"${results.length}-${latestRecord}"`
+
+  // Zero-Bandwidth ETag check: Return 304 Not Modified if client catalog is already up to date
+  const clientEtag = request?.headers?.get('If-None-Match')
+  if (clientEtag && clientEtag === etag) {
+    return new Response(null, {
+      status: 304,
+      headers: {
+        'ETag': etag,
+        'Cache-Control': cacheControl,
+        ...corsHeaders()
+      }
+    })
+  }
+
+  const response = new Response(JSON.stringify({ products: results, app_version: '2.3.0' }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
       'Cache-Control': cacheControl,
+      'ETag': etag,
       ...corsHeaders()
     }
   })
+
+  // Store in Cloudflare native edge RAM cache for subsequent hits
+  if (isGlobalPublicQuery && typeof caches !== 'undefined' && caches.default && ctx?.waitUntil && request) {
+    try {
+      const cacheKey = new Request(url.origin + url.pathname, request)
+      ctx.waitUntil(caches.default.put(cacheKey, response.clone()))
+    } catch (e) {
+      console.warn('Edge cache write error:', e)
+    }
+  }
+
+  return response
 }
 
 // ---------- Upload handling ----------
@@ -593,7 +624,7 @@ async function handleUploadImage(request, env, user) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() })
 
     const url = new URL(request.url)
@@ -638,7 +669,42 @@ export default {
         return await handleListShops(env)
       }
       if (request.method === 'GET' && url.pathname === '/api/products') {
-        return await handleListProducts(env, url)
+        const shopId = url.searchParams.get('shop_id')
+        const since = url.searchParams.get('since')
+        const category = url.searchParams.get('category')
+        const flashOnly = url.searchParams.get('flash_deals_only') === '1' || url.searchParams.get('flash_deals_only') === 'true'
+        const isGlobalPublicQuery = !shopId && !since && (!category || category === 'All') && !flashOnly
+
+        // Check Cloudflare Edge RAM cache for lightning-fast ~8ms response
+        if (isGlobalPublicQuery && typeof caches !== 'undefined' && caches.default) {
+          try {
+            const cacheKey = new Request(url.origin + url.pathname, request)
+            const cachedRes = await caches.default.match(cacheKey)
+            if (cachedRes) {
+              const clientEtag = request.headers.get('If-None-Match')
+              const cachedEtag = cachedRes.headers.get('ETag')
+
+              if (clientEtag && cachedEtag && clientEtag === cachedEtag) {
+                return new Response(null, {
+                  status: 304,
+                  headers: {
+                    'ETag': cachedEtag,
+                    'Cache-Control': cachedRes.headers.get('Cache-Control') || 'public, max-age=45',
+                    ...corsHeaders()
+                  }
+                })
+              }
+
+              const fastRes = new Response(cachedRes.body, cachedRes)
+              Object.entries(corsHeaders()).forEach(([k, v]) => fastRes.headers.set(k, v))
+              return fastRes
+            }
+          } catch (cacheErr) {
+            console.warn('Cache lookup error, falling through to D1:', cacheErr)
+          }
+        }
+
+        return await handleListProducts(env, url, request, ctx)
       }
       return json({ error: 'Not found' }, 404)
     } catch (err) {

@@ -90,9 +90,31 @@ export default function App() {
     }
   }
 
-  // Products state & sync tracking
-  const [products, setProducts] = useState([])
-  const [initialLoading, setInitialLoading] = useState(true)
+  // Products state & sync tracking (0ms instant startup from local storage)
+  const [products, setProducts] = useState(() => {
+    try {
+      const cached = localStorage.getItem('localfind_cached_products')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed && Array.isArray(parsed.products)) {
+          return parsed.products
+        }
+      }
+    } catch {}
+    return []
+  })
+  const [initialLoading, setInitialLoading] = useState(() => {
+    try {
+      const cached = localStorage.getItem('localfind_cached_products')
+      if (cached) {
+        const parsed = JSON.parse(cached)
+        if (parsed && Array.isArray(parsed.products) && parsed.products.length > 0) {
+          return false
+        }
+      }
+    } catch {}
+    return true
+  })
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [lastSyncedAt, setLastSyncedAt] = useState(() => Date.now())
 
@@ -298,22 +320,21 @@ export default function App() {
     fetchProducts(false)
   }, [fetchProducts])
 
-  // Periodic background sync (every 30s) + Instant Sync on tab focus
+  // Periodic background sync (every 60s) + Instant Sync on tab focus with Smart Visibility Pause
   useEffect(() => {
     let lastAutoSync = 0
 
     const maybeFetch = (isPolling = false) => {
-      // Skip all network work while the tab is hidden — saves battery & mobile data.
+      // ⏸️ Smart Tab Polling: Skip all network work while the tab/phone screen is hidden or locked
       if (document.visibilityState !== 'visible') return
-      // Throttle: avoid double-fetch when visibilitychange + focus fire together,
-      // and skip redundant polls right after a manual/auto refresh.
+      // Throttle: avoid double-fetch when visibilitychange + focus fire together
       const now = Date.now()
-      if (now - lastAutoSync < (isPolling ? 25000 : 3000)) return
+      if (now - lastAutoSync < (isPolling ? 50000 : 10000)) return
       lastAutoSync = now
       fetchProducts(false)
     }
 
-    const interval = setInterval(() => maybeFetch(true), 30000)
+    const interval = setInterval(() => maybeFetch(true), 60000)
 
     const handleVisibilityOrFocus = () => maybeFetch(false)
     document.addEventListener('visibilitychange', handleVisibilityOrFocus)
