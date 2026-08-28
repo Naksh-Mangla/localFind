@@ -131,6 +131,7 @@ export function NearbyMap({
           fadeAnimation: animate,
           zoomAnimation: animate,
           markerZoomAnimation: animate,
+          preferCanvas: true, // Android GPU 2D canvas acceleration for vector overlays
           // Android touch ergonomics
           tap: true,
           tapTolerance: 15,

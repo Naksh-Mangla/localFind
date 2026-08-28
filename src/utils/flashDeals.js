@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+
 /**
  * Calculates live flash deal countdown and discounted pricing
  */
@@ -53,4 +55,52 @@ export function getFlashDealInfo(product) {
     console.warn('Error computing flash deal info:', err)
     return { isLive: false }
   }
+}
+
+// ⚡ Global Singleton Tick Subscriber (1 timer for the entire app, 0 timer storms on mobile)
+const subscribers = new Set()
+let timerId = null
+
+function subscribe(callback) {
+  subscribers.add(callback)
+  if (!timerId && subscribers.size > 0) {
+    timerId = setInterval(() => {
+      // Pause ticking when tab is backgrounded to save Android battery
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return
+      subscribers.forEach((cb) => cb())
+    }, 1000)
+  }
+  return () => {
+    subscribers.delete(callback)
+    if (subscribers.size === 0 && timerId) {
+      clearInterval(timerId)
+      timerId = null
+    }
+  }
+}
+
+/**
+ * High-performance React hook for deal countdowns.
+ * Uses a single shared timer across all cards on screen with visibility-based battery pausing.
+ */
+export function useFlashDeal(product) {
+  const [info, setInfo] = useState(() => getFlashDealInfo(product))
+
+  useEffect(() => {
+    if (!product?.is_flash_deal || !product?.flash_deal_ends_at) {
+      setInfo({ isLive: false })
+      return
+    }
+    // Update immediately on prop change
+    setInfo(getFlashDealInfo(product))
+
+    // Subscribe to shared 1s ticker
+    const unsubscribe = subscribe(() => {
+      setInfo(getFlashDealInfo(product))
+    })
+
+    return unsubscribe
+  }, [product?.is_flash_deal, product?.flash_deal_ends_at, product?.price, product?.flash_deal_discount])
+
+  return info
 }

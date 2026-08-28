@@ -8,7 +8,7 @@ import {
   indexProductsList,
   searchLRUCache
 } from '../utils/hinglishSearch'
-import { getFlashDealInfo } from '../utils/flashDeals'
+import { getFlashDealInfo, useFlashDeal } from '../utils/flashDeals'
 import { triggerHaptic } from '../utils/haptics'
 
 // Android-optimized: lazy-load free map only when user opens Map tab (saves 140KB on List view)
@@ -25,17 +25,9 @@ const CATEGORIES = [
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'
 
-// ⚡ Isolated Live Flash Deal Countdown Badge (Updates only itself, 0 parent re-renders)
+// ⚡ Isolated Live Flash Deal Countdown Badge (Subscribes to shared 1s ticker, 0 timer storms)
 const FlashCountdownBadge = React.memo(function FlashCountdownBadge({ deal }) {
-  const [info, setInfo] = useState(() => getFlashDealInfo(deal))
-
-  useEffect(() => {
-    if (!deal?.is_flash_deal || !deal?.flash_deal_ends_at) return
-    const interval = setInterval(() => {
-      setInfo(getFlashDealInfo(deal))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [deal])
+  const info = useFlashDeal(deal)
 
   if (!info.isLive) return null
 
@@ -47,17 +39,9 @@ const FlashCountdownBadge = React.memo(function FlashCountdownBadge({ deal }) {
   )
 })
 
-// ⏱️ Retro-Modern Digital HUD Timer with Live Ticking Numerals
+// ⏱️ Retro-Modern Digital HUD Timer with Live Ticking Numerals (Shared ticker)
 const LiveHUDTimer = React.memo(function LiveHUDTimer({ deal }) {
-  const [info, setInfo] = useState(() => getFlashDealInfo(deal))
-
-  useEffect(() => {
-    if (!deal?.is_flash_deal || !deal?.flash_deal_ends_at) return
-    const interval = setInterval(() => {
-      setInfo(getFlashDealInfo(deal))
-    }, 1000)
-    return () => clearInterval(interval)
-  }, [deal])
+  const info = useFlashDeal(deal)
 
   if (!info.isLive) return null
 
@@ -117,6 +101,7 @@ const ProductCard = React.memo(function ProductCard({
           src={product.image_url || DEFAULT_IMG}
           alt={product.name}
           loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : 'low'}
           decoding="async"
           onError={(e) => {
             e.target.onerror = null
