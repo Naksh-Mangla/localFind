@@ -23,7 +23,7 @@ export function ProductDetailModal({ product, onClose }) {
     const handleStorage = () => {
       try {
         const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
-        setIsWishlisted(saved.includes(product.id))
+        setIsWishlisted(saved.includes(product?.id))
       } catch (e) {}
     }
     const handleKeyDown = (e) => {
@@ -37,7 +37,7 @@ export function ProductDetailModal({ product, onClose }) {
       window.removeEventListener('storage', handleStorage)
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [product.id, onClose])
+  }, [product?.id, onClose])
 
   if (!product) return null
 
