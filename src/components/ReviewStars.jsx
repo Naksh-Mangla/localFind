@@ -36,10 +36,12 @@ export function ReviewStars({
                   triggerHaptic('selection')
                   if (onChange) onChange(starIndex)
                 }}
-                className="p-1 min-w-[48px] min-h-[48px] flex items-center justify-center text-amber-500 hover:scale-110 active:scale-95 transition-transform cursor-pointer focus:outline-none touch-manipulation"
+                className={`p-1 min-w-[44px] min-h-[44px] flex items-center justify-center transition-all cursor-pointer focus:outline-none touch-manipulation active:scale-90 ${
+                  isFilled ? 'text-amber-500 hover:scale-125 star-glow' : 'text-surface-variant hover:text-amber-300 hover:scale-110'
+                }`}
                 aria-label={`${starIndex} star`}
               >
-                <span className={`material-symbols-outlined ${starSize}`}>
+                <span className={`material-symbols-outlined ${starSize} ${isFilled ? 'fill-1' : ''}`}>
                   {isFilled ? 'star' : isHalf ? 'star_half' : 'grade'}
                 </span>
               </button>
@@ -50,7 +52,7 @@ export function ReviewStars({
             <span
               key={starIndex}
               className={`material-symbols-outlined ${starSize} ${
-                isFilled || isHalf ? 'text-amber-500' : 'text-surface-variant'
+                isFilled || isHalf ? 'text-amber-500 fill-1' : 'text-surface-variant'
               }`}
             >
               {isFilled ? 'star' : isHalf ? 'star_half' : 'grade'}
