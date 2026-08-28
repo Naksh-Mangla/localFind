@@ -1217,19 +1217,38 @@ export function MerchantDashboard({
             onClick={(e) => e.stopPropagation()}
             className="bg-surface rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[92dvh] overflow-y-auto my-auto animate-fadeIn pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-headline-lg text-xl font-bold text-on-surface">
-                {editingProduct ? 'Edit Product' : 'Add New Product'}
-              </h3>
+            {/* Modal Header */}
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-surface-variant/40">
+              <div>
+                <h3 className="font-headline-lg text-lg sm:text-xl font-bold text-on-surface flex items-center gap-2">
+                  <span>{editingProduct ? 'Edit Product' : 'Add New Product'}</span>
+                  {editingProduct && (
+                    <span className="text-[10px] bg-primary/10 text-primary font-bold px-2 py-0.5 rounded-full border border-primary/20">
+                      Editing
+                    </span>
+                  )}
+                </h3>
+                <p className="text-[11px] text-on-surface-variant mt-0.5">
+                  {editingProduct
+                    ? 'Update price, category, photo, or launch a Flash Deal for this item.'
+                    : 'List a new item in your shop for neighborhood buyers to discover.'}
+                </p>
+              </div>
               <button
-                onClick={() => setShowAddProductModal(false)}
-                className="p-1 rounded-full text-on-surface-variant hover:bg-surface-variant"
+                type="button"
+                onClick={() => {
+                  triggerHaptic('light')
+                  setShowAddProductModal(false)
+                  setEditingProduct(null)
+                }}
+                className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/60 active:scale-95 transition-all"
+                title="Close"
               >
-                <span className="material-symbols-outlined">close</span>
+                <span className="material-symbols-outlined text-lg">close</span>
               </button>
             </div>
 
-            <form onSubmit={handleSaveProduct} className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form onSubmit={handleSaveProduct} className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {/* Left Column: Basic Info & Photo */}
               <div className="flex flex-col gap-4">
                 <div>
@@ -1237,10 +1256,12 @@ export function MerchantDashboard({
                   <input
                     type="text"
                     required
+                    maxLength={120}
+                    autoComplete="off"
                     value={productName}
                     onChange={(e) => setProductName(e.target.value)}
                     placeholder="e.g. Handmade Leather Wallet"
-                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary font-medium"
                   />
                 </div>
 
@@ -1250,11 +1271,14 @@ export function MerchantDashboard({
                     <input
                       type="number"
                       step="any"
+                      min="0"
+                      max="10000000"
+                      inputMode="decimal"
                       required
                       value={productPrice}
                       onChange={(e) => setProductPrice(e.target.value)}
                       placeholder="299"
-                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary font-semibold text-primary"
                     />
                   </div>
                   <div>
@@ -1275,11 +1299,25 @@ export function MerchantDashboard({
                 </div>
 
                 {/* Product Photo: Direct Phone Gallery/Camera Upload + URL Fallback */}
-                <div className="bg-surface-container-low p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
-                  <span className="text-xs font-bold text-on-surface">Product Photo (Direct Upload or Link)</span>
-                  <p className="text-[11px] text-on-surface-variant">
-                    Choose a photo directly from your phone gallery/camera, OR paste an image link from Google!
-                  </p>
+                <div className="bg-surface-container-low p-3.5 sm:p-4 rounded-xl border border-surface-variant/60 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-on-surface">Product Photo</span>
+                    {productImageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          triggerHaptic('light')
+                          setImageFile(null)
+                          setProductImageUrl('')
+                        }}
+                        className="text-rose-600 hover:text-rose-700 text-[10px] font-bold flex items-center gap-0.5 px-2 py-0.5 rounded-md hover:bg-rose-500/10 transition-colors"
+                        title="Remove current photo"
+                      >
+                        <span className="material-symbols-outlined text-[13px]">delete</span>
+                        <span>Remove Photo</span>
+                      </button>
+                    )}
+                  </div>
 
                   {/* Option A: Direct File Upload & Android Live Camera */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1343,9 +1381,9 @@ export function MerchantDashboard({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 my-1">
+                  <div className="flex items-center gap-2 my-0.5">
                     <div className="h-px bg-surface-variant flex-1"></div>
-                    <span className="text-[10px] text-on-surface-variant uppercase font-bold">OR PASTE LINK</span>
+                    <span className="text-[9px] text-on-surface-variant uppercase font-bold tracking-wider">OR PASTE LINK</span>
                     <div className="h-px bg-surface-variant flex-1"></div>
                   </div>
 
@@ -1378,7 +1416,7 @@ export function MerchantDashboard({
                       <img
                         src={imageFile ? productImageUrl : cleanGoogleImageUrl(productImageUrl)}
                         alt="Preview"
-                        className="w-16 h-16 object-cover rounded-md bg-surface-variant flex-shrink-0"
+                        className="w-14 h-14 object-cover rounded-lg bg-surface-variant flex-shrink-0 border border-surface-variant/40"
                         onError={(e) => {
                           e.target.onerror = null
                           e.target.src = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200&auto=format&fit=crop&q=80'
@@ -1393,7 +1431,7 @@ export function MerchantDashboard({
                             </span>
                           )}
                         </span>
-                        <span className="truncate block opacity-75">
+                        <span className="truncate block opacity-75 text-[10px]">
                           {imageFile ? `${imageFile.name} (Original: ${Math.round(imageFile.size / 1024)} KB)` : cleanGoogleImageUrl(productImageUrl)}
                         </span>
                       </div>
@@ -1409,7 +1447,7 @@ export function MerchantDashboard({
                     ? 'bg-amber-500/10 border-amber-500/40 shadow-xs'
                     : 'bg-surface-container-high/50 border-surface-variant/60'
                   }`}>
-                  <div className="flex items-center justify-between">
+                  <label htmlFor="flashDealToggle" className="flex items-center justify-between cursor-pointer select-none">
                     <div className="flex items-center gap-2">
                       <span className="text-xl">⚡</span>
                       <div>
@@ -1428,10 +1466,13 @@ export function MerchantDashboard({
                       type="checkbox"
                       id="flashDealToggle"
                       checked={isFlashDeal}
-                      onChange={(e) => setIsFlashDeal(e.target.checked)}
-                      className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer"
+                      onChange={(e) => {
+                        triggerHaptic('selection')
+                        setIsFlashDeal(e.target.checked)
+                      }}
+                      className="w-4 h-4 rounded text-primary focus:ring-primary cursor-pointer ml-2"
                     />
-                  </div>
+                  </label>
 
                   {isFlashDeal && (
                     <div className="mt-3 pt-3 border-t border-amber-500/20 grid grid-cols-1 sm:grid-cols-2 gap-3 animate-fadeIn">
@@ -1444,6 +1485,7 @@ export function MerchantDashboard({
                             type="number"
                             min="5"
                             max="90"
+                            inputMode="numeric"
                             value={flashDiscount}
                             onChange={(e) => setFlashDiscount(e.target.value)}
                             className="w-full bg-surface border border-surface-variant rounded-xl p-2.5 pl-3 pr-8 text-xs font-bold text-primary"
@@ -1452,11 +1494,21 @@ export function MerchantDashboard({
                             %
                           </span>
                         </div>
-                        {productPrice && (
-                          <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
-                            Offer Price: ₹{Math.round(parseFloat(productPrice || 0) * (1 - (Number(flashDiscount) || 0) / 100))}
-                          </span>
-                        )}
+                        {(() => {
+                          const p = parseFloat(productPrice)
+                          if (!isNaN(p) && p > 0) {
+                            const disc = Math.min(90, Math.max(5, Number(flashDiscount) || 0))
+                            const offer = Math.round(p * (1 - disc / 100))
+                            const savings = Math.round(p - offer)
+                            return (
+                              <div className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 mt-1 flex items-center justify-between">
+                                <span>Offer: ₹{offer}</span>
+                                <span className="text-amber-600 font-semibold">Save ₹{savings}</span>
+                              </div>
+                            )
+                          }
+                          return null
+                        })()}
                       </div>
 
                       <div>
@@ -1478,17 +1530,36 @@ export function MerchantDashboard({
                   )}
                 </div>
 
-                <div className="mt-auto pt-4">
+                {/* Form Action Buttons */}
+                <div className="mt-auto pt-4 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic('light')
+                      setShowAddProductModal(false)
+                      setEditingProduct(null)
+                    }}
+                    className="w-1/3 bg-surface-container-high hover:bg-surface-variant text-on-surface py-3 px-4 rounded-xl text-xs font-bold transition-all border border-surface-variant active:scale-95 text-center"
+                  >
+                    Cancel
+                  </button>
+
                   <button
                     type="submit"
                     disabled={savingProduct}
-                    className="w-full bg-primary hover:bg-primary-container text-on-primary py-3.5 px-6 rounded-xl font-bold transition-all shadow-md active:scale-95"
+                    onClick={() => triggerHaptic('medium')}
+                    className="flex-1 bg-primary hover:bg-primary/90 text-on-primary py-3 px-6 rounded-xl font-bold transition-all shadow-crisp-sm hover:shadow-md active:scale-95 flex items-center justify-center gap-2 text-sm disabled:opacity-60"
                   >
-                    {savingProduct
-                      ? 'Saving Product...'
-                      : editingProduct
-                        ? 'Update Product Details'
-                        : 'Publish Product to Live App'}
+                    {savingProduct && (
+                      <span className="w-4 h-4 rounded-full border-2 border-white border-t-transparent animate-spin inline-block"></span>
+                    )}
+                    <span>
+                      {savingProduct
+                        ? (uploadProgress || 'Saving...')
+                        : editingProduct
+                          ? 'Update Product Details'
+                          : 'Publish Product to Live App'}
+                    </span>
                   </button>
                 </div>
               </div>
