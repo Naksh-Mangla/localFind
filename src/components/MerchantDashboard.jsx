@@ -1177,7 +1177,7 @@ export function MerchantDashboard({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-surface rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[92vh] overflow-y-auto my-auto animate-fadeIn"
+            className="bg-surface rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[92dvh] overflow-y-auto my-auto animate-fadeIn pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-headline-lg text-xl font-bold text-on-surface">
@@ -1431,7 +1431,7 @@ export function MerchantDashboard({
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-surface-container-lowest p-5 sm:p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto my-auto"
+            className="bg-surface-container-lowest p-5 sm:p-6 md:p-8 rounded-2xl border border-surface-variant shadow-2xl max-w-4xl w-full max-h-[92dvh] overflow-y-auto my-auto pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
           >
             <div className="flex items-center justify-between mb-4">
               <div>

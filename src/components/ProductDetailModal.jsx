@@ -222,7 +222,7 @@ export function ProductDetailModal({ product, onClose }) {
                 <span>1-Tap WhatsApp Quick Inquiries:</span>
               </label>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <div className="flex sm:grid sm:grid-cols-3 gap-2 overflow-x-auto pb-1.5 sm:pb-0 hide-scrollbar snap-x">
                 {[
                   {
                     icon: '📦',
@@ -247,9 +247,9 @@ export function ProductDetailModal({ product, onClose }) {
                       href={queryUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="bg-surface-container-high/80 hover:bg-[#25D366]/15 hover:border-[#25D366]/50 text-on-surface hover:text-emerald-700 dark:hover:text-emerald-400 p-3 rounded-2xl text-xs font-semibold border border-surface-variant/70 flex items-center gap-2.5 transition-all shadow-crisp-xs active:scale-95 group text-left"
+                      className="bg-surface-container-high/80 hover:bg-[#25D366]/15 hover:border-[#25D366]/50 text-on-surface hover:text-emerald-700 dark:hover:text-emerald-400 p-2.5 sm:p-3 rounded-2xl text-xs font-semibold border border-surface-variant/70 flex items-center gap-2 transition-all shadow-crisp-xs active:scale-95 group text-left flex-shrink-0 w-[200px] sm:w-auto snap-start"
                     >
-                      <span className="text-lg">{template.icon}</span>
+                      <span className="text-base sm:text-lg">{template.icon}</span>
                       <div className="flex flex-col min-w-0">
                         <span className="font-bold text-[11px] truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                           {template.chipText}

@@ -163,8 +163,8 @@ const ProductCard = React.memo(function ProductCard({
         </h3>
 
         {/* Shop Name + Distance & Opening Status Row */}
-        <div className="flex items-center justify-between gap-1.5 mb-1.5 flex-wrap">
-          <p className="font-body-sm text-[10px] sm:text-xs text-on-surface-variant line-clamp-1 flex-1 font-medium">
+        <div className="flex items-center justify-between gap-1 mb-1.5 min-w-0">
+          <p className="font-body-sm text-[10px] sm:text-xs text-on-surface-variant truncate flex-1 font-medium">
             {product.shop_name}
           </p>
           <StoreStatusBadge openingTime={product.opening_time} closingTime={product.closing_time} />
@@ -579,7 +579,7 @@ export function BuyerDiscover({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search 'Cheeni', 'Milk', 'Charger'..."
-              className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-2.5 sm:py-3 pl-10 sm:pl-11 pr-24 sm:pr-28 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs"
+              className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-2.5 sm:py-3 pl-10 sm:pl-11 pr-28 sm:pr-32 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs"
             />
 
             {/* Embedded Action Controls (Clear + Language Toggle + Mic) */}
@@ -600,7 +600,7 @@ export function BuyerDiscover({
                 type="button"
                 onClick={() => setSpeechLanguage((prev) => (prev === 'hi-IN' ? 'en-IN' : 'hi-IN'))}
                 title={`Switch voice language (${speechLanguage === 'hi-IN' ? 'Hindi / Hinglish' : 'English'})`}
-                className="bg-surface/85 hover:bg-surface text-on-surface border border-surface-variant/70 hover:border-primary/40 px-2 sm:px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-extrabold transition-all shadow-2xs active:scale-95 flex items-center gap-0.5"
+                className="bg-surface/85 hover:bg-surface text-on-surface border border-surface-variant/70 hover:border-primary/40 px-1.5 sm:px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-extrabold transition-all shadow-2xs active:scale-95 flex items-center gap-0.5"
               >
                 <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
               </button>

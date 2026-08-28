@@ -48,7 +48,7 @@ export function Header({
           {/* Location Chip with Status Dot */}
           <button
             onClick={onDetectLocation}
-            className="flex items-center gap-1.5 min-w-0 py-1 px-2.5 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/70 flex-1 max-w-[200px]"
+            className="flex items-center gap-1.5 min-w-0 py-1 px-2 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/70 flex-1 max-w-[140px] xs:max-w-[180px] sm:max-w-[220px]"
             title={
               locationStatus === 'gps' || locationStatus === 'success'
                 ? '🛰️ Live Satellite GPS Active'
@@ -70,7 +70,7 @@ export function Header({
                 ? 'bg-rose-500'
                 : 'bg-zinc-400 animate-pulse'
             }`}></span>
-            <span className="text-[11px] font-bold text-on-surface truncate">
+            <span className="text-[10px] xs:text-[11px] font-bold text-on-surface truncate">
               {userLocationName || 'Select Area'}
             </span>
             <span className="material-symbols-outlined text-[13px] text-on-surface-variant/60 flex-shrink-0">expand_more</span>
