@@ -455,34 +455,37 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                 ) : (
                   <div className="flex flex-col gap-3 bg-surface/80 p-3.5 rounded-xl border border-surface-variant/40">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-on-surface">{myExistingReview ? 'Your review (tap to update)' : 'Your rating'}</span>
-                      {myExistingReview && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">1 per shop</span>}
+                      <span className="text-xs font-bold text-on-surface">{myExistingReview ? 'Your review (tap stars to update)' : 'Tap stars to rate'}</span>
+                      {myExistingReview && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">1 per shop • editable</span>}
                     </div>
-                    <div className="flex justify-center">
-                      <ReviewStars rating={myRating} size="lg" interactive onChange={(v) => { setReviewError(''); setMyRating(v) }} />
+                    <div className="flex flex-col items-center gap-1">
+                      <ReviewStars rating={myRating} size="lg" interactive onChange={(v) => { setReviewError(''); setMyRating(v); triggerHaptic('selection') }} />
+                      <span className={`text-[10px] font-medium ${myRating ? 'text-amber-600' : 'text-rose-500'}`}>
+                        {myRating ? `${myRating} / 5 selected — tap another star to change` : 'No stars selected — tap 1 to 5 stars (48px targets)'}
+                      </span>
                     </div>
                     <textarea
                       value={myComment}
                       onChange={(e) => setMyComment(e.target.value.slice(0, 500))}
-                      placeholder="Shop is really good and excellent quality..."
+                      placeholder="Shop is really good and excellent quality... (optional)"
                       rows={2}
-                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-xs text-on-surface placeholder-on-surface-variant focus:ring-1 focus:ring-primary focus:border-primary resize-none"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-xs text-on-surface placeholder-on-surface-variant focus:ring-1 focus:ring-primary focus:border-primary resize-none touch-manipulation"
                     />
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] text-on-surface-variant">{myComment.length}/500</span>
-                      {reviewError && <span className="text-[11px] text-rose-600 font-medium">{reviewError}</span>}
+                      {reviewError && <span className="text-[11px] text-rose-600 font-bold animate-fadeIn">{reviewError}</span>}
                     </div>
                     <div className="flex gap-2">
                       <button
                         onClick={handleSubmitReview}
-                        disabled={submittingReview || myRating < 1}
-                        className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-on-primary py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95"
+                        disabled={submittingReview}
+                        className={`flex-1 py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition-all ${submittingReview ? 'bg-primary/70 text-on-primary' : myRating < 1 ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20' : 'bg-primary hover:bg-primary/90 text-on-primary shadow-primary/20'}`}
                       >
                         {submittingReview ? <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <span className="material-symbols-outlined text-sm">star</span>}
-                        <span>{myExistingReview ? 'Update Review' : 'Post Review'}</span>
+                        <span>{myExistingReview ? 'Update Review' : myRating < 1 ? 'Tap stars then Post' : 'Post Review'}</span>
                       </button>
                       {myExistingReview && (
-                        <button onClick={handleDeleteMyReview} disabled={submittingReview} className="px-4 py-2.5 rounded-full text-xs font-bold bg-surface-container-high border border-surface-variant text-on-surface hover:bg-rose-500/10 hover:text-rose-600 hover:border-rose-500/30">
+                        <button onClick={handleDeleteMyReview} disabled={submittingReview} className="px-4 py-2.5 rounded-full text-xs font-bold bg-surface-container-high border border-surface-variant text-on-surface hover:bg-rose-500/10 hover:text-rose-600 hover:border-rose-500/30 disabled:opacity-50">
                           Delete
                         </button>
                       )}
