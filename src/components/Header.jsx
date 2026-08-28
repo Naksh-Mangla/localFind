@@ -41,11 +41,13 @@ export function Header({
             onClick={() => setActiveView('discover')}
             className="flex items-center gap-1 cursor-pointer flex-shrink-0 active:scale-95 transition-transform"
           >
-            <img 
-              src="/logo.svg" 
-              alt="LocalFind" 
-              className="w-7 h-7 rounded-full object-contain flex-shrink-0" 
-            />
+            <div className="w-7 h-7 rounded-xl bg-primary flex items-center justify-center shadow-crisp-xs flex-shrink-0">
+              <img 
+                src="/logo.svg" 
+                alt="LocalFind" 
+                className="w-4 h-4 object-contain flex-shrink-0" 
+              />
+            </div>
           </div>
 
           {/* Location Chip with Status Dot */}
@@ -162,7 +164,9 @@ export function Header({
             onClick={() => setActiveView('discover')}
             className="flex items-center gap-2 cursor-pointer group select-none"
           >
-            <img src="/logo.svg" alt="LocalFind Logo" className="w-8 h-8 rounded-full object-contain group-hover:scale-105 transition-transform" />
+            <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-crisp-xs group-hover:scale-105 transition-transform flex-shrink-0">
+              <img src="/logo.svg" alt="LocalFind Logo" className="w-5 h-5 object-contain" />
+            </div>
             <div className="flex items-center gap-2">
               <span className="font-display-lg text-xl font-black text-primary tracking-tight">
                 LocalFind

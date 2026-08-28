@@ -1,12 +1,14 @@
 // LocalFind High-Performance Offline Service Worker
-const CACHE_NAME = 'localfind-v2.3.0'
+const CACHE_NAME = 'localfind-v2.3.1'
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/logo.svg',
+  '/logo.png',
   '/icon-192.png',
   '/icon-512.png',
   '/badge-96.png',
+  '/badge-96.svg',
   '/manifest.json'
 ]
 

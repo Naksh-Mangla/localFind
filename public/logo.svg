@@ -1,36 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%" fill="none">
-  <defs>
-    <!-- Primary Terracotta Gradient -->
-    <linearGradient id="lf-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#9C3E20" />
-      <stop offset="50%" stop-color="#C85A32" />
-      <stop offset="100%" stop-color="#E07A5F" />
-    </linearGradient>
-
-    <!-- Warm Amber Gold Accent Gradient -->
-    <linearGradient id="lf-accent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FFD166" />
-      <stop offset="100%" stop-color="#F59E0B" />
-    </linearGradient>
-
-    <!-- Soft Drop Shadow -->
-    <filter id="lf-shadow" x="-10%" y="-10%" width="120%" height="120%">
-      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#9C3E20" flood-opacity="0.3" />
-    </filter>
-  </defs>
-
-  <!-- Squircle Badge Container -->
-  <rect x="32" y="32" width="448" height="448" rx="112" fill="url(#lf-grad)" filter="url(#lf-shadow)" />
-
-  <!-- Outer Map Location Pin -->
-  <path d="M256 96C185.3 96 128 153.3 128 224C128 316 230 406 248.8 421.8C253 425.3 259 425.3 263.2 421.8C282 406 384 316 384 224C384 153.3 326.7 96 256 96Z" fill="#FFFFFF" fill-opacity="0.98" />
-
-  <!-- Shopping Bag Arch Cutout -->
-  <path d="M220 190C220 170.1 236.1 154 256 154C275.9 154 292 170.1 292 190V215H272V190C272 181.2 264.8 174 256 174C247.2 174 240 181.2 240 190V215H220V190Z" fill="url(#lf-grad)" />
-
-  <!-- Shopping Bag Body Base -->
-  <path d="M192 230C192 220 200 212 210 212H302C312 212 320 220 320 230V272C320 288.5 306.5 302 290 302H222C205.5 302 192 288.5 192 272V230Z" fill="url(#lf-grad)" />
-
-  <!-- Inner Sparkle/Location Core -->
-  <circle cx="256" cy="256" r="22" fill="url(#lf-accent)" />
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" fill="none">
+  <path fill-rule="evenodd" clip-rule="evenodd" d="
+    M 256 36
+    C 152 36 68 120 68 224
+    C 68 340 216 456 244.6 477.8
+    C 251.3 483 260.7 483 267.4 477.8
+    C 296 456 444 340 444 224
+    C 444 120 360 36 256 36
+    Z
+    M 212 152
+    C 212 127.7 231.7 108 256 108
+    C 280.3 108 300 127.7 300 152
+    L 300 176
+    L 276 176
+    L 276 152
+    C 276 141 267 132 256 132
+    C 245 132 236 141 236 152
+    L 236 176
+    L 212 176
+    Z
+    M 172 192
+    C 172 178.7 182.7 168 196 168
+    L 316 168
+    C 329.3 168 340 178.7 340 192
+    L 340 288
+    C 340 314.5 318.5 336 292 336
+    L 220 336
+    C 193.5 336 172 314.5 172 288
+    Z
+    M 256 226
+    A 26 26 0 1 0 256 278
+    A 26 26 0 1 0 256 226
+    Z
+  " fill="#FFFFFF"/>
 </svg>
