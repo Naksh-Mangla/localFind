@@ -12,7 +12,7 @@ import { triggerHaptic } from '../utils/haptics'
 
 const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
 
-const StoreQRStandeeModal = React.lazy(() => import('./StoreQRStandeeModal').then(m => ({ default: m.StoreQRStandeeModal })))
+const StoreQRStandeeModal = React.lazy(() => import('./StoreQRStandeeModal').then(m => ({ default: m.default || m.StoreQRStandeeModal })))
 
 export function MerchantDashboard({
   user,

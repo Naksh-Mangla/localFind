@@ -3,7 +3,27 @@ import QRCode from 'qrcode'
 import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
 import { triggerHaptic } from '../utils/haptics'
 
-export function StoreQRStandeeModal({ shop, products = [], onClose }) {
+// Cross-browser Android Canvas rounded rect polyfill
+function drawRoundedRect(ctx, x, y, width, height, radius = 0) {
+  const r = typeof radius === 'number' ? radius : Array.isArray(radius) ? radius[0] : 0
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, width, height, [r])
+  } else {
+    ctx.beginPath()
+    ctx.moveTo(x + r, y)
+    ctx.lineTo(x + width - r, y)
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r)
+    ctx.lineTo(x + width, y + height - r)
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height)
+    ctx.lineTo(x + r, y + height)
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r)
+    ctx.lineTo(x, y + r)
+    ctx.quadraticCurveTo(x, y, x + r, y)
+    ctx.closePath()
+  }
+}
+
+export function StoreQRStandeeModal({ shop = {}, products = [], onClose }) {
   // Sync with Android back gesture
   useAndroidBackHandler(Boolean(shop), onClose, 'qr_standee')
 
@@ -12,13 +32,14 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
   const [generatingDownload, setGeneratingDownload] = useState(false)
   const standeeCardRef = useRef(null)
 
+  const shopId = shop?.id || shop?.shop_id || ''
   const shopUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/?shopId=${shop?.id}`
-    : `https://localfind-app.pages.dev/?shopId=${shop?.id}`
+    ? `${window.location.origin}/?shopId=${shopId}`
+    : `https://localfind.pages.dev/?shopId=${shopId}`
 
   // Generate crisp QR code on mount
   useEffect(() => {
-    if (!shop?.id) return
+    if (!shopId) return
     QRCode.toDataURL(shopUrl, {
       width: 600,
       margin: 1,
@@ -30,13 +51,14 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
     })
       .then((url) => setQrDataUrl(url))
       .catch((err) => console.error('QR Generation failed:', err))
-  }, [shop, shopUrl])
+  }, [shopId, shopUrl])
 
   // Copy Direct Link to Clipboard
   const handleCopyLink = async () => {
     try {
       await navigator.clipboard.writeText(shopUrl)
       setCopied(true)
+      triggerHaptic('success')
       setTimeout(() => setCopied(false), 2500)
     } catch (err) {
       console.warn('Clipboard write failed:', err)
@@ -45,6 +67,7 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
 
   // Native Print Trigger
   const handlePrint = () => {
+    triggerHaptic('medium')
     window.print()
   }
 
@@ -52,10 +75,13 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
   const handleDownloadPNG = async () => {
     if (!qrDataUrl || !shop) return
     setGeneratingDownload(true)
+    triggerHaptic('medium')
 
     try {
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Canvas 2D context unavailable')
+
       const width = 1200
       const height = 1600
       canvas.width = width
@@ -80,7 +106,7 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
       headerGrad.addColorStop(1, '#c85028')
       ctx.fillStyle = headerGrad
       ctx.beginPath()
-      ctx.roundRect(60, 60, width - 120, 180, [24])
+      drawRoundedRect(ctx, 60, 60, width - 120, 180, 24)
       ctx.fill()
 
       ctx.fillStyle = '#ffffff'
@@ -95,13 +121,13 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
       // 3. Shop Name
       ctx.fillStyle = '#1d1d1f'
       ctx.font = 'bold 64px system-ui, -apple-system, sans-serif'
-      const displayShopName = shop.shop_name || 'My Local Store'
+      const displayShopName = shop?.shop_name || 'My Local Store'
       ctx.fillText(displayShopName, width / 2, 330)
 
       // 4. Shop Address / Location
       ctx.fillStyle = '#71717a'
       ctx.font = '500 28px system-ui, -apple-system, sans-serif'
-      const displayAddress = shop.address_text || 'Local Market Area'
+      const displayAddress = shop?.address_text || 'Local Market Area'
       // Truncate address if too long
       const truncatedAddr = displayAddress.length > 55 ? displayAddress.substring(0, 52) + '...' : displayAddress
       ctx.fillText(`📍 ${truncatedAddr}`, width / 2, 385)
@@ -113,7 +139,7 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
 
       ctx.fillStyle = '#ffffff'
       ctx.beginPath()
-      ctx.roundRect(qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, [32])
+      drawRoundedRect(ctx, qrBoxX, qrBoxY, qrBoxSize, qrBoxSize, 32)
       ctx.fill()
       ctx.strokeStyle = '#9c3e20'
       ctx.lineWidth = 6
@@ -122,18 +148,19 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
       // Draw QR Image onto Canvas
       const qrImg = new Image()
       qrImg.crossOrigin = 'anonymous'
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         qrImg.onload = () => {
           ctx.drawImage(qrImg, qrBoxX + 30, qrBoxY + 30, qrBoxSize - 60, qrBoxSize - 60)
           resolve()
         }
+        qrImg.onerror = reject
         qrImg.src = qrDataUrl
       })
 
       // 6. Action Callout Box
       ctx.fillStyle = '#fff4ed'
       ctx.beginPath()
-      ctx.roundRect(100, 1090, width - 200, 260, [24])
+      drawRoundedRect(ctx, 100, 1090, width - 200, 260, 24)
       ctx.fill()
       ctx.strokeStyle = '#f4c7ab'
       ctx.lineWidth = 3
@@ -159,7 +186,7 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
       // 8. Trigger File Download
       const pngUrl = canvas.toDataURL('image/png')
       const downloadAnchor = document.createElement('a')
-      const safeName = (shop.shop_name || 'Store').replace(/[^a-zA-Z0-9]/g, '_')
+      const safeName = (shop?.shop_name || 'Store').replace(/[^a-zA-Z0-9]/g, '_')
       downloadAnchor.download = `${safeName}_Store_QR_Standee.png`
       downloadAnchor.href = pngUrl
       document.body.appendChild(downloadAnchor)
@@ -188,7 +215,7 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-surface-variant/70 text-on-surface-variant transition-colors"
+            className="p-1.5 rounded-full hover:bg-surface-variant/70 text-on-surface-variant transition-colors active:scale-90"
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>
@@ -222,7 +249,7 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
               {qrDataUrl ? (
                 <img
                   src={qrDataUrl}
-                  alt={`QR code for ${shop?.shop_name}`}
+                  alt={`QR code for ${shop?.shop_name || 'Store'}`}
                   className="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-xl"
                 />
               ) : (
@@ -278,7 +305,7 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
           {/* Copy Direct Shop Link */}
           <button
             onClick={handleCopyLink}
-            className="w-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface py-2 px-3 rounded-full text-[11px] font-semibold border border-surface-variant/40 flex items-center justify-center gap-1.5 transition-all"
+            className="w-full bg-surface-container-low hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface py-2 px-3 rounded-full text-[11px] font-semibold border border-surface-variant/40 flex items-center justify-center gap-1.5 transition-all active:scale-98"
           >
             <span className="material-symbols-outlined text-sm">
               {copied ? 'check_circle' : 'link'}
@@ -292,3 +319,5 @@ export function StoreQRStandeeModal({ shop, products = [], onClose }) {
     </div>
   )
 }
+
+export default StoreQRStandeeModal
