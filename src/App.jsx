@@ -155,8 +155,11 @@ export default function App() {
         if (found) {
           setSelectedProduct(found)
           setActiveView('discover')
-          // Clean URL param without page refresh
-          const cleanUrl = window.location.pathname + window.location.hash
+          // Clean only product param without removing shopId or other params
+          const currentParams = new URLSearchParams(window.location.search)
+          currentParams.delete('product')
+          const queryString = currentParams.toString() ? `?${currentParams.toString()}` : ''
+          const cleanUrl = window.location.pathname + queryString + window.location.hash
           window.history.replaceState({}, document.title, cleanUrl)
         }
       }

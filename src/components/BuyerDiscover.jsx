@@ -10,6 +10,8 @@ import {
 } from '../utils/hinglishSearch'
 import { getFlashDealInfo, useFlashDeal } from '../utils/flashDeals'
 import { triggerHaptic } from '../utils/haptics'
+import { ReviewStars } from './ReviewStars'
+import { apiFetch } from '../lib/api'
 
 // Android-optimized: lazy-load free map only when user opens Map tab (saves 140KB on List view)
 const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
@@ -421,25 +423,24 @@ export function BuyerDiscover({
     }
   }, [isListening, speechLanguage])
 
-  // 1. Pre-index products once on data change & attach distance in O(N)
+  // 1. High-Performance Indexing & Real GPS Distance Matrix
   const indexedProductsWithDistance = useMemo(() => {
     searchLRUCache.clear() // Invalidate LRU query cache when product list updates
     const indexed = indexProductsList(products)
-
-    const uLat = userCoords ? Number(userCoords.lat) : null
-    const uLng = userCoords ? Number(userCoords.lng) : null
-    const hasUserGPS = Number.isFinite(uLat) && Number.isFinite(uLng)
-    const currentUid = currentUser?.uid || currentUser?.sub
+    const hasUserGPS = userCoords?.latitude && userCoords?.longitude
+    const uLat = hasUserGPS ? userCoords.latitude : null
+    const uLng = hasUserGPS ? userCoords.longitude : null
+    const currentUid = currentUser?.uid
 
     return indexed.map((prod) => {
+      const isOwner = Boolean(currentUid && prod.owner_id && prod.owner_id === currentUid)
       let distanceKm = null
-      const isOwner = Boolean(currentUid && (prod.owner_id === currentUid || prod.shop_owner_id === currentUid))
       if (isOwner) {
         distanceKm = 0 // Exactly 0 distance for merchant's own shop
       } else {
         const pLat = Number(prod.lat)
         const pLng = Number(prod.lng)
-        if (hasUserGPS && Number.isFinite(pLat) && Number.isFinite(pLng)) {
+        if (uLat !== null && uLng !== null && Number.isFinite(pLat) && Number.isFinite(pLng)) {
           distanceKm = calculateDistanceKm(uLat, uLng, pLat, pLng)
         }
       }
@@ -449,19 +450,35 @@ export function BuyerDiscover({
 
   // Find shop details if arriving via QR Standee scan
   const targetShop = useMemo(() => {
-    if (!targetShopId || !indexedProductsWithDistance || indexedProductsWithDistance.length === 0) return null
-    const matchedProduct = indexedProductsWithDistance.find((p) => String(p.shop_id) === String(targetShopId))
-    if (!matchedProduct) return null
-    return {
-      id: matchedProduct.shop_id,
-      name: matchedProduct.shop_name,
-      address: matchedProduct.address_text || '',
-      whatsapp: matchedProduct.whatsapp_number,
-      openingTime: matchedProduct.opening_time,
-      closingTime: matchedProduct.closing_time,
-      distanceKm: matchedProduct.distanceKm
+    if (!targetShopId) return null
+    if (indexedProductsWithDistance && indexedProductsWithDistance.length > 0) {
+      const matchedProduct = indexedProductsWithDistance.find((p) => String(p.shop_id) === String(targetShopId))
+      if (matchedProduct) {
+        return {
+          id: matchedProduct.shop_id,
+          name: matchedProduct.shop_name,
+          address: matchedProduct.address_text || '',
+          whatsapp: matchedProduct.whatsapp_number,
+          openingTime: matchedProduct.opening_time,
+          closingTime: matchedProduct.closing_time,
+          distanceKm: matchedProduct.distanceKm,
+          avgRating: matchedProduct.avg_rating ? Number(matchedProduct.avg_rating) : null,
+          reviewCount: matchedProduct.review_count ? Number(matchedProduct.review_count) : 0
+        }
+      }
     }
-  }, [targetShopId, indexedProductsWithDistance])
+    if (directShopInfo) {
+      let distanceKm = null
+      if (userCoords?.latitude && userCoords?.longitude && directShopInfo.lat && directShopInfo.lng) {
+        distanceKm = calculateDistanceKm(userCoords.latitude, userCoords.longitude, Number(directShopInfo.lat), Number(directShopInfo.lng))
+      }
+      return {
+        ...directShopInfo,
+        distanceKm
+      }
+    }
+    return null
+  }, [targetShopId, indexedProductsWithDistance, directShopInfo, userCoords])
 
   // 2. High-Performance Query Filter with LRU Caching
   const filteredProducts = useMemo(() => {
@@ -474,9 +491,11 @@ export function BuyerDiscover({
     if (cached) return cached
 
     const results = indexedProductsWithDistance.filter((item) => {
-      // 📱 Target Shop check (from QR Standee scan)
-      if (targetShopId && String(item.shop_id) !== String(targetShopId)) {
-        return false
+      // 📱 Target Shop check (from QR Standee scan) - ignore global category and wishlist filters in store mode
+      if (targetShopId) {
+        if (String(item.shop_id) !== String(targetShopId)) return false
+        if (queryDesc && !matchesQueryDescriptor(item, queryDesc)) return false
+        return true
       }
 
       // Wishlist check
@@ -563,67 +582,85 @@ export function BuyerDiscover({
   return (
     <main className="pt-4 md:pt-6 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
       {/* 🏪 MODE 1: Dedicated Clean Store Showcase (When QR Standee is Scanned) */}
-      {targetShop ? (
+      {targetShopId ? (
         <div className="space-y-5 animate-fadeIn">
           {/* Shop Profile Header at the Very Top */}
           <div className="bg-surface apple-frosted border border-surface-variant/70 rounded-3xl p-5 sm:p-6 shadow-crisp-sm relative overflow-hidden">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-start sm:items-center gap-4">
-                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-white flex items-center justify-center shadow-crisp-sm flex-shrink-0">
-                  <span className="material-symbols-outlined text-3xl sm:text-4xl">storefront</span>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <h1 className="font-display-lg text-xl sm:text-2xl font-black text-on-surface tracking-tight">
-                      {targetShop.name}
-                    </h1>
-                    <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                      ✨ Verified Store
-                    </span>
+            {targetShop ? (
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start sm:items-center gap-4">
+                  <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-primary to-orange-600 text-white flex items-center justify-center shadow-crisp-sm flex-shrink-0">
+                    <span className="material-symbols-outlined text-3xl sm:text-4xl">storefront</span>
                   </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h1 className="font-display-lg text-xl sm:text-2xl font-black text-on-surface tracking-tight">
+                        {targetShop.name}
+                      </h1>
+                      <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        ✨ Verified Store
+                      </span>
+                    </div>
 
-                  <div className="flex items-center gap-2.5 flex-wrap text-xs text-on-surface-variant">
-                    {targetShop.address && (
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm text-primary">location_on</span>
-                        <span className="line-clamp-1">{targetShop.address}</span>
-                      </span>
-                    )}
-                    {targetShop.distanceKm !== null && targetShop.distanceKm !== undefined && (
-                      <span className="flex items-center gap-1 font-semibold text-primary">
-                        <span>•</span>
-                        <span>{formatDistance(targetShop.distanceKm)}</span>
-                      </span>
-                    )}
-                    <StoreStatusBadge openingTime={targetShop.openingTime} closingTime={targetShop.closingTime} />
+                    <div className="flex items-center gap-2.5 flex-wrap text-xs text-on-surface-variant">
+                      {targetShop.avgRating !== null && targetShop.avgRating !== undefined && targetShop.avgRating > 0 && (
+                        <ReviewStars rating={targetShop.avgRating} reviewCount={targetShop.reviewCount} size="sm" showValue={true} />
+                      )}
+                      {targetShop.address && (
+                        <span className="flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm text-primary">location_on</span>
+                          <span className="line-clamp-1">{targetShop.address}</span>
+                        </span>
+                      )}
+                      {targetShop.distanceKm !== null && targetShop.distanceKm !== undefined && (
+                        <span className="flex items-center gap-1 font-semibold text-primary">
+                          <span>•</span>
+                          <span>{formatDistance(targetShop.distanceKm)}</span>
+                        </span>
+                      )}
+                      <StoreStatusBadge openingTime={targetShop.openingTime} closingTime={targetShop.closingTime} />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Action Buttons: Direct WhatsApp Order + Explore Others */}
-              <div className="flex items-center gap-2.5 flex-wrap self-start md:self-auto">
-                {targetShop.whatsapp && (
+                {/* Action Buttons: Direct WhatsApp Order + Explore Others */}
+                <div className="flex items-center gap-2.5 flex-wrap self-start md:self-auto">
+                  {targetShop.whatsapp && (
+                    <button
+                      onClick={handleWhatsAppShop}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-full text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-1.5 active:scale-95"
+                    >
+                      <span className="material-symbols-outlined text-base">chat</span>
+                      <span>WhatsApp Shop</span>
+                    </button>
+                  )}
+
                   <button
-                    onClick={handleWhatsAppShop}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-full text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-1.5 active:scale-95"
+                    onClick={() => {
+                      setTargetShopId(null)
+                      const params = new URLSearchParams(window.location.search)
+                      params.delete('shopId')
+                      params.delete('shop')
+                      const q = params.toString() ? `?${params.toString()}` : ''
+                      window.history.replaceState({}, '', window.location.pathname + q)
+                    }}
+                    className="bg-surface-container-high hover:bg-surface-variant text-on-surface px-4 py-2.5 rounded-full text-xs font-bold border border-surface-variant/70 shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1.5"
                   >
-                    <span className="material-symbols-outlined text-base">chat</span>
-                    <span>WhatsApp Shop</span>
+                    <span className="material-symbols-outlined text-sm text-primary">explore</span>
+                    <span>Explore All Stores</span>
                   </button>
-                )}
-
-                <button
-                  onClick={() => {
-                    setTargetShopId(null)
-                    window.history.replaceState({}, '', window.location.pathname)
-                  }}
-                  className="bg-surface-container-high hover:bg-surface-variant text-on-surface px-4 py-2.5 rounded-full text-xs font-bold border border-surface-variant/70 shadow-crisp-xs active:scale-95 transition-all flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-sm text-primary">explore</span>
-                  <span>Explore All Stores</span>
-                </button>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Loading Skeleton for Store Header */
+              <div className="animate-pulse flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-surface-variant"></div>
+                <div className="space-y-2 flex-1">
+                  <div className="h-5 bg-surface-variant rounded-full w-48"></div>
+                  <div className="h-3 bg-surface-variant rounded-full w-32"></div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Clean Dedicated Search Bar Directly Below Shop Details (No Category Tags) */}
@@ -635,7 +672,7 @@ export function BuyerDiscover({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={`Search items in ${targetShop.name}...`}
+              placeholder={targetShop ? `Search items in ${targetShop.name}...` : 'Search products in store...'}
               className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-3 sm:py-3.5 pl-11 pr-28 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs font-medium"
             />
             <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
