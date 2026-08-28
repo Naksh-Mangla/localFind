@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { apiFetch } from '../lib/api'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
@@ -1219,14 +1220,14 @@ export function MerchantDashboard({
         </div>
       )}
 
-      {/* Add / Edit Product Modal */}
-      {showAddProductModal && (
+      {/* Add / Edit Product Modal (Teleported to document.body so it is never trapped in scroll flow) */}
+      {showAddProductModal && createPortal(
         <div
           onClick={() => {
             setShowAddProductModal(false)
             setEditingProduct(null)
           }}
-          className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none"
+          className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1580,13 +1581,15 @@ export function MerchantDashboard({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
-      {/* Edit Shop Profile Modal */}
-      {showEditShopModal && (
+
+      {/* Edit Shop Profile Modal (Teleported to document.body so it is never trapped in scroll flow) */}
+      {showEditShopModal && createPortal(
         <div
           onClick={() => setShowEditShopModal(false)}
-          className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[100] overflow-hidden overscroll-none select-none animate-fadeIn"
+          className="fixed inset-0 bg-black/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-[999] overflow-hidden overscroll-none select-none animate-fadeIn"
         >
           <div
             onClick={(e) => e.stopPropagation()}
@@ -1811,7 +1814,8 @@ export function MerchantDashboard({
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Custom Toast Notifications */}
