@@ -6,10 +6,23 @@ import { getFlashDealInfo } from '../utils/flashDeals'
 import { sanitizeHttpUrl, sanitizeImageUrl } from '../utils/safeUrl'
 import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
 import { triggerHaptic } from '../utils/haptics'
+import { useAuth } from '../hooks/useAuth'
+import { apiFetch } from '../lib/api'
+import { ReviewStars } from './ReviewStars'
 
-export function ProductDetailModal({ product, onClose }) {
+export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
   // Sync with Android hardware & gesture back button
   useAndroidBackHandler(Boolean(product), onClose, 'product_detail')
+
+  const { user, signInWithGoogle } = useAuth()
+  const [reviews, setReviews] = useState([])
+  const [reviewStats, setReviewStats] = useState(null)
+  const [loadingReviews, setLoadingReviews] = useState(false)
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const [myRating, setMyRating] = useState(0)
+  const [myComment, setMyComment] = useState('')
+  const [reviewError, setReviewError] = useState('')
+  const [showAllReviews, setShowAllReviews] = useState(false)
 
   // Hooks must run unconditionally on every render (Rules of Hooks).
   const [isWishlisted, setIsWishlisted] = useState(() => {
@@ -47,6 +60,46 @@ export function ProductDetailModal({ product, onClose }) {
       document.body.style.overflow = originalOverflow
     }
   }, [product?.id, onClose])
+
+  // Fetch live shop reviews (shop-level, live avg)
+  useEffect(() => {
+    if (!product?.shop_id) return
+    let cancelled = false
+    const fetchReviews = async () => {
+      try {
+        setLoadingReviews(true)
+        setReviewError('')
+        const data = await apiFetch(`/api/reviews?shop_id=${encodeURIComponent(product.shop_id)}`)
+        if (cancelled) return
+        setReviews(Array.isArray(data.reviews) ? data.reviews : [])
+        setReviewStats(data.stats || null)
+        // Prefill my review if already exists
+        if (user?.uid) {
+          const mine = (data.reviews || []).find((r) => r.user_id === user.uid)
+          if (mine) {
+            setMyRating(mine.rating || 0)
+            setMyComment(mine.comment || '')
+          } else {
+            setMyRating(0)
+            setMyComment('')
+          }
+        }
+      } catch (e) {
+        if (!cancelled) setReviewError(e.message || 'Failed to load reviews')
+      } finally {
+        if (!cancelled) setLoadingReviews(false)
+      }
+    }
+    fetchReviews()
+    return () => { cancelled = true }
+  }, [product?.shop_id, user?.uid])
+
+  // Also update when product avg changes live (from polling)
+  useEffect(() => {
+    if (product?.avg_rating && reviewStats && product.avg_rating !== reviewStats.avg_rating) {
+      setReviewStats((prev) => prev ? { ...prev, avg_rating: product.avg_rating, total_reviews: product.review_count } : prev)
+    }
+  }, [product?.avg_rating, product?.review_count])
 
   if (!product) return null
 
@@ -103,6 +156,68 @@ export function ProductDetailModal({ product, onClose }) {
   // javascript:/data: URLs injected into the DB by any writer).
   const safeImageSrc = sanitizeImageUrl(product.image_url) || 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800&auto=format&fit=crop&q=80'
   const safeAffiliateLink = product.is_affiliate_fallback ? sanitizeHttpUrl(product.affiliate_link) : null
+
+  const myExistingReview = user?.uid ? reviews.find((r) => r.user_id === user.uid) : null
+  const isOwnShop = user?.uid && product.shop_owner_id === user.uid
+
+  const handleSubmitReview = async () => {
+    if (!user) {
+      triggerHaptic('warning')
+      try { await signInWithGoogle() } catch (e) { console.warn(e) }
+      return
+    }
+    if (isOwnShop) {
+      setReviewError('Shop owners cannot review their own shop')
+      return
+    }
+    if (!myRating || myRating < 1 || myRating > 5) {
+      setReviewError('Please select 1-5 stars')
+      return
+    }
+    try {
+      setSubmittingReview(true)
+      setReviewError('')
+      triggerHaptic('selection')
+      await apiFetch('/api/reviews', {
+        method: 'POST',
+        body: JSON.stringify({
+          shop_id: product.shop_id,
+          rating: myRating,
+          comment: myComment.trim() || null,
+          user_name: user.displayName || user.email?.split('@')[0] || 'Neighbor'
+        })
+      })
+      triggerHaptic('success')
+      // Refresh reviews + products live avg
+      const data = await apiFetch(`/api/reviews?shop_id=${encodeURIComponent(product.shop_id)}`)
+      setReviews(Array.isArray(data.reviews) ? data.reviews : [])
+      setReviewStats(data.stats || null)
+      if (onReviewSubmitted) onReviewSubmitted()
+    } catch (e) {
+      setReviewError(e.message || 'Failed to save review')
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
+
+  const handleDeleteMyReview = async () => {
+    if (!user || !myExistingReview) return
+    try {
+      setSubmittingReview(true)
+      await apiFetch(`/api/reviews?shop_id=${encodeURIComponent(product.shop_id)}`, { method: 'DELETE' })
+      triggerHaptic('warning')
+      setMyRating(0)
+      setMyComment('')
+      const data = await apiFetch(`/api/reviews?shop_id=${encodeURIComponent(product.shop_id)}`)
+      setReviews(Array.isArray(data.reviews) ? data.reviews : [])
+      setReviewStats(data.stats || null)
+      if (onReviewSubmitted) onReviewSubmitted()
+    } catch (e) {
+      setReviewError(e.message || 'Failed to delete')
+    } finally {
+      setSubmittingReview(false)
+    }
+  }
 
   return (
     <div 
@@ -259,6 +374,125 @@ export function ProductDetailModal({ product, onClose }) {
             </div>
           </div>
 
+          {/* ⭐ Live Shop Reviews - shop-level, 1 per user, editable */}
+          <div className="bg-surface-container-low/60 p-4.5 rounded-2xl border border-surface-variant/60 shadow-crisp-xs">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="font-bold text-sm text-on-surface flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[18px] text-amber-500">rate_review</span>
+                <span>Shop Reviews</span>
+                {reviewStats?.total_reviews > 0 && (
+                  <span className="text-xs font-normal text-on-surface-variant">({reviewStats.total_reviews})</span>
+                )}
+              </h4>
+              {reviewStats?.avg_rating && (
+                <div className="flex items-center gap-1.5">
+                  <ReviewStars rating={reviewStats.avg_rating} size="sm" showValue reviewCount={reviewStats.total_reviews} />
+                </div>
+              )}
+            </div>
+
+            {/* Breakdown bars - live */}
+            {reviewStats?.total_reviews > 0 && (
+              <div className="grid grid-cols-5 gap-1 mb-3">
+                {[5,4,3,2,1].map((star) => {
+                  const count = reviewStats.breakdown?.[star] || 0
+                  const pct = reviewStats.total_reviews ? Math.round((count / reviewStats.total_reviews) * 100) : 0
+                  return (
+                    <div key={star} className="text-center">
+                      <div className="text-[10px] font-bold text-on-surface-variant">{star}★</div>
+                      <div className="h-1.5 bg-surface-variant/50 rounded-full overflow-hidden mt-1">
+                        <div className="h-full bg-amber-500" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="text-[10px] text-on-surface-variant mt-0.5">{count}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {loadingReviews ? (
+              <div className="flex items-center justify-center py-6 text-xs text-on-surface-variant">
+                <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin mr-2" />
+                Loading reviews...
+              </div>
+            ) : (
+              <>
+                {/* Recent reviews list - live, newest first */}
+                {reviews.length > 0 ? (
+                  <div className="flex flex-col gap-3 mb-4 max-h-[220px] overflow-y-auto overscroll-contain pr-1">
+                    {(showAllReviews ? reviews : reviews.slice(0, 3)).map((r) => (
+                      <div key={r.id} className={`p-3 rounded-xl border ${r.user_id === user?.uid ? 'bg-amber-500/10 border-amber-500/30' : 'bg-surface border-surface-variant/40'}`}>
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-on-surface">{r.user_name || 'Neighbor'}</span>
+                          <ReviewStars rating={r.rating} size="sm" />
+                        </div>
+                        {r.comment && <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">"{r.comment}"</p>}
+                        <p className="text-[10px] text-on-surface-variant/70 mt-1">{new Date(r.updated_at || r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                      </div>
+                    ))}
+                    {reviews.length > 3 && (
+                      <button onClick={() => setShowAllReviews((v) => !v)} className="text-xs font-bold text-primary hover:underline self-center">
+                        {showAllReviews ? 'Show less' : `View all ${reviews.length} reviews`}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-on-surface-variant text-center py-3">No reviews yet — be the first to rate this shop!</p>
+                )}
+
+                {/* Leave / Edit review form */}
+                {isOwnShop ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl text-center">You cannot review your own shop</p>
+                ) : !user ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-xs text-on-surface-variant text-center">Sign in to leave a shop review — others can see your stars live</p>
+                    <button onClick={async () => { triggerHaptic('selection'); try{ await signInWithGoogle() } catch(e){} }} className="w-full bg-primary text-on-primary py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95">
+                      <span className="material-symbols-outlined text-sm">login</span>
+                      <span>Sign in with Google to Review</span>
+                    </button>
+                    <div className="flex justify-center opacity-60"><ReviewStars rating={0} size="sm" /></div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-3 bg-surface/80 p-3.5 rounded-xl border border-surface-variant/40">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-on-surface">{myExistingReview ? 'Your review (tap to update)' : 'Your rating'}</span>
+                      {myExistingReview && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">1 per shop</span>}
+                    </div>
+                    <div className="flex justify-center">
+                      <ReviewStars rating={myRating} size="lg" interactive onChange={(v) => { setReviewError(''); setMyRating(v) }} />
+                    </div>
+                    <textarea
+                      value={myComment}
+                      onChange={(e) => setMyComment(e.target.value.slice(0, 500))}
+                      placeholder="Shop is really good and excellent quality..."
+                      rows={2}
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-xs text-on-surface placeholder-on-surface-variant focus:ring-1 focus:ring-primary focus:border-primary resize-none"
+                    />
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] text-on-surface-variant">{myComment.length}/500</span>
+                      {reviewError && <span className="text-[11px] text-rose-600 font-medium">{reviewError}</span>}
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSubmitReview}
+                        disabled={submittingReview || myRating < 1}
+                        className="flex-1 bg-primary hover:bg-primary/90 disabled:opacity-50 text-on-primary py-2.5 rounded-full text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95"
+                      >
+                        {submittingReview ? <span className="w-3 h-3 rounded-full border-2 border-white border-t-transparent animate-spin" /> : <span className="material-symbols-outlined text-sm">star</span>}
+                        <span>{myExistingReview ? 'Update Review' : 'Post Review'}</span>
+                      </button>
+                      {myExistingReview && (
+                        <button onClick={handleDeleteMyReview} disabled={submittingReview} className="px-4 py-2.5 rounded-full text-xs font-bold bg-surface-container-high border border-surface-variant text-on-surface hover:bg-rose-500/10 hover:text-rose-600 hover:border-rose-500/30">
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {/* 💬 1-Tap Hinglish WhatsApp Quick Inquiry Templates */}
           {!product.is_affiliate_fallback && (
             <div className="pt-2">
@@ -277,7 +511,7 @@ export function ProductDetailModal({ product, onClose }) {
                   {
                     icon: '🏷️',
                     chipText: '2 item pe discount?',
-                    fullMsg: `Namaste! Agar main 2 pieces "${product.name}" khareedun toh kya kuch extra discount ya best rate mil sakta hai? (LocalFind price: ₹${finalPrice})`
+                    fullMsg: `Namaste! Agar main 2 pieces "${product.name}" khareedun toh kya kuch extra discount ya best rate mil sakta hai? (LocalFind price: ₹${flashInfo?.discountedPrice ?? product.price})`
                   },
                   {
                     icon: '🛵',

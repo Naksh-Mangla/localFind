@@ -174,8 +174,8 @@ const ProductCard = React.memo(function ProductCard({
           <StoreStatusBadge openingTime={product.opening_time} closingTime={product.closing_time} />
         </div>
 
-        {/* Distance Metadata Pill in Body (Never overlaps photo) */}
-        <div className="mb-2 flex items-center gap-1">
+        {/* Distance & Rating Metadata Pill in Body (Never overlaps photo) */}
+        <div className="mb-2 flex items-center gap-1.5 flex-wrap">
           {product.isOwner ? (
             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
               <span className="material-symbols-outlined text-[11px]">storefront</span>
@@ -193,6 +193,15 @@ const ProductCard = React.memo(function ProductCard({
               <span>{formatDistance(product.distanceKm)}</span>
             </span>
           ) : null}
+
+          {/* Rating Pill - live shop average (1 per shop, editable) */}
+          {Boolean(product.avg_rating && Number(product.review_count) > 0) && (
+            <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-amber-700 dark:text-amber-300 bg-amber-500/10 px-1.5 py-0.5 rounded-full border border-amber-500/30">
+              <span className="material-symbols-outlined text-[10px] text-amber-500">star</span>
+              <span>{Number(product.avg_rating).toFixed(1)}</span>
+              <span className="opacity-70 font-normal">({product.review_count})</span>
+            </span>
+          )}
         </div>
 
         {/* Price & Action Bottom Row */}

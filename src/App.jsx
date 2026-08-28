@@ -449,6 +449,7 @@ export default function App() {
           <ProductDetailModal
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
+            onReviewSubmitted={() => fetchProducts(false)}
           />
         </Suspense>
       )}

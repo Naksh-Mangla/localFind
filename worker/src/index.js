@@ -160,6 +160,14 @@ function sanitizeFlashEndsAt(value) {
   return new Date(ms).toISOString()
 }
 
+function sanitizeRating(value) {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return null
+  const rounded = Math.round(num)
+  if (rounded < 1 || rounded > 5) return null
+  return rounded
+}
+
 // ---------- Request handlers ----------
 
 async function handleCreateShop(request, env, user) {
@@ -332,6 +340,93 @@ async function handleDeleteProduct(request, env, user, url) {
   return json({ success: true })
 }
 
+async function handleSaveReview(request, env, user) {
+  const body = await request.json().catch(() => null)
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const shop_id = cleanText(body.shop_id, 64)
+  const rating = sanitizeRating(body.rating)
+  const comment = cleanText(body.comment, 500)
+  const user_name = cleanText(body.user_name || user.name || 'Neighborhood Buyer', 80)
+
+  if (!shop_id) return json({ error: 'shop_id is required' }, 400)
+  if (!rating) return json({ error: 'rating must be an integer between 1 and 5' }, 400)
+
+  // Verify shop exists
+  const shop = await env.DB.prepare('SELECT id, owner_id FROM shops WHERE id = ?').bind(shop_id).first()
+  if (!shop) return json({ error: 'Shop not found' }, 404)
+
+  // Anti-fraud: Shop owners cannot review their own shop
+  if (shop.owner_id === user.sub) {
+    return json({ error: 'Shop owners cannot review their own shop' }, 403)
+  }
+
+  const id = crypto.randomUUID()
+  const row = await env.DB.prepare(
+    `INSERT INTO reviews (id, shop_id, user_id, user_name, rating, comment, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+     ON CONFLICT(user_id, shop_id) DO UPDATE SET
+       user_name = excluded.user_name,
+       rating = excluded.rating,
+       comment = excluded.comment,
+       updated_at = datetime('now')
+     RETURNING id, rating, comment, updated_at`
+  ).bind(id, shop_id, user.sub, user_name, rating, comment || null).first()
+
+  return json({ success: true, review: row })
+}
+
+async function handleGetShopReviews(env, url) {
+  const shopId = url.searchParams.get('shop_id')
+  if (!shopId) return json({ error: 'shop_id is required' }, 400)
+
+  const cleanShopId = cleanText(shopId, 64)
+
+  const { results: reviews } = await env.DB.prepare(
+    `SELECT id, shop_id, user_id, user_name, rating, comment, created_at, updated_at
+     FROM reviews
+     WHERE shop_id = ?
+     ORDER BY updated_at DESC
+     LIMIT 50`
+  ).bind(cleanShopId).all()
+
+  const stats = await env.DB.prepare(
+    `SELECT COUNT(*) AS total_reviews,
+            ROUND(AVG(rating), 1) AS avg_rating,
+            SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) AS stars_5,
+            SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) AS stars_4,
+            SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) AS stars_3,
+            SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) AS stars_2,
+            SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) AS stars_1
+     FROM reviews
+     WHERE shop_id = ?`
+  ).bind(cleanShopId).first()
+
+  return json({
+    reviews: reviews || [],
+    stats: {
+      total_reviews: stats?.total_reviews || 0,
+      avg_rating: stats?.avg_rating || null,
+      breakdown: {
+        5: stats?.stars_5 || 0,
+        4: stats?.stars_4 || 0,
+        3: stats?.stars_3 || 0,
+        2: stats?.stars_2 || 0,
+        1: stats?.stars_1 || 0
+      }
+    }
+  })
+}
+
+async function handleDeleteReview(request, env, user, url) {
+  const shopId = url.searchParams.get('shop_id')
+  if (!shopId) return json({ error: 'shop_id is required' }, 400)
+
+  const cleanShopId = cleanText(shopId, 64)
+  await env.DB.prepare('DELETE FROM reviews WHERE shop_id = ? AND user_id = ?').bind(cleanShopId, user.sub).run()
+  return json({ success: true })
+}
+
 async function handleListShops(env) {
   const { results } = await env.DB.prepare('SELECT * FROM shops ORDER BY created_at DESC').all()
   return json({ shops: results })
@@ -373,7 +468,9 @@ async function handleListProducts(env, url) {
            p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
            p.version, p.updated_at, p.created_at,
            s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
-           s.owner_id AS owner_id, s.owner_id AS shop_owner_id
+           s.owner_id AS owner_id, s.owner_id AS shop_owner_id,
+           (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = p.shop_id) AS avg_rating,
+           (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = p.shop_id) AS review_count
     FROM products p
     JOIN shops s ON s.id = p.shop_id
     ${whereClause}
@@ -381,8 +478,33 @@ async function handleListProducts(env, url) {
     LIMIT ?`
   bindings.push(limit)
 
-  const stmt = env.DB.prepare(query)
-  const { results } = await stmt.bind(...bindings).all()
+  let results
+  try {
+    const stmt = env.DB.prepare(query)
+    const res = await stmt.bind(...bindings).all()
+    results = res.results
+  } catch (err) {
+    // Fallback if reviews table not yet migrated (first deploy) - don't break product feed
+    if (String(err.message || '').includes('no such table: reviews')) {
+      const fallbackQuery = `
+        SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
+               p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
+               p.version, p.updated_at, p.created_at,
+               s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
+               s.owner_id AS owner_id, s.owner_id AS shop_owner_id,
+               NULL AS avg_rating, 0 AS review_count
+        FROM products p
+        JOIN shops s ON s.id = p.shop_id
+        ${whereClause}
+        ORDER BY p.created_at DESC
+        LIMIT ?`
+      const stmt2 = env.DB.prepare(fallbackQuery)
+      const res2 = await stmt2.bind(...bindings).all()
+      results = res2.results
+    } else {
+      throw err
+    }
+  }
 
   // Return response with Edge Cache for general queries, no-store for shop-specific/incremental
   const isGlobalPublicQuery = !shopId && !since
@@ -500,6 +622,17 @@ export default {
       if (request.method === 'GET' && url.pathname === '/api/my-shop') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
         return await handleGetMyShop(env, user)
+      }
+      if (request.method === 'POST' && url.pathname === '/api/reviews') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleSaveReview(request, env, user)
+      }
+      if (request.method === 'GET' && url.pathname === '/api/reviews') {
+        return await handleGetShopReviews(env, url)
+      }
+      if (request.method === 'DELETE' && url.pathname === '/api/reviews') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleDeleteReview(request, env, user, url)
       }
       if (request.method === 'GET' && url.pathname === '/api/shops') {
         return await handleListShops(env)

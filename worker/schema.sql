@@ -30,6 +30,18 @@ CREATE TABLE IF NOT EXISTS products (
   created_at           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
+CREATE TABLE IF NOT EXISTS reviews (
+  id          TEXT PRIMARY KEY,
+  shop_id     TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  user_id     TEXT NOT NULL,
+  user_name   TEXT NOT NULL,
+  rating      INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+  comment     TEXT,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  UNIQUE(user_id, shop_id)
+);
+
 CREATE UNIQUE INDEX IF NOT EXISTS idx_shops_owner ON shops(owner_id);
 CREATE INDEX IF NOT EXISTS idx_shops_coords ON shops(lat, lng);
 CREATE INDEX IF NOT EXISTS idx_products_shop ON products(shop_id);
@@ -38,3 +50,5 @@ CREATE INDEX IF NOT EXISTS idx_products_created ON products(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_products_updated ON products(updated_at DESC);
 CREATE INDEX IF NOT EXISTS idx_products_category ON products(category);
 CREATE INDEX IF NOT EXISTS idx_products_flash ON products(is_flash_deal, flash_deal_ends_at);
+CREATE INDEX IF NOT EXISTS idx_reviews_shop ON reviews(shop_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
