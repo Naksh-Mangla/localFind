@@ -2,11 +2,17 @@
   "name": "LocalFind - Hyperlocal Store Window",
   "short_name": "LocalFind",
   "description": "Discover live products in nearby local shops within a 2 km radius. 0% commission direct WhatsApp buying.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#fbf8f5",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
+  "background_color": "#fff8f6",
   "theme_color": "#9c3e20",
   "orientation": "portrait-primary",
+  "dir": "ltr",
+  "lang": "en",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-192.png",
@@ -27,5 +33,21 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["shopping", "lifestyle", "business"]
+  "shortcuts": [
+    {
+      "name": "Explore Nearby Deals",
+      "short_name": "Deals",
+      "description": "Browse live flash deals and local shops near you",
+      "url": "/?view=discover",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Merchant Dashboard",
+      "short_name": "My Shop",
+      "description": "Manage products, flash deals, and store settings",
+      "url": "/?view=merchant",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["shopping", "lifestyle", "business", "utilities"]
 }

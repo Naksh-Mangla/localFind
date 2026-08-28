@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useAuth } from './hooks/useAuth'
+import { usePWAInstall } from './hooks/usePWAInstall'
 import { apiFetch } from './lib/api'
 import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
 import { LocationPickerModal } from './components/LocationPickerModal'
 import { isDealAlertsEnabled, enableDealAlerts, disableDealAlerts, checkAndNotifyNewDeals } from './utils/notifications'
+import { triggerHaptic } from './utils/haptics'
 
 // Performance optimization: Robust lazy loader with automatic deployment chunk-stale retry
 const lazyWithRetry = (importFn) =>
@@ -29,6 +31,7 @@ const ProductDetailModal = lazyWithRetry(() => import('./components/ProductDetai
 
 export default function App() {
   const { user, signInWithGoogle, signOut } = useAuth()
+  const { canInstall, promptInstall } = usePWAInstall()
   // Default to buyer product discover screen
   const [activeView, setActiveView] = useState('discover')
   const [selectedProduct, setSelectedProduct] = useState(null)
@@ -394,6 +397,8 @@ export default function App() {
         lastSyncedAt={lastSyncedAt}
         dealAlertsActive={dealAlertsActive}
         onToggleDealAlerts={handleToggleDealAlerts}
+        canInstall={canInstall}
+        onInstall={promptInstall}
       />
 
       {/* View Router with Smooth Transitions */}
@@ -459,10 +464,13 @@ export default function App() {
         isFirstTimeFallback={isFirstTimeFallback}
       />
 
-      {/* 🍎 Apple-Style Floating Frosted Glass Dock with Safe Area Bottom Support */}
-      <nav className="md:hidden fixed bottom-3 left-4 right-4 z-40 max-w-xs mx-auto bg-surface/90 apple-frosted shadow-crisp-xl border border-surface-variant/60 rounded-full p-1.5 flex justify-around items-center transition-all duration-300 mb-[env(safe-area-inset-bottom,0px)]">
+      {/* 🍎 Apple & Android Floating Frosted Glass Dock with Safe Area Bottom Support */}
+      <nav className="md:hidden fixed bottom-3 left-4 right-4 z-40 max-w-xs mx-auto bg-surface/90 apple-frosted shadow-crisp-xl border border-surface-variant/60 rounded-full p-1.5 flex justify-around items-center transition-all duration-300 mb-[env(safe-area-inset-bottom,0px)] pb-safe">
         <button
-          onClick={() => setActiveView('discover')}
+          onClick={() => {
+            triggerHaptic('selection')
+            setActiveView('discover')
+          }}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-full transition-all duration-200 active:scale-95 min-h-[42px] ${
             activeView === 'discover'
               ? 'bg-primary text-on-primary font-bold shadow-crisp-xs scale-[1.02]'
@@ -474,7 +482,10 @@ export default function App() {
         </button>
 
         <button
-          onClick={() => setActiveView('merchant')}
+          onClick={() => {
+            triggerHaptic('selection')
+            setActiveView('merchant')
+          }}
           className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-full transition-all duration-200 active:scale-95 min-h-[42px] ${
             activeView === 'merchant'
               ? 'bg-primary text-on-primary font-bold shadow-crisp-xs scale-[1.02]'

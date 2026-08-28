@@ -9,6 +9,7 @@ import {
   searchLRUCache
 } from '../utils/hinglishSearch'
 import { getFlashDealInfo } from '../utils/flashDeals'
+import { triggerHaptic } from '../utils/haptics'
 
 const CATEGORIES = [
   { label: 'All', icon: 'interests' },
@@ -384,6 +385,7 @@ export function BuyerDiscover({
       return
     }
 
+    triggerHaptic('medium')
     if (isListening) {
       recognitionRef.current?.stop()
       setIsListening(false)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { getRAGStatus } from '../utils/syncRAG'
+import { triggerHaptic } from '../utils/haptics'
 
 export function Header({
   activeView,
@@ -13,7 +14,9 @@ export function Header({
   refreshing,
   lastSyncedAt,
   dealAlertsActive = false,
-  onToggleDealAlerts
+  onToggleDealAlerts,
+  canInstall = false,
+  onInstall
 }) {
   const [, setTick] = useState(0)
   useEffect(() => {
@@ -105,6 +108,21 @@ export function Header({
               <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin text-primary' : ''}`}>
                 sync
               </span>
+            </button>
+          )}
+
+          {/* Android PWA Install Pill */}
+          {canInstall && (
+            <button
+              onClick={() => {
+                triggerHaptic('medium')
+                if (onInstall) onInstall()
+              }}
+              title="Install LocalFind App on Android / Device"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded-full text-[10px] font-extrabold shadow-crisp-xs flex items-center gap-1 active:scale-95 transition-all animate-pulse"
+            >
+              <span className="material-symbols-outlined text-[13px]">install_mobile</span>
+              <span>Install</span>
             </button>
           )}
 
@@ -250,6 +268,21 @@ export function Header({
               <span className={`material-symbols-outlined text-lg ${refreshing ? 'animate-spin text-primary' : ''}`}>
                 sync
               </span>
+            </button>
+          )}
+
+          {/* PWA Install Button */}
+          {canInstall && (
+            <button
+              onClick={() => {
+                triggerHaptic('medium')
+                if (onInstall) onInstall()
+              }}
+              title="Install LocalFind as an App"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-full text-xs font-bold transition-all shadow-crisp-xs active:scale-95 flex items-center gap-1.5 animate-pulse"
+            >
+              <span className="material-symbols-outlined text-sm">install_mobile</span>
+              <span>Install App</span>
             </button>
           )}
 

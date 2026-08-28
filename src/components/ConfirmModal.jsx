@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react'
+import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
+import { triggerHaptic } from '../utils/haptics'
 
 export function ConfirmModal({
   isOpen,
@@ -10,6 +12,8 @@ export function ConfirmModal({
   onConfirm,
   onCancel
 }) {
+  // Sync with Android back gesture
+  useAndroidBackHandler(isOpen, onCancel, 'confirm_modal')
   useEffect(() => {
     if (!isOpen) return
     const handleKeyDown = (e) => {

@@ -1,7 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react'
 import QRCode from 'qrcode'
+import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
+import { triggerHaptic } from '../utils/haptics'
 
 export function StoreQRStandeeModal({ shop, products = [], onClose }) {
+  // Sync with Android back gesture
+  useAndroidBackHandler(Boolean(shop), onClose, 'qr_standee')
+
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [copied, setCopied] = useState(false)
   const [generatingDownload, setGeneratingDownload] = useState(false)

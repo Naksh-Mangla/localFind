@@ -92,3 +92,29 @@ self.addEventListener('fetch', (event) => {
     })
   )
 })
+
+// Android Push & Local Notification Click Handler
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const productId = event.notification.data?.productId
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // If a window is already open, focus it
+      for (const client of clientList) {
+        if ('focus' in client) {
+          client.focus()
+          if (productId) {
+            client.postMessage({ type: 'OPEN_PRODUCT_DETAIL', productId })
+          }
+          return
+        }
+      }
+      // Otherwise open a new window
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(productId ? `/?product=${productId}` : '/')
+      }
+    })
+  )
+})
+

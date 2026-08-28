@@ -4,11 +4,14 @@ import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
 import { getFlashDealInfo } from '../utils/flashDeals'
 import { sanitizeHttpUrl, sanitizeImageUrl } from '../utils/safeUrl'
+import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
+import { triggerHaptic } from '../utils/haptics'
 
 export function ProductDetailModal({ product, onClose }) {
+  // Sync with Android hardware & gesture back button
+  useAndroidBackHandler(Boolean(product), onClose, 'product_detail')
+
   // Hooks must run unconditionally on every render (Rules of Hooks).
-  // The `!product` early-return used to sit ABOVE these hooks, which would crash
-  // React if the component ever mounted with a null product and later received one.
   const [isWishlisted, setIsWishlisted] = useState(() => {
     try {
       const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
@@ -40,6 +43,32 @@ export function ProductDetailModal({ product, onClose }) {
   }, [product?.id, onClose])
 
   if (!product) return null
+
+  // Android Native Web Share Handler
+  const handleShareProduct = async () => {
+    triggerHaptic('selection')
+    const shareData = {
+      title: `${product.name} | LocalFind`,
+      text: `Check out "${product.name}" at ₹${product.price} at ${product.shop_name || 'local shop'} on LocalFind!`,
+      url: window.location.href
+    }
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData)
+        triggerHaptic('success')
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.warn('Share error:', err)
+        }
+      }
+    } else {
+      try {
+        await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`)
+        triggerHaptic('light')
+        alert('Link copied to clipboard!')
+      } catch {}
+    }
+  }
 
   const productRAG = getRAGStatus(product.updated_at || product.created_at)
   const openStatus = getStoreOpenStatus(product.opening_time, product.closing_time)
@@ -103,9 +132,19 @@ export function ProductDetailModal({ product, onClose }) {
                 <span>{formatDistance(product.distanceKm)}</span>
               </div>
             )}
+            {/* Android Web Share Button */}
+            <button
+              onClick={handleShareProduct}
+              title="Share Product"
+              className="w-10 h-10 rounded-full bg-surface/85 backdrop-blur-md shadow-crisp-sm flex items-center justify-center transition-all active:scale-90 border border-surface-variant/40 text-on-surface-variant hover:text-primary hover:bg-surface"
+            >
+              <span className="material-symbols-outlined text-xl">share</span>
+            </button>
+
             {/* Wishlist Heart Button inside Modal with Heartbeat Animation */}
             <button
               onClick={() => {
+                triggerHaptic('light')
                 try {
                   const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
                   const next = saved.includes(product.id)
@@ -114,6 +153,7 @@ export function ProductDetailModal({ product, onClose }) {
                   localStorage.setItem('localfind_wishlist', JSON.stringify(next))
                   setIsWishlisted(next.includes(product.id))
                   window.dispatchEvent(new Event('storage'))
+                  if (next.includes(product.id)) triggerHaptic('selection')
                 } catch (e) {
                   console.warn(e)
                 }

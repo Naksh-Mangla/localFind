@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react'
+import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
+import { triggerHaptic } from '../utils/haptics'
 
 export function LocationPickerModal({
   isOpen,
@@ -9,6 +11,9 @@ export function LocationPickerModal({
   locationStatus,
   isFirstTimeFallback = false
 }) {
+  // Sync with Android back gesture
+  useAndroidBackHandler(isOpen, onClose, 'location_picker')
+
   const [pincode, setPincode] = useState('')
   const [address, setAddress] = useState('')
   const [landmark, setLandmark] = useState('')

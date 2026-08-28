@@ -22,9 +22,39 @@ body {
   scroll-behavior: smooth;
   text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior-y: contain;
 }
 
-/* Apple-style Display & Title Tight Tracking */
+/* 📱 Android & Mobile Form Input Auto-Zoom Prevention */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/* Prevent unwanted long-press text callouts on Android UI elements */
+button,
+a,
+.touch-target,
+.interactive-chip {
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+/* Safe area bottom padding helper for Android gesture bar and iOS home bar */
+.pb-safe {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
+.pt-safe {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+/* Apple & Android modern Display & Title Tight Tracking */
 h1, h2, h3, .font-headline-lg, .font-display-lg {
   letter-spacing: -0.022em;
 }

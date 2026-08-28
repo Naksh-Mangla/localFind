@@ -6,6 +6,8 @@ import { CustomSelect } from './CustomSelect'
 import { getRAGStatus } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
 import { getFlashDealInfo } from '../utils/flashDeals'
+import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
+import { triggerHaptic } from '../utils/haptics'
 
 const StoreQRStandeeModal = React.lazy(() => import('./StoreQRStandeeModal').then(m => ({ default: m.StoreQRStandeeModal })))
 
@@ -48,6 +50,15 @@ export function MerchantDashboard({
   const [products, setProducts] = useState([])
   const [showAddProductModal, setShowAddProductModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
+
+  // Sync open modals with Android hardware & gesture back button
+  useAndroidBackHandler(showAddProductModal, () => {
+    setShowAddProductModal(false)
+    setEditingProduct(null)
+  }, 'merchant_add_product')
+
+  useAndroidBackHandler(showEditShopModal, () => setShowEditShopModal(false), 'merchant_edit_shop')
+  useAndroidBackHandler(showQRStandeeModal, () => setShowQRStandeeModal(false), 'merchant_qr_standee')
   const [productName, setProductName] = useState('')
   const [productPrice, setProductPrice] = useState('')
   const [productCategory, setProductCategory] = useState('General')
@@ -1251,31 +1262,66 @@ export function MerchantDashboard({
                     Choose a photo directly from your phone gallery/camera, OR paste an image link from Google!
                   </p>
 
-                  {/* Option A: Direct File Upload */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-on-surface mb-1">📷 Upload Photo from Phone</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={async (e) => {
-                        const file = e.target.files?.[0]
-                        if (file) {
-                          try {
-                            showToast('Compressing photo instantly...', 'info', 'Image Compression')
-                            const compressedBase64 = await compressImageToBase64(file)
-                            setImageFile(file)
-                            setProductImageUrl(compressedBase64)
-                            const origKB = Math.round(file.size / 1024)
-                            const newKB = Math.round((compressedBase64.length * 0.75) / 1024)
-                            showToast(`Photo compressed by ${Math.round((1 - newKB / origKB) * 100)}% (${origKB} KB ➔ ${newKB} KB)!`, 'success', 'Photo Compressed')
-                          } catch (err) {
-                            setImageFile(file)
-                            setProductImageUrl(createTrackedObjectUrl(file))
+                  {/* Option A: Direct File Upload & Android Live Camera */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-[11px] font-bold text-on-surface mb-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm text-primary">photo_library</span>
+                        <span>Phone Gallery</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            try {
+                              showToast('Compressing photo instantly...', 'info', 'Image Compression')
+                              const compressedBase64 = await compressImageToBase64(file)
+                              setImageFile(file)
+                              setProductImageUrl(compressedBase64)
+                              const origKB = Math.round(file.size / 1024)
+                              const newKB = Math.round((compressedBase64.length * 0.75) / 1024)
+                              showToast(`Photo compressed by ${Math.round((1 - newKB / origKB) * 100)}% (${origKB} KB ➔ ${newKB} KB)!`, 'success', 'Photo Compressed')
+                            } catch (err) {
+                              setImageFile(file)
+                              setProductImageUrl(createTrackedObjectUrl(file))
+                            }
                           }
-                        }
-                      }}
-                      className="w-full text-xs text-on-surface-variant file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
-                    />
+                        }}
+                        className="w-full text-xs text-on-surface-variant file:mr-2 file:py-1.5 file:px-2.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-surface-variant file:text-on-surface hover:file:bg-surface-variant/80 cursor-pointer"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold text-on-surface mb-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm text-primary">photo_camera</span>
+                        <span>Live Camera</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0]
+                          if (file) {
+                            try {
+                              showToast('Compressing live camera photo...', 'info', 'Image Compression')
+                              const compressedBase64 = await compressImageToBase64(file)
+                              setImageFile(file)
+                              setProductImageUrl(compressedBase64)
+                              const origKB = Math.round(file.size / 1024)
+                              const newKB = Math.round((compressedBase64.length * 0.75) / 1024)
+                              showToast(`Photo ready: ${newKB} KB!`, 'success', 'Camera Photo Compressed')
+                            } catch (err) {
+                              setImageFile(file)
+                              setProductImageUrl(createTrackedObjectUrl(file))
+                            }
+                          }
+                        }}
+                        className="w-full text-xs text-on-surface-variant file:mr-2 file:py-1.5 file:px-2.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-primary file:text-on-primary hover:file:bg-primary-container cursor-pointer"
+                      />
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2 my-1">
