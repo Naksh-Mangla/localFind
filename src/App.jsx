@@ -464,21 +464,21 @@ export default function App() {
         isFirstTimeFallback={isFirstTimeFallback}
       />
 
-      {/* 🍎 Apple & Android Floating Frosted Glass Dock with Safe Area Bottom Support */}
-      <nav className="md:hidden fixed bottom-3 left-4 right-4 z-40 max-w-xs mx-auto bg-surface/90 apple-frosted shadow-crisp-xl border border-surface-variant/60 rounded-full p-1.5 flex justify-around items-center transition-all duration-300 mb-[env(safe-area-inset-bottom,0px)] pb-safe">
+      {/* 🍎 Ultra-Sleek Floating Pill Dock for Mobile & Android */}
+      <nav className="md:hidden fixed bottom-2.5 left-1/2 -translate-x-1/2 z-40 bg-surface/90 dark:bg-zinc-900/90 apple-frosted shadow-[0_6px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4)] border border-surface-variant/50 rounded-full p-1 inline-flex items-center gap-1 transition-all duration-300 mb-[env(safe-area-inset-bottom,0px)]">
         <button
           onClick={() => {
             triggerHaptic('selection')
             setActiveView('discover')
           }}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-full transition-all duration-200 active:scale-95 min-h-[42px] ${
+          className={`flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full transition-all duration-200 active:scale-95 text-[11px] font-bold ${
             activeView === 'discover'
-              ? 'bg-primary text-on-primary font-bold shadow-crisp-xs scale-[1.02]'
-              : 'text-on-surface-variant hover:text-on-surface font-semibold'
+              ? 'bg-primary text-white shadow-xs scale-[1.02]'
+              : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'
           }`}
         >
-          <span className="material-symbols-outlined text-[18px]">explore</span>
-          <span className="font-label-caps text-xs font-bold">Explore</span>
+          <span className="material-symbols-outlined text-[15px]">explore</span>
+          <span className="tracking-tight">Explore</span>
         </button>
 
         <button
@@ -486,14 +486,14 @@ export default function App() {
             triggerHaptic('selection')
             setActiveView('merchant')
           }}
-          className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-full transition-all duration-200 active:scale-95 min-h-[42px] ${
+          className={`flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full transition-all duration-200 active:scale-95 text-[11px] font-bold ${
             activeView === 'merchant'
-              ? 'bg-primary text-on-primary font-bold shadow-crisp-xs scale-[1.02]'
-              : 'text-on-surface-variant hover:text-on-surface font-semibold'
+              ? 'bg-primary text-white shadow-xs scale-[1.02]'
+              : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'
           }`}
         >
-          <span className="material-symbols-outlined text-[18px]">storefront</span>
-          <span className="font-label-caps text-xs font-bold">My Shop</span>
+          <span className="material-symbols-outlined text-[15px]">storefront</span>
+          <span className="tracking-tight">My Shop</span>
         </button>
       </nav>
     </div>
