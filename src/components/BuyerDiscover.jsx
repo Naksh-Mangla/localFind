@@ -265,6 +265,62 @@ export function BuyerDiscover({
     }
   })
 
+  // Direct Shop details state for QR Standee scanned stores (e.g. stores with 0 products)
+  const [directShopInfo, setDirectShopInfo] = useState(null)
+
+  // Listen to browser popstate to sync targetShopId dynamically
+  useEffect(() => {
+    const handleLocationChange = () => {
+      try {
+        const params = new URLSearchParams(window.location.search)
+        setTargetShopId(params.get('shopId') || null)
+      } catch {
+        setTargetShopId(null)
+      }
+    }
+    window.addEventListener('popstate', handleLocationChange)
+    return () => window.removeEventListener('popstate', handleLocationChange)
+  }, [])
+
+  // If QR Standee targetShopId is present, fetch shop details directly if not already present in loaded product catalog
+  useEffect(() => {
+    if (!targetShopId) {
+      setDirectShopInfo(null)
+      return
+    }
+
+    let isMounted = true
+    const fetchDirectShop = async () => {
+      try {
+        const data = await apiFetch('/api/shops')
+        if (isMounted && data?.shops && Array.isArray(data.shops)) {
+          const found = data.shops.find((s) => String(s.id) === String(targetShopId))
+          if (found) {
+            setDirectShopInfo({
+              id: found.id,
+              name: found.shop_name,
+              address: found.address_text || '',
+              whatsapp: found.whatsapp_number,
+              openingTime: found.opening_time,
+              closingTime: found.closing_time,
+              lat: found.lat,
+              lng: found.lng,
+              avgRating: found.avg_rating ? Number(found.avg_rating) : null,
+              reviewCount: found.review_count ? Number(found.review_count) : 0
+            })
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch direct shop details', err)
+      }
+    }
+
+    fetchDirectShop()
+    return () => {
+      isMounted = false
+    }
+  }, [targetShopId])
+
   // Wishlist state
   const [wishlistIds, setWishlistIds] = useState(() => {
     try {
@@ -427,9 +483,9 @@ export function BuyerDiscover({
   const indexedProductsWithDistance = useMemo(() => {
     searchLRUCache.clear() // Invalidate LRU query cache when product list updates
     const indexed = indexProductsList(products)
-    const hasUserGPS = userCoords?.latitude && userCoords?.longitude
-    const uLat = hasUserGPS ? userCoords.latitude : null
-    const uLng = hasUserGPS ? userCoords.longitude : null
+    const userLat = userCoords ? Number(userCoords.lat ?? userCoords.latitude) : null
+    const userLng = userCoords ? Number(userCoords.lng ?? userCoords.longitude) : null
+    const hasUserGPS = Number.isFinite(userLat) && Number.isFinite(userLng)
     const currentUid = currentUser?.uid
 
     return indexed.map((prod) => {
@@ -440,8 +496,8 @@ export function BuyerDiscover({
       } else {
         const pLat = Number(prod.lat)
         const pLng = Number(prod.lng)
-        if (uLat !== null && uLng !== null && Number.isFinite(pLat) && Number.isFinite(pLng)) {
-          distanceKm = calculateDistanceKm(uLat, uLng, pLat, pLng)
+        if (hasUserGPS && Number.isFinite(pLat) && Number.isFinite(pLng)) {
+          distanceKm = calculateDistanceKm(userLat, userLng, pLat, pLng)
         }
       }
       return { ...prod, distanceKm, isOwner }
@@ -469,8 +525,12 @@ export function BuyerDiscover({
     }
     if (directShopInfo) {
       let distanceKm = null
-      if (userCoords?.latitude && userCoords?.longitude && directShopInfo.lat && directShopInfo.lng) {
-        distanceKm = calculateDistanceKm(userCoords.latitude, userCoords.longitude, Number(directShopInfo.lat), Number(directShopInfo.lng))
+      const userLat = userCoords ? Number(userCoords.lat ?? userCoords.latitude) : null
+      const userLng = userCoords ? Number(userCoords.lng ?? userCoords.longitude) : null
+      const sLat = Number(directShopInfo.lat)
+      const sLng = Number(directShopInfo.lng)
+      if (Number.isFinite(userLat) && Number.isFinite(userLng) && Number.isFinite(sLat) && Number.isFinite(sLng)) {
+        distanceKm = calculateDistanceKm(userLat, userLng, sLat, sLng)
       }
       return {
         ...directShopInfo,
