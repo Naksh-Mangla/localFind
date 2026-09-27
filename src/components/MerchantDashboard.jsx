@@ -9,6 +9,7 @@ import { getStoreOpenStatus } from '../utils/storeHours'
 import { getFlashDealInfo } from '../utils/flashDeals'
 import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
 import { triggerHaptic } from '../utils/haptics'
+import { lookupPincode } from '../utils/postalPincode'
 
 const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
 
@@ -43,6 +44,8 @@ export function MerchantDashboard({
   const [streetAddress, setStreetAddress] = useState('')
   const [landmarkText, setLandmarkText] = useState('')
   const [pincodeText, setPincodeText] = useState('')
+  const [postalInfo, setPostalInfo] = useState(null)
+  const [loadingPostal, setLoadingPostal] = useState(false)
   const [lat, setLat] = useState(userCoords?.lat || 28.6139)
   const [lng, setLng] = useState(userCoords?.lng || 77.2090)
   const [creatingShop, setCreatingShop] = useState(false)
@@ -160,7 +163,13 @@ export function MerchantDashboard({
             setStreetAddress(parts[0].trim())
             const landmarkParts = parts[1].split(', Pin - ')
             setLandmarkText(landmarkParts[0]?.trim() || '')
-            setPincodeText(landmarkParts[1]?.trim() || '')
+            const extractedPin = (landmarkParts[1]?.trim() || '').slice(0, 6)
+            setPincodeText(extractedPin)
+            if (extractedPin.length === 6) {
+              lookupPincode(extractedPin).then((res) => {
+                if (res.success) setPostalInfo(res)
+              }).catch(() => {})
+            }
           } else {
             setStreetAddress(myShop.address_text)
           }
@@ -182,13 +191,15 @@ export function MerchantDashboard({
     fetchMerchantShop()
   }, [fetchMerchantShop])
 
-  // Set default coordinates if user location changes
+  // Set default coordinates only for new shops — never overwrite a saved shop location
+  // with the buyer's current GPS (merchant may be travelling).
   useEffect(() => {
+    if (shop) return
     if (userCoords?.lat && userCoords?.lng) {
       setLat(userCoords.lat)
       setLng(userCoords.lng)
     }
-  }, [userCoords])
+  }, [userCoords, shop])
 
   // Auto-detect high-accuracy GPS when Shopkeeper Registration opens
   useEffect(() => {
@@ -226,6 +237,32 @@ export function MerchantDashboard({
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
     )
+  }
+
+  // Auto-detect City and State using India Postal API when 6 digits are entered
+  const handlePincodeChange = async (val) => {
+    const cleanPin = val.replace(/[^0-9]/g, '').slice(0, 6)
+    setPincodeText(cleanPin)
+    if (cleanPin.length === 6) {
+      setLoadingPostal(true)
+      try {
+        const res = await lookupPincode(cleanPin)
+        if (res.success) {
+          setPostalInfo(res)
+          triggerHaptic('selection')
+          showToast(`📍 Auto-detected: ${res.formattedLocation}`, 'success', 'Postal Registry Match')
+        } else {
+          setPostalInfo(null)
+          showToast(res.error || 'Pincode not found in Indian Postal records', 'error', 'Postal Lookup')
+        }
+      } catch {
+        setPostalInfo(null)
+      } finally {
+        setLoadingPostal(false)
+      }
+    } else {
+      setPostalInfo(null)
+    }
   }
 
   // Handle Shop Creation — strictly validates mandatory fields & acquires FRESH GPS from device
@@ -929,39 +966,89 @@ export function MerchantDashboard({
               />
             </div>
 
-            {/* 4. Separate Landmark & Pin Code Fields (Mandatory) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  Landmark *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={landmarkText}
-                  onChange={(e) => setLandmarkText(e.target.value)}
-                  placeholder="e.g. Opposite State Bank"
-                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                />
+            {/* 4. Landmark & Pin Code Fields + Auto City/State Postal Finder */}
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1">
+                    Landmark *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={landmarkText}
+                    onChange={(e) => setLandmarkText(e.target.value)}
+                    placeholder="e.g. Opposite State Bank"
+                    className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-on-surface mb-1 flex items-center justify-between">
+                    <span>Pin Code *</span>
+                    <span className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+                      <span className="material-symbols-outlined text-[13px]">bolt</span>
+                      Auto City & State
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      required
+                      maxLength={6}
+                      inputMode="numeric"
+                      value={pincodeText}
+                      onChange={(e) => handlePincodeChange(e.target.value)}
+                      placeholder="e.g. 110001"
+                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary font-bold pr-10"
+                    />
+                    {loadingPostal && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                        <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin inline-block" />
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-on-surface mb-1">
-                  Pin Code * <span className="text-[10px] text-on-surface-variant font-normal">(6 digits)</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  maxLength={6}
-                  value={pincodeText}
-                  onChange={(e) => {
-                    const onlyNums = e.target.value.replace(/[^0-9]/g, '')
-                    if (onlyNums.length <= 6) setPincodeText(onlyNums)
-                  }}
-                  placeholder="110001"
-                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                />
-              </div>
+              {/* ⚡ Postal API Auto-Detected City & State Card */}
+              {postalInfo && (
+                <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex flex-col gap-2 animate-fadeIn">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
+                      <span className="material-symbols-outlined text-[16px]">verified</span>
+                      <span>Verified: {postalInfo.city}, {postalInfo.state}</span>
+                    </div>
+                    <span className="text-[9px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      India Post API
+                    </span>
+                  </div>
+
+                  {postalInfo.areas && postalInfo.areas.length > 0 && (
+                    <div>
+                      <span className="text-[10px] text-on-surface-variant font-semibold block mb-1">
+                        Tap your local area to auto-add to Landmark:
+                      </span>
+                      <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                        {postalInfo.areas.slice(0, 8).map((area) => (
+                          <button
+                            key={area}
+                            type="button"
+                            onClick={() => {
+                              triggerHaptic('selection')
+                              setLandmarkText((prev) => (prev ? `${prev}, ${area}` : area))
+                            }}
+                            className="bg-surface border border-emerald-500/30 hover:border-emerald-500 text-on-surface text-[10px] font-semibold px-2 py-1 rounded-lg transition-all active:scale-95 flex items-center gap-1"
+                          >
+                            <span>+</span>
+                            <span>{area}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 5. Live GPS Coordinates + Draggable Free Map (Android-optimized, no API key) */}
@@ -1729,39 +1816,89 @@ export function MerchantDashboard({
                   />
                 </div>
 
-                {/* 4. Separate Landmark & Pin Code Fields (Mandatory) */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-1">
-                      Landmark *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={landmarkText}
-                      onChange={(e) => setLandmarkText(e.target.value)}
-                      placeholder="e.g. Opposite State Bank"
-                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                    />
+                {/* 4. Landmark & Pin Code Fields + Auto City/State Postal Finder */}
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-on-surface mb-1">
+                        Landmark *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={landmarkText}
+                        onChange={(e) => setLandmarkText(e.target.value)}
+                        placeholder="e.g. Opposite State Bank"
+                        className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-on-surface mb-1 flex items-center justify-between">
+                        <span>Pin Code *</span>
+                        <span className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+                          <span className="material-symbols-outlined text-[13px]">bolt</span>
+                          Auto City & State
+                        </span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          required
+                          maxLength={6}
+                          inputMode="numeric"
+                          value={pincodeText}
+                          onChange={(e) => handlePincodeChange(e.target.value)}
+                          placeholder="e.g. 110001"
+                          className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary font-bold pr-10"
+                        />
+                        {loadingPostal && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                            <span className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin inline-block" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-on-surface mb-1">
-                      Pin Code * <span className="text-[10px] text-on-surface-variant font-normal">(6 digits)</span>
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      maxLength={6}
-                      value={pincodeText}
-                      onChange={(e) => {
-                        const onlyNums = e.target.value.replace(/[^0-9]/g, '')
-                        if (onlyNums.length <= 6) setPincodeText(onlyNums)
-                      }}
-                      placeholder="110001"
-                      className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-3 text-sm focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
+                  {/* ⚡ Postal API Auto-Detected City & State Card */}
+                  {postalInfo && (
+                    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 flex flex-col gap-2 animate-fadeIn">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-300 font-bold text-xs">
+                          <span className="material-symbols-outlined text-[16px]">verified</span>
+                          <span>Verified: {postalInfo.city}, {postalInfo.state}</span>
+                        </div>
+                        <span className="text-[9px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                          India Post API
+                        </span>
+                      </div>
+
+                      {postalInfo.areas && postalInfo.areas.length > 0 && (
+                        <div>
+                          <span className="text-[10px] text-on-surface-variant font-semibold block mb-1">
+                            Tap your local area to auto-add to Landmark:
+                          </span>
+                          <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                            {postalInfo.areas.slice(0, 8).map((area) => (
+                              <button
+                                key={area}
+                                type="button"
+                                onClick={() => {
+                                  triggerHaptic('selection')
+                                  setLandmarkText((prev) => (prev ? `${prev}, ${area}` : area))
+                                }}
+                                className="bg-surface border border-emerald-500/30 hover:border-emerald-500 text-on-surface text-[10px] font-semibold px-2 py-1 rounded-lg transition-all active:scale-95 flex items-center gap-1"
+                              >
+                                <span>+</span>
+                                <span>{area}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 5. Live GPS + Free Draggable Map (Android optimized) */}

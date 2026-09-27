@@ -19,7 +19,8 @@ const json = (data, status = 200) =>
   })
 
 const b64UrlToBytes = (input) => {
-  const pad = input.replace(/-/g, '+').replace(/_/g, '/')
+  let pad = input.replace(/-/g, '+').replace(/_/g, '/')
+  while (pad.length % 4) pad += '='
   const bin = atob(pad)
   return Uint8Array.from(bin, (c) => c.charCodeAt(0))
 }
@@ -135,10 +136,15 @@ const MAX_IMAGE_DATA_URL_CHARS = 500_000 // ~365 KB binary
 
 function sanitizeImageUrl(value) {
   if (!value || typeof value !== 'string') return null
-  const trimmed = value.trim().slice(0, MAX_IMAGE_DATA_URL_CHARS)
+  const trimmed = value.trim()
   if (!trimmed) return null
-  if (/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(trimmed)) {
-    return trimmed
+  if (trimmed.startsWith('data:image/')) {
+    // Reject oversized payloads instead of truncating (truncation corrupts base64)
+    if (trimmed.length > MAX_IMAGE_DATA_URL_CHARS) return null
+    if (/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/.test(trimmed)) {
+      return trimmed
+    }
+    return null
   }
   return sanitizeHttpUrl(trimmed)
 }
@@ -513,8 +519,16 @@ async function handleListProducts(env, url, request, ctx) {
     ? 'public, max-age=45, s-maxage=90, stale-while-revalidate=180'
     : 'no-cache, no-store, must-revalidate'
 
-  // Generate lightweight deterministic ETag fingerprint from item count + latest updated/created timestamp
-  const latestRecord = results.length > 0 ? (results[0].updated_at || results[0].created_at || '0') : 'empty'
+  // Generate deterministic ETag from count + max(updated_at/created_at) across ALL rows.
+  // Using results[0] is wrong: list is ORDER BY created_at, so editing a non-newest
+  // product leaves results[0] unchanged and clients get a false 304.
+  let latestRecord = 'empty'
+  if (results.length > 0) {
+    latestRecord = results.reduce((max, r) => {
+      const ts = r.updated_at || r.created_at || '0'
+      return ts > max ? ts : max
+    }, results[0].updated_at || results[0].created_at || '0')
+  }
   const etag = `W/"${results.length}-${latestRecord}"`
 
   // Zero-Bandwidth ETag check: Return 304 Not Modified if client catalog is already up to date
@@ -543,7 +557,7 @@ async function handleListProducts(env, url, request, ctx) {
   // Store in Cloudflare native edge RAM cache for subsequent hits
   if (isGlobalPublicQuery && typeof caches !== 'undefined' && caches.default && ctx?.waitUntil && request) {
     try {
-      const cacheKey = new Request(url.origin + url.pathname, request)
+      const cacheKey = new Request(url.origin + url.pathname + url.search, request)
       ctx.waitUntil(caches.default.put(cacheKey, response.clone()))
     } catch (e) {
       console.warn('Edge cache write error:', e)
@@ -678,7 +692,7 @@ export default {
         // Check Cloudflare Edge RAM cache for lightning-fast ~8ms response
         if (isGlobalPublicQuery && typeof caches !== 'undefined' && caches.default) {
           try {
-            const cacheKey = new Request(url.origin + url.pathname, request)
+            const cacheKey = new Request(url.origin + url.pathname + url.search, request)
             const cachedRes = await caches.default.match(cacheKey)
             if (cachedRes) {
               const clientEtag = request.headers.get('If-None-Match')

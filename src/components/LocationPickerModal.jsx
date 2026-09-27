@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
 import { triggerHaptic } from '../utils/haptics'
+import { lookupPincode } from '../utils/postalPincode'
 
 export function LocationPickerModal({
   isOpen,
@@ -19,6 +20,8 @@ export function LocationPickerModal({
   const [landmark, setLandmark] = useState('')
   const [searching, setSearching] = useState(false)
   const [searchError, setSearchError] = useState('')
+  const [postalInfo, setPostalInfo] = useState(null)
+  const [loadingPostal, setLoadingPostal] = useState(false)
 
   // Load previous values if available
   useEffect(() => {
@@ -26,7 +29,10 @@ export function LocationPickerModal({
       const savedAddress = localStorage.getItem('localfind_user_address')
       if (savedAddress) {
         const parsed = JSON.parse(savedAddress)
-        if (parsed.pincode) setPincode(parsed.pincode)
+        if (parsed.pincode) {
+          setPincode(parsed.pincode)
+          if (parsed.pincode.length === 6) lookupPincode(parsed.pincode).then(res => res.success && setPostalInfo(res))
+        }
         if (parsed.address) setAddress(parsed.address)
         if (parsed.landmark) setLandmark(parsed.landmark)
         return
@@ -34,7 +40,10 @@ export function LocationPickerModal({
       const saved = localStorage.getItem('localfind_saved_location')
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (parsed.pincode) setPincode(parsed.pincode)
+        if (parsed.pincode) {
+          setPincode(parsed.pincode)
+          if (parsed.pincode.length === 6) lookupPincode(parsed.pincode).then(res => res.success && setPostalInfo(res))
+        }
         if (parsed.address) setAddress(parsed.address)
         if (parsed.landmark) setLandmark(parsed.landmark)
       }
@@ -199,28 +208,104 @@ export function LocationPickerModal({
 
         {/* 3-Field Location Form */}
         <form onSubmit={handleSubmitLocation} className="flex flex-col gap-3.5">
-          {/* 1. Pin Code (6 digits) */}
-          <div>
-            <label className="block text-xs font-bold text-on-surface mb-1">
-              1. Pin Code * <span className="text-[10px] text-on-surface-variant font-normal">(6 digits)</span>
-            </label>
-            <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-base">
-                tag
-              </span>
-              <input
-                type="text"
-                required
-                maxLength={6}
-                value={pincode}
-                onChange={(e) => {
-                  const onlyNums = e.target.value.replace(/[^0-9]/g, '')
-                  if (onlyNums.length <= 6) setPincode(onlyNums)
-                }}
-                placeholder="e.g. 110001"
-                className="w-full bg-surface-container-high border border-surface-variant rounded-xl py-2.5 pl-9 pr-3 text-xs font-bold text-on-surface focus:ring-1 focus:ring-primary focus:border-primary"
-              />
+          {/* 1. Pin Code (6 digits) + Postal API Auto-City & State */}
+          <div className="flex flex-col gap-2">
+            <div>
+              <label className="block text-xs font-bold text-on-surface mb-1 flex items-center justify-between">
+                <span>1. Pin Code * <span className="text-[10px] text-on-surface-variant font-normal">(6 digits)</span></span>
+                <span className="text-[10px] text-primary font-semibold flex items-center gap-0.5">
+                  <span className="material-symbols-outlined text-[13px]">bolt</span>
+                  Auto City & State
+                </span>
+              </label>
+              <div className="relative">
+                <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-base">
+                  tag
+                </span>
+                <input
+                  type="text"
+                  required
+                  maxLength={6}
+                  inputMode="numeric"
+                  value={pincode}
+                  onChange={async (e) => {
+                    const onlyNums = e.target.value.replace(/[^0-9]/g, '').slice(0, 6)
+                    setPincode(onlyNums)
+                    if (onlyNums.length === 6) {
+                      setLoadingPostal(true)
+                      setSearchError('')
+                      try {
+                        const res = await lookupPincode(onlyNums)
+                        if (res.success) {
+                          setPostalInfo(res)
+                          triggerHaptic('selection')
+                          if (!address.trim() && res.areas && res.areas.length > 0) {
+                            setAddress(res.areas[0])
+                          }
+                        } else {
+                          setPostalInfo(null)
+                        }
+                      } catch {
+                        setPostalInfo(null)
+                      } finally {
+                        setLoadingPostal(false)
+                      }
+                    } else {
+                      setPostalInfo(null)
+                    }
+                  }}
+                  placeholder="e.g. 110001"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl py-2.5 pl-9 pr-9 text-xs font-bold text-on-surface focus:ring-1 focus:ring-primary focus:border-primary"
+                />
+                {loadingPostal && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <span className="w-3.5 h-3.5 rounded-full border-2 border-primary border-t-transparent animate-spin inline-block" />
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* ⚡ Postal API Auto-Detected City & Locality Chips */}
+            {postalInfo && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-2.5 flex flex-col gap-1.5 animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1">
+                    <span className="material-symbols-outlined text-[15px]">verified</span>
+                    <span>{postalInfo.city}, {postalInfo.state}</span>
+                  </span>
+                  <span className="text-[9px] bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded-full">
+                    Postal API
+                  </span>
+                </div>
+
+                {postalInfo.areas && postalInfo.areas.length > 0 && (
+                  <div>
+                    <span className="text-[10px] text-on-surface-variant font-medium block mb-1">
+                      Tap your area to fill address:
+                    </span>
+                    <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
+                      {postalInfo.areas.slice(0, 6).map((area) => (
+                        <button
+                          key={area}
+                          type="button"
+                          onClick={() => {
+                            triggerHaptic('selection')
+                            setAddress(area)
+                          }}
+                          className={`text-[10px] px-2 py-0.5 rounded-lg border font-medium transition-all active:scale-95 ${
+                            address === area
+                              ? 'bg-primary text-on-primary border-primary font-bold'
+                              : 'bg-surface text-on-surface border-surface-variant hover:border-primary/50'
+                          }`}
+                        >
+                          {area}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 2. Address / Area */}

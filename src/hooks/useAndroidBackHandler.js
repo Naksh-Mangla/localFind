@@ -27,11 +27,14 @@ export function useAndroidBackHandler(isOpen, onClose, modalKey = 'modal') {
     pushedRef.current = true
 
     const handlePopState = (e) => {
-      if (pushedRef.current) {
-        pushedRef.current = false
-        if (onCloseRef.current) {
-          onCloseRef.current()
-        }
+      if (!pushedRef.current) return
+      // Only close if OUR entry was popped. When nested modals are open,
+      // popping the inner entry leaves the outer's state on top — outer must stay open.
+      const ourEntryStillOnStack = Boolean(e.state && e.state[stateKey])
+      if (ourEntryStillOnStack) return
+      pushedRef.current = false
+      if (onCloseRef.current) {
+        onCloseRef.current()
       }
     }
 

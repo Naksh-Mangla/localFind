@@ -130,7 +130,10 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
     }
   }
 
-  const cleanWhatsapp = product.whatsapp_number ? product.whatsapp_number.replace(/[^0-9]/g, '') : ''
+  const rawWhatsapp = product.whatsapp_number ? String(product.whatsapp_number).replace(/[^0-9]/g, '') : ''
+  // wa.me requires full international format — Indian shops store 10 digits, prefix 91.
+  // Legacy rows with <10 digits are treated as missing (backend enforces exactly 10).
+  const cleanWhatsapp = rawWhatsapp.length >= 10 ? `91${rawWhatsapp.slice(-10)}` : ''
   const isFlash = product.is_flash_deal && product.flash_deal_ends_at && new Date(product.flash_deal_ends_at).getTime() > Date.now()
   const flashInfo = isFlash ? getFlashDealInfo(product) : null
 
@@ -139,7 +142,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
       ? `Hi, I saw the Flash Deal for "${product.name}" at ₹${flashInfo?.discountedPrice} (${flashInfo?.discountPercent}% OFF) at ${product.shop_name} on LocalFind! Is it still in stock?`
       : `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
   )
-  const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}`
+  const whatsappUrl = cleanWhatsapp ? `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}` : '#'
   
   const pLat = Number(product.lat)
   const pLng = Number(product.lng)
@@ -158,7 +161,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
   const safeAffiliateLink = product.is_affiliate_fallback ? sanitizeHttpUrl(product.affiliate_link) : null
 
   const myExistingReview = user?.uid ? reviews.find((r) => r.user_id === user.uid) : null
-  const isOwnShop = user?.uid && product.shop_owner_id === user.uid
+  const isOwnShop = Boolean(user?.uid && product.owner_id && product.owner_id === user.uid)
 
   const handleSubmitReview = async () => {
     if (!user) {
@@ -502,7 +505,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
           </div>
 
           {/* 💬 1-Tap Hinglish WhatsApp Quick Inquiry Templates */}
-          {!product.is_affiliate_fallback && (
+          {!product.is_affiliate_fallback && cleanWhatsapp && (
             <div className="pt-2">
               <label className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-sm text-[#25D366]">bolt</span>
@@ -564,15 +567,25 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
               </a>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <a
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20 hover:shadow-[#25D366]/20"
-                >
-                  <span className="material-symbols-outlined text-lg">chat</span>
-                  <span>Ask Custom on WhatsApp</span>
-                </a>
+                {cleanWhatsapp ? (
+                  <a
+                    href={whatsappUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20 hover:shadow-[#25D366]/20"
+                  >
+                    <span className="material-symbols-outlined text-lg">chat</span>
+                    <span>Ask Custom on WhatsApp</span>
+                  </a>
+                ) : (
+                  <span
+                    title="Shop contact number unavailable"
+                    className="w-full bg-surface-variant/60 text-on-surface-variant py-3.5 px-4 rounded-2xl font-bold text-center flex items-center justify-center gap-2 text-sm border border-surface-variant/50 cursor-not-allowed"
+                  >
+                    <span className="material-symbols-outlined text-lg">chat</span>
+                    <span>WhatsApp Unavailable</span>
+                  </span>
+                )}
                 <a
                   href={mapsUrl}
                   target="_blank"
