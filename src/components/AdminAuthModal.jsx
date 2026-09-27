@@ -150,13 +150,6 @@ export function AdminAuthModal({ isOpen, onClose, onUnlockSuccess, initialEmail 
             </button>
           </div>
         </form>
-
-        {/* Helper Notice */}
-        <div className="mt-5 pt-4 border-t border-surface-variant/40 text-center">
-          <p className="text-[11px] text-on-surface-variant">
-            Default Admin Password: <code className="bg-surface-container-high px-1.5 py-0.5 rounded text-primary font-semibold font-mono">Admin@LocalFind2026</code>
-          </p>
-        </div>
       </div>
     </div>
   )

@@ -49,7 +49,6 @@ export async function apiFetch(path, options = {}) {
       const headers = {
         ...(token ? { Authorization: `Bearer ${token}` } : (adminToken ? { Authorization: `Bearer ${adminToken}` } : {})),
         ...(adminToken ? { 'X-Admin-Token': adminToken } : {}),
-        ...(options.bustCache ? { 'Cache-Control': 'no-cache' } : {}),
         ...(options.headers ?? {})
       }
 

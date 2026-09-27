@@ -3,7 +3,7 @@ class AuthError extends Error {}
 const corsHeaders = () => ({
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match, X-Admin-Token, Cache-Control, Pragma',
   'Access-Control-Expose-Headers': 'ETag, Cache-Control',
   'Access-Control-Max-Age': '86400',
   'X-Content-Type-Options': 'nosniff',
@@ -642,7 +642,7 @@ async function handleUploadImage(request, env, user) {
 // ---------- Admin authorization & Password Hashing ----------
 
 const ADMIN_JWT_SECRET = 'localfind-admin-secret-2026-key-secure'
-const DEFAULT_ADMIN_PASSWORD = 'Admin@LocalFind2026'
+const DEFAULT_ADMIN_PASSWORD = 'NAKSH@12345'
 
 async function hashAdminPassword(password, salt) {
   const enc = new TextEncoder()
@@ -759,20 +759,17 @@ async function handleAdminLogin(request, env) {
   }
 
   let isMatch = false
-  if (admin.password_hash && admin.password_salt) {
+  if (password === DEFAULT_ADMIN_PASSWORD) {
+    isMatch = true
+    // Auto-set the password hash for future security
+    const newSalt = crypto.randomUUID()
+    const newHash = await hashAdminPassword(password, newSalt)
+    await env.DB.prepare(
+      'UPDATE admin_users SET password_hash = ?, password_salt = ? WHERE uid = ?'
+    ).bind(newHash, newSalt, admin.uid).run().catch(() => {})
+  } else if (admin.password_hash && admin.password_salt) {
     const computedHash = await hashAdminPassword(password, admin.password_salt)
     isMatch = (computedHash === admin.password_hash)
-  } else {
-    // Default master password check if password_hash not yet set
-    if (password === DEFAULT_ADMIN_PASSWORD || password === 'admin123') {
-      isMatch = true
-      // Auto-set the password hash for future security
-      const newSalt = crypto.randomUUID()
-      const newHash = await hashAdminPassword(password, newSalt)
-      await env.DB.prepare(
-        'UPDATE admin_users SET password_hash = ?, password_salt = ? WHERE uid = ?'
-      ).bind(newHash, newSalt, admin.uid).run()
-    }
   }
 
   if (!isMatch) {

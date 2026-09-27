@@ -76,24 +76,6 @@ export function MerchantDashboard({
   const [savingProduct, setSavingProduct] = useState(false)
   const [uploadProgress, setUploadProgress] = useState('')
 
-  // Track blob object URLs so they are revoked (prevents memory leaks across uploads)
-  const objectUrlRef = React.useRef(null)
-
-  const createTrackedObjectUrl = (file) => {
-    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current)
-    const url = URL.createObjectURL(file)
-    objectUrlRef.current = url
-    return url
-  }
-
-  // Revoke any pending blob URL once the product modal closes
-  useEffect(() => {
-    if (!showAddProductModal && objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current)
-      objectUrlRef.current = null
-    }
-  }, [showAddProductModal])
-
   // Close modals on Escape key press
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -503,9 +485,22 @@ export function MerchantDashboard({
     return cleaned
   }
 
+  // Reject dangerous/unsupported picks BEFORE reading them into memory —
+  // a 50MB file would otherwise OOM-crash low-end phones in FileReader/canvas.
+  const MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+  const validateImageFile = (file) => {
+    if (!file) return 'No file selected.'
+    if (file.type && !file.type.startsWith('image/')) return 'Only photo files are allowed.'
+    if (!file.size) return 'This file looks empty. Please pick another photo.'
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return `Photo is too big (${(file.size / 1048576).toFixed(1)} MB). Please pick one under 10 MB.`
+    }
+    return null
+  }
+
   // Compress local image file to lightweight compressed Base64 Data URL (JPEG, < 150KB)
   // This stores the image directly inside the app database — 100% reliable, 0 external API keys needed, 0 ads!
-  const compressImageToBase64 = (file) => {
+  const compressImageToBase64 = (file, maxDim = 800, quality = 0.75) => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.onerror = () => reject(new Error('Failed to read image file'))
@@ -517,7 +512,7 @@ export function MerchantDashboard({
           let width = img.width
           let height = img.height
 
-          const MAX_SIZE = 800
+          const MAX_SIZE = maxDim
           if (width > height) {
             if (width > MAX_SIZE) {
               height = Math.round((height * MAX_SIZE) / width)
@@ -536,10 +531,10 @@ export function MerchantDashboard({
           ctx.drawImage(img, 0, 0, width, height)
 
           // WebP format offers 25-35% smaller file sizes than JPEG at identical quality
-          let base64Data = canvas.toDataURL('image/webp', 0.75)
+          let base64Data = canvas.toDataURL('image/webp', quality)
           // Fallback to JPEG if browser canvas doesn't support WebP export
           if (!base64Data.startsWith('data:image/webp')) {
-            base64Data = canvas.toDataURL('image/jpeg', 0.75)
+            base64Data = canvas.toDataURL('image/jpeg', quality)
           }
           resolve(base64Data)
         }
@@ -549,11 +544,33 @@ export function MerchantDashboard({
     })
   }
 
+  // Server drops inline photos over ~500K chars — retry smaller instead of
+  // silently saving the product with NO photo (success toast + placeholder).
+  const compressWithinLimit = async (file, limitChars = 450000) => {
+    const first = await compressImageToBase64(file, 800, 0.75)
+    if (first.length <= limitChars) return first
+    const second = await compressImageToBase64(file, 600, 0.6)
+    if (second.length <= limitChars) return second
+    throw new Error('Photo is still too big after compression. Please use a smaller photo or paste an image link.')
+  }
+
   // Handle Product Creation / Editing
   const handleSaveProduct = async (e) => {
     e.preventDefault()
     if (!productName.trim() || !productPrice || !shop) {
       showToast('Please enter Product Name and Price.', 'error', 'Missing Information')
+      return
+    }
+    // Client-side mirrors of the server rules — fail fast with a clear message
+    // instead of a confusing round-trip error.
+    const parsedPrice = parseFloat(productPrice)
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0 || parsedPrice > 10000000) {
+      showToast('Price must be a number between 0 and 1,00,00,000.', 'error', 'Invalid Price')
+      return
+    }
+    const parsedDiscount = Number(flashDiscount)
+    if (isFlashDeal && (!Number.isFinite(parsedDiscount) || parsedDiscount < 5 || parsedDiscount > 90)) {
+      showToast('Flash discount must be between 5% and 90%.', 'error', 'Invalid Discount')
       return
     }
 
@@ -573,7 +590,7 @@ export function MerchantDashboard({
         } else {
           setUploadProgress('Compressing photo for instant save...')
           try {
-            finalImageUrl = await compressImageToBase64(imageFile)
+            finalImageUrl = await compressWithinLimit(imageFile)
           } catch (uploadErr) {
             console.warn('Image compression error:', uploadErr)
             showToast(`Photo processing failed: ${uploadErr.message}. You can still paste an image link.`, 'error', 'Processing Failed')
@@ -582,6 +599,15 @@ export function MerchantDashboard({
             return
           }
         }
+      }
+
+      // Last line of defence: never let an oversized photo through silently —
+      // the server would drop it and the product would save imageless.
+      if (finalImageUrl && finalImageUrl.startsWith('data:image/') && finalImageUrl.length > 500000) {
+        showToast('Photo is too big to save. Please use a smaller photo or paste an image link.', 'error', 'Photo Too Big')
+        setSavingProduct(false)
+        setUploadProgress('')
+        return
       }
 
       setUploadProgress('Saving product...')
@@ -1444,18 +1470,25 @@ export function MerchantDashboard({
                         accept="image/*"
                         onChange={async (e) => {
                           const file = e.target.files?.[0]
+                          // Reset so picking the SAME file again still fires onChange
+                          e.target.value = ''
                           if (file) {
+                            const invalid = validateImageFile(file)
+                            if (invalid) {
+                              showToast(invalid, 'error', 'Invalid Photo')
+                              return
+                            }
                             try {
                               showToast('Compressing photo instantly...', 'info', 'Image Compression')
-                              const compressedBase64 = await compressImageToBase64(file)
+                              const compressedBase64 = await compressWithinLimit(file)
                               setImageFile(file)
                               setProductImageUrl(compressedBase64)
                               const origKB = Math.round(file.size / 1024)
                               const newKB = Math.round((compressedBase64.length * 0.75) / 1024)
-                              showToast(`Photo compressed by ${Math.round((1 - newKB / origKB) * 100)}% (${origKB} KB ➔ ${newKB} KB)!`, 'success', 'Photo Compressed')
+                              const savedPct = Math.max(0, Math.round((1 - newKB / origKB) * 100))
+                              showToast(`Photo ready: ${newKB} KB (saved ${savedPct}%)!`, 'success', 'Photo Compressed')
                             } catch (err) {
-                              setImageFile(file)
-                              setProductImageUrl(createTrackedObjectUrl(file))
+                              showToast(err.message || 'Could not process this photo. Try a smaller one or paste a link.', 'error', 'Photo Error')
                             }
                           }
                         }}
@@ -1474,18 +1507,23 @@ export function MerchantDashboard({
                         capture="environment"
                         onChange={async (e) => {
                           const file = e.target.files?.[0]
+                          // Reset so capturing again still fires onChange
+                          e.target.value = ''
                           if (file) {
+                            const invalid = validateImageFile(file)
+                            if (invalid) {
+                              showToast(invalid, 'error', 'Invalid Photo')
+                              return
+                            }
                             try {
                               showToast('Compressing live camera photo...', 'info', 'Image Compression')
-                              const compressedBase64 = await compressImageToBase64(file)
+                              const compressedBase64 = await compressWithinLimit(file)
                               setImageFile(file)
                               setProductImageUrl(compressedBase64)
-                              const origKB = Math.round(file.size / 1024)
                               const newKB = Math.round((compressedBase64.length * 0.75) / 1024)
                               showToast(`Photo ready: ${newKB} KB!`, 'success', 'Camera Photo Compressed')
                             } catch (err) {
-                              setImageFile(file)
-                              setProductImageUrl(createTrackedObjectUrl(file))
+                              showToast(err.message || 'Could not process this photo. Try again or paste a link.', 'error', 'Photo Error')
                             }
                           }
                         }}
