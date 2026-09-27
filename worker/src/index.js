@@ -435,7 +435,9 @@ async function handleDeleteReview(request, env, user, url) {
 }
 
 async function handleListShops(env) {
-  const { results } = await env.DB.prepare('SELECT * FROM shops ORDER BY created_at DESC').all()
+  const { results } = await env.DB.prepare(
+    'SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at FROM shops WHERE is_banned = 0 ORDER BY created_at DESC LIMIT 200'
+  ).all()
   return json({ shops: results })
 }
 
@@ -479,7 +481,7 @@ async function handleListProducts(env, url, request, ctx) {
            (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = p.shop_id) AS avg_rating,
            (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = p.shop_id) AS review_count
     FROM products p
-    JOIN shops s ON s.id = p.shop_id
+    JOIN shops s ON s.id = p.shop_id AND s.is_banned = 0
     ${whereClause}
     ORDER BY p.created_at DESC
     LIMIT ?`
@@ -501,7 +503,7 @@ async function handleListProducts(env, url, request, ctx) {
                s.owner_id AS owner_id,
                NULL AS avg_rating, 0 AS review_count
         FROM products p
-        JOIN shops s ON s.id = p.shop_id
+        JOIN shops s ON s.id = p.shop_id AND s.is_banned = 0
         ${whereClause}
         ORDER BY p.created_at DESC
         LIMIT ?`
@@ -637,6 +639,196 @@ async function handleUploadImage(request, env, user) {
   return json({ url, key }, 201)
 }
 
+// ---------- Admin authorization ----------
+
+async function requireAdmin(request, env) {
+  const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+  const admin = await env.DB.prepare('SELECT uid, role FROM admin_users WHERE uid = ?').bind(user.sub).first()
+  if (!admin) throw new AuthError('Admin access required')
+  return { ...user, adminRole: admin.role }
+}
+
+async function logAdminAction(env, adminUid, action, targetType, targetId, details) {
+  await env.DB.prepare(
+    'INSERT INTO admin_audit_log (id, admin_uid, action, target_type, target_id, details) VALUES (?, ?, ?, ?, ?, ?)'
+  ).bind(crypto.randomUUID(), adminUid, action, targetType, targetId, details ? JSON.stringify(details) : null).run()
+}
+
+// ---------- Admin API handlers ----------
+
+async function handleAdminCheck(env, admin) {
+  return json({ isAdmin: true, role: admin.adminRole, uid: admin.sub })
+}
+
+async function handleAdminStats(env) {
+  const [shops, products, reviews, banned] = await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) as count FROM shops').first(),
+    env.DB.prepare('SELECT COUNT(*) as count FROM products').first(),
+    env.DB.prepare('SELECT COUNT(*) as count FROM reviews').first(),
+    env.DB.prepare('SELECT COUNT(*) as count FROM shops WHERE is_banned = 1').first()
+  ])
+
+  // New shops this week
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const newShops = await env.DB.prepare('SELECT COUNT(*) as count FROM shops WHERE created_at > ?').bind(weekAgo).first()
+
+  // New products this week
+  const newProducts = await env.DB.prepare('SELECT COUNT(*) as count FROM products WHERE created_at > ?').bind(weekAgo).first()
+
+  return json({
+    totalShops: shops?.count || 0,
+    totalProducts: products?.count || 0,
+    totalReviews: reviews?.count || 0,
+    bannedShops: banned?.count || 0,
+    newShopsThisWeek: newShops?.count || 0,
+    newProductsThisWeek: newProducts?.count || 0
+  })
+}
+
+async function handleAdminListShops(env, url) {
+  const search = url.searchParams.get('search') || ''
+  const filter = url.searchParams.get('filter') || 'all' // 'all', 'active', 'banned'
+  const limit = Math.min(200, Number(url.searchParams.get('limit')) || 100)
+
+  let query = `
+    SELECT s.*,
+           (SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id) AS product_count,
+           (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = s.id) AS avg_rating,
+           (SELECT COUNT(*) FROM reviews r WHERE r.shop_id = s.id) AS review_count
+    FROM shops s
+    WHERE 1=1`
+  const bindings = []
+
+  if (filter === 'active') { query += ' AND s.is_banned = 0'; }
+  else if (filter === 'banned') { query += ' AND s.is_banned = 1'; }
+
+  if (search) {
+    query += ' AND (s.shop_name LIKE ? OR s.owner_name LIKE ? OR s.address_text LIKE ?)'
+    const wildcard = `%${search}%`
+    bindings.push(wildcard, wildcard, wildcard)
+  }
+
+  query += ' ORDER BY s.created_at DESC LIMIT ?'
+  bindings.push(limit)
+
+  const { results } = await env.DB.prepare(query).bind(...bindings).all()
+  return json({ shops: results || [] })
+}
+
+async function handleAdminBanShop(request, env, admin) {
+  const body = await request.json().catch(() => null)
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const shopId = cleanText(body.shop_id, 64)
+  const banned = body.banned ? 1 : 0
+  const reason = cleanText(body.reason, 300) || null
+
+  if (!shopId) return json({ error: 'shop_id is required' }, 400)
+
+  const shop = await env.DB.prepare('SELECT id, shop_name FROM shops WHERE id = ?').bind(shopId).first()
+  if (!shop) return json({ error: 'Shop not found' }, 404)
+
+  await env.DB.prepare('UPDATE shops SET is_banned = ?, ban_reason = ? WHERE id = ?').bind(banned, reason, shopId).run()
+  await logAdminAction(env, admin.sub, banned ? 'ban_shop' : 'unban_shop', 'shop', shopId, { shop_name: shop.shop_name, reason })
+
+  return json({ success: true, action: banned ? 'banned' : 'unbanned' })
+}
+
+async function handleAdminDeleteShop(request, env, admin, url) {
+  const shopId = url.searchParams.get('id')
+  if (!shopId) return json({ error: 'Shop id is required' }, 400)
+
+  const shop = await env.DB.prepare('SELECT id, shop_name, owner_id FROM shops WHERE id = ?').bind(cleanText(shopId, 64)).first()
+  if (!shop) return json({ error: 'Shop not found' }, 404)
+
+  // CASCADE deletes will remove products and reviews too
+  await env.DB.prepare('DELETE FROM shops WHERE id = ?').bind(shop.id).run()
+  await logAdminAction(env, admin.sub, 'delete_shop', 'shop', shop.id, { shop_name: shop.shop_name, owner_id: shop.owner_id })
+
+  return json({ success: true })
+}
+
+async function handleAdminListProducts(env, url) {
+  const search = url.searchParams.get('search') || ''
+  const category = url.searchParams.get('category') || ''
+  const limit = Math.min(300, Number(url.searchParams.get('limit')) || 100)
+
+  let query = `
+    SELECT p.*, s.shop_name, s.owner_name, s.is_banned AS shop_banned
+    FROM products p
+    JOIN shops s ON s.id = p.shop_id
+    WHERE 1=1`
+  const bindings = []
+
+  if (search) {
+    query += ' AND (p.name LIKE ? OR s.shop_name LIKE ?)'
+    const wildcard = `%${search}%`
+    bindings.push(wildcard, wildcard)
+  }
+  if (category && category !== 'All') {
+    query += ' AND p.category = ?'
+    bindings.push(category)
+  }
+
+  query += ' ORDER BY p.created_at DESC LIMIT ?'
+  bindings.push(limit)
+
+  const { results } = await env.DB.prepare(query).bind(...bindings).all()
+  return json({ products: results || [] })
+}
+
+async function handleAdminDeleteProduct(request, env, admin, url) {
+  const id = url.searchParams.get('id')
+  if (!id) return json({ error: 'Product id is required' }, 400)
+
+  const product = await env.DB.prepare('SELECT p.id, p.name, p.shop_id, s.shop_name FROM products p JOIN shops s ON s.id = p.shop_id WHERE p.id = ?').bind(cleanText(id, 64)).first()
+  if (!product) return json({ error: 'Product not found' }, 404)
+
+  await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(product.id).run()
+  await logAdminAction(env, admin.sub, 'delete_product', 'product', product.id, { name: product.name, shop_name: product.shop_name })
+
+  return json({ success: true })
+}
+
+async function handleAdminListReviews(env, url) {
+  const limit = Math.min(200, Number(url.searchParams.get('limit')) || 100)
+
+  const { results } = await env.DB.prepare(`
+    SELECT r.*, s.shop_name
+    FROM reviews r
+    JOIN shops s ON s.id = r.shop_id
+    ORDER BY r.updated_at DESC
+    LIMIT ?
+  `).bind(limit).all()
+
+  return json({ reviews: results || [] })
+}
+
+async function handleAdminDeleteReview(request, env, admin, url) {
+  const id = url.searchParams.get('id')
+  if (!id) return json({ error: 'Review id is required' }, 400)
+
+  const review = await env.DB.prepare('SELECT r.id, r.user_name, r.rating, r.shop_id, s.shop_name FROM reviews r JOIN shops s ON s.id = r.shop_id WHERE r.id = ?').bind(cleanText(id, 64)).first()
+  if (!review) return json({ error: 'Review not found' }, 404)
+
+  await env.DB.prepare('DELETE FROM reviews WHERE id = ?').bind(review.id).run()
+  await logAdminAction(env, admin.sub, 'delete_review', 'review', review.id, { user_name: review.user_name, rating: review.rating, shop_name: review.shop_name })
+
+  return json({ success: true })
+}
+
+async function handleAdminAuditLog(env, url) {
+  const limit = Math.min(200, Number(url.searchParams.get('limit')) || 50)
+
+  const { results } = await env.DB.prepare(`
+    SELECT * FROM admin_audit_log
+    ORDER BY created_at DESC
+    LIMIT ?
+  `).bind(limit).all()
+
+  return json({ logs: results || [] })
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() })
@@ -644,6 +836,45 @@ export default {
     const url = new URL(request.url)
 
     try {
+      // ---------- Admin routes ----------
+      if (url.pathname.startsWith('/api/admin')) {
+        const admin = await requireAdmin(request, env)
+
+        if (request.method === 'GET' && url.pathname === '/api/admin/check') {
+          return await handleAdminCheck(env, admin)
+        }
+        if (request.method === 'GET' && url.pathname === '/api/admin/stats') {
+          return await handleAdminStats(env)
+        }
+        if (request.method === 'GET' && url.pathname === '/api/admin/shops') {
+          return await handleAdminListShops(env, url)
+        }
+        if (request.method === 'POST' && url.pathname === '/api/admin/shops/ban') {
+          return await handleAdminBanShop(request, env, admin)
+        }
+        if (request.method === 'DELETE' && url.pathname === '/api/admin/shops') {
+          return await handleAdminDeleteShop(request, env, admin, url)
+        }
+        if (request.method === 'GET' && url.pathname === '/api/admin/products') {
+          return await handleAdminListProducts(env, url)
+        }
+        if (request.method === 'DELETE' && url.pathname === '/api/admin/products') {
+          return await handleAdminDeleteProduct(request, env, admin, url)
+        }
+        if (request.method === 'GET' && url.pathname === '/api/admin/reviews') {
+          return await handleAdminListReviews(env, url)
+        }
+        if (request.method === 'DELETE' && url.pathname === '/api/admin/reviews') {
+          return await handleAdminDeleteReview(request, env, admin, url)
+        }
+        if (request.method === 'GET' && url.pathname === '/api/admin/audit-log') {
+          return await handleAdminAuditLog(env, url)
+        }
+
+        return json({ error: 'Admin route not found' }, 404)
+      }
+
+      // ---------- Regular routes ----------
       if (request.method === 'POST' && url.pathname === '/api/upload') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
         return await handleUploadImage(request, env, user)

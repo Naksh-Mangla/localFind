@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { usePWAInstall } from './hooks/usePWAInstall'
+import { useAdmin } from './hooks/useAdmin'
 import { apiFetch } from './lib/api'
 import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
@@ -28,10 +29,12 @@ const lazyWithRetry = (importFn) =>
 
 const MerchantDashboard = lazyWithRetry(() => import('./components/MerchantDashboard').then(m => ({ default: m.MerchantDashboard })))
 const ProductDetailModal = lazyWithRetry(() => import('./components/ProductDetailModal').then(m => ({ default: m.ProductDetailModal })))
+const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 
 export default function App() {
   const { user, signInWithGoogle, signOut } = useAuth()
   const { canInstall, promptInstall } = usePWAInstall()
+  const { isAdmin } = useAdmin(user)
   // Default to buyer product discover screen
   const [activeView, setActiveView] = useState('discover')
   const [selectedProduct, setSelectedProduct] = useState(null)
@@ -454,6 +457,7 @@ export default function App() {
         activeView={activeView}
         setActiveView={setActiveView}
         user={user}
+        isAdmin={isAdmin}
         userLocationName={userLocationName}
         locationStatus={locationStatus}
         onDetectLocation={() => setShowLocationPicker(true)}
@@ -471,7 +475,20 @@ export default function App() {
 
       {/* View Router with Smooth Transitions */}
       <div className="flex-1 transition-all duration-300">
-        {activeView === 'discover' ? (
+        {activeView === 'admin' && isAdmin ? (
+          <div className="animate-fadeIn">
+            <Suspense
+              fallback={
+                <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+                  <div className="w-10 h-10 rounded-full border-2 border-blue-400 border-t-transparent animate-spin mb-3"></div>
+                  <span className="text-xs font-bold text-on-surface-variant">Loading Admin Panel...</span>
+                </div>
+              }
+            >
+              <AdminDashboard onClose={() => setActiveView('discover')} />
+            </Suspense>
+          </div>
+        ) : activeView === 'discover' ? (
           <div className="animate-fadeIn">
             <BuyerDiscover
               products={products}
@@ -564,6 +581,23 @@ export default function App() {
           <span className="material-symbols-outlined text-[15px]">storefront</span>
           <span className="tracking-tight">My Shop</span>
         </button>
+
+        {isAdmin && (
+          <button
+            onClick={() => {
+              triggerHaptic('selection')
+              setActiveView('admin')
+            }}
+            className={`flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full transition-all duration-200 active:scale-95 text-[11px] font-bold ${
+              activeView === 'admin'
+                ? 'bg-purple-500 text-white shadow-xs scale-[1.02]'
+                : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'
+            }`}
+          >
+            <svg className="w-[15px] h-[15px]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+            <span className="tracking-tight">Admin</span>
+          </button>
+        )}
       </nav>
     </div>
   )

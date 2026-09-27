@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { formatDistance } from '../utils/haversine'
-import { getRAGStatus } from '../utils/syncRAG'
+import { getRAGStatus, parseTimestamp } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
 import { getFlashDealInfo } from '../utils/flashDeals'
 import { sanitizeHttpUrl, sanitizeImageUrl } from '../utils/safeUrl'
@@ -33,6 +33,14 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
       return false
     }
   })
+
+  // Resync wishlist when a different product is opened in the same mounted modal
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
+      setIsWishlisted(saved.includes(product?.id))
+    } catch (e) {}
+  }, [product?.id])
 
   // Listen to cross-component storage updates for wishlist sync
   useEffect(() => {
@@ -103,13 +111,22 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
 
   if (!product) return null
 
-  // Android Native Web Share Handler
+  // Android Native Web Share Handler — deep-link so recipients land on this product
+  const getProductShareUrl = () => {
+    try {
+      const base = typeof window !== 'undefined' ? window.location.origin : 'https://localfind.pages.dev'
+      return `${base}/?product=${encodeURIComponent(product.id)}`
+    } catch {
+      return `https://localfind.pages.dev/?product=${encodeURIComponent(product.id)}`
+    }
+  }
   const handleShareProduct = async () => {
     triggerHaptic('selection')
+    const shareUrl = getProductShareUrl()
     const shareData = {
       title: `${product.name} | LocalFind`,
       text: `Check out "${product.name}" at ₹${product.price} at ${product.shop_name || 'local shop'} on LocalFind!`,
-      url: window.location.href
+      url: shareUrl
     }
     if (navigator.share) {
       try {
@@ -122,7 +139,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
       }
     } else {
       try {
-        await navigator.clipboard.writeText(window.location.href)
+        await navigator.clipboard.writeText(shareUrl)
         alert('Product link copied to clipboard!')
       } catch (err) {
         console.warn('Failed to copy link', err)
@@ -430,7 +447,10 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                           <ReviewStars rating={r.rating} size="sm" />
                         </div>
                         {r.comment && <p className="text-xs text-on-surface-variant mt-1.5 leading-relaxed">"{r.comment}"</p>}
-                        <p className="text-[10px] text-on-surface-variant/70 mt-1">{new Date(r.updated_at || r.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</p>
+                        <p className="text-[10px] text-on-surface-variant/70 mt-1">{(() => {
+                          const ms = parseTimestamp(r.updated_at || r.created_at)
+                          return ms ? new Date(ms).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : ''
+                        })()}</p>
                       </div>
                     ))}
                     {reviews.length > 3 && (

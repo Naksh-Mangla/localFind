@@ -581,28 +581,40 @@ export function BuyerDiscover({
   }, [indexedProductsWithDistance, selectedCategory, deferredSearchQuery, targetShopId, showOnlyWishlist, wishlistSet, wishlistIds])
 
   // 3. Hyperlocal Products (within selected radius)
+  // Unknown-location items are only treated as nearby when we have no GPS to judge them by;
+  // once GPS is locked they move to the distant section instead of masquerading as nearby.
   const hyperlocalProducts = useMemo(() => {
+    const hasUserGPS = Number.isFinite(Number(userCoords?.lat)) && Number.isFinite(Number(userCoords?.lng))
     return filteredProducts
       .filter((p) => !p.is_affiliate_fallback)
       .filter((p) => {
-        if (targetShopId || maxRadiusKm === 'all' || p.distanceKm === null) return true
+        if (targetShopId || maxRadiusKm === 'all') return true
+        if (p.distanceKm === null || p.distanceKm === undefined) return !hasUserGPS
         return p.distanceKm <= maxRadiusKm
       })
       .sort((a, b) => {
-        if (a.distanceKm === null) return 1
-        if (b.distanceKm === null) return -1
+        if (a.distanceKm === null || a.distanceKm === undefined) return 1
+        if (b.distanceKm === null || b.distanceKm === undefined) return -1
         return a.distanceKm - b.distanceKm
       })
-  }, [filteredProducts, maxRadiusKm, targetShopId])
+  }, [filteredProducts, maxRadiusKm, targetShopId, userCoords])
 
-  // 4. Distant Products (outside selected radius)
+  // 4. Distant Products (outside selected radius, plus unknown-location once GPS is locked)
   const distantLocalProducts = useMemo(() => {
     if (targetShopId || maxRadiusKm === 'all') return []
+    const hasUserGPS = Number.isFinite(Number(userCoords?.lat)) && Number.isFinite(Number(userCoords?.lng))
     return filteredProducts
       .filter((p) => !p.is_affiliate_fallback)
-      .filter((p) => p.distanceKm !== null && p.distanceKm > maxRadiusKm)
-      .sort((a, b) => a.distanceKm - b.distanceKm)
-  }, [filteredProducts, maxRadiusKm, targetShopId])
+      .filter((p) => {
+        if (p.distanceKm === null || p.distanceKm === undefined) return hasUserGPS
+        return p.distanceKm > maxRadiusKm
+      })
+      .sort((a, b) => {
+        if (a.distanceKm === null || a.distanceKm === undefined) return 1
+        if (b.distanceKm === null || b.distanceKm === undefined) return -1
+        return a.distanceKm - b.distanceKm
+      })
+  }, [filteredProducts, maxRadiusKm, targetShopId, userCoords])
 
   // 5. Active Flash Deals
   const activeFlashDeals = useMemo(() => {

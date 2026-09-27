@@ -33,9 +33,18 @@ export function StoreQRStandeeModal({ shop = {}, products = [], onClose }) {
   const standeeCardRef = useRef(null)
 
   const shopId = shop?.id || shop?.shop_id || ''
-  const shopUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/?shopId=${shopId}`
-    : `https://localfind.pages.dev/?shopId=${shopId}`
+  // QR is scanned by phones — localhost/private origins are unscannable, use canonical site.
+  const shopUrl = (() => {
+    const canonical = 'https://localfind.pages.dev'
+    try {
+      if (typeof window === 'undefined') return `${canonical}/?shopId=${shopId}`
+      const origin = window.location.origin
+      if (/localhost|127\.0\.0\.1|192\.168\.|10\.|0\.0\.0\.0|^http:/i.test(origin)) return `${canonical}/?shopId=${shopId}`
+      return `${origin}/?shopId=${shopId}`
+    } catch {
+      return `${canonical}/?shopId=${shopId}`
+    }
+  })()
 
   // Generate crisp QR code on mount
   useEffect(() => {

@@ -6,8 +6,9 @@ export function Header({
   activeView,
   setActiveView,
   user,
+  isAdmin = false,
   userLocationName,
-  locationStatus = 'loading', // 'success' | 'approx' | 'error' | 'loading'
+  locationStatus = 'loading',
   onDetectLocation,
   onOpenSignIn,
   onRefreshProducts,
@@ -128,6 +129,24 @@ export function Header({
             </button>
           )}
 
+          {/* Admin Shield Button — only visible to admins */}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                triggerHaptic('selection')
+                setActiveView('admin')
+              }}
+              title="Admin Panel"
+              className={`p-1.5 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
+                activeView === 'admin'
+                  ? 'bg-purple-500/20 text-purple-400 border-purple-500/40'
+                  : 'bg-surface-container-high/60 text-on-surface-variant border-surface-variant/40 hover:text-on-surface'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+            </button>
+          )}
+
           {user ? (
             <button
               onClick={() => setActiveView('merchant')}
@@ -240,6 +259,20 @@ export function Header({
             <span className="material-symbols-outlined text-[16px]">storefront</span>
             <span>Shopkeeper Portal</span>
           </button>
+
+          {isAdmin && (
+            <button
+              onClick={() => setActiveView('admin')}
+              className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                activeView === 'admin'
+                  ? 'bg-surface text-purple-500 font-bold shadow-crisp-xs'
+                  : 'text-on-surface-variant hover:text-on-surface'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>
+              <span>Admin</span>
+            </button>
+          )}
         </div>
 
         {/* Right: Clean Action Utilities & User Avatar */}

@@ -562,15 +562,25 @@ export function MerchantDashboard({
       let finalImageUrl = cleanGoogleImageUrl(productImageUrl)
 
       if (imageFile) {
-        setUploadProgress('Compressing photo for instant save...')
-        try {
-          finalImageUrl = await compressImageToBase64(imageFile)
-        } catch (uploadErr) {
-          console.warn('Image compression error:', uploadErr)
-          showToast(`Photo processing failed: ${uploadErr.message}. You can still paste an image link.`, 'error', 'Processing Failed')
+        // Already compressed on file-select — reuse the data URL instead of compressing twice.
+        if (productImageUrl && productImageUrl.startsWith('data:image/')) {
+          finalImageUrl = productImageUrl
+        } else if (productImageUrl && productImageUrl.startsWith('blob:')) {
+          showToast('Photo preview failed to process. Please re-select the photo or paste an image link.', 'error', 'Photo Error')
           setSavingProduct(false)
           setUploadProgress('')
           return
+        } else {
+          setUploadProgress('Compressing photo for instant save...')
+          try {
+            finalImageUrl = await compressImageToBase64(imageFile)
+          } catch (uploadErr) {
+            console.warn('Image compression error:', uploadErr)
+            showToast(`Photo processing failed: ${uploadErr.message}. You can still paste an image link.`, 'error', 'Processing Failed')
+            setSavingProduct(false)
+            setUploadProgress('')
+            return
+          }
         }
       }
 
