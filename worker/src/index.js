@@ -909,6 +909,10 @@ async function handleAdminBanShop(request, env, admin) {
   if (!shop) return json({ error: 'Shop not found' }, 404)
 
   await env.DB.prepare('UPDATE shops SET is_banned = ?, ban_reason = ? WHERE id = ?').bind(banned, reason, shopId).run()
+
+  // Bump products updated_at for this shop so client ETags invalidate immediately
+  await env.DB.prepare("UPDATE products SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE shop_id = ?").bind(shopId).run()
+
   await logAdminAction(env, admin.sub, banned ? 'ban_shop' : 'unban_shop', 'shop', shopId, { shop_name: shop.shop_name, reason })
 
   return json({ success: true, action: banned ? 'banned' : 'unbanned' })
@@ -918,11 +922,17 @@ async function handleAdminDeleteShop(request, env, admin, url) {
   const shopId = url.searchParams.get('id')
   if (!shopId) return json({ error: 'Shop id is required' }, 400)
 
-  const shop = await env.DB.prepare('SELECT id, shop_name, owner_id FROM shops WHERE id = ?').bind(cleanText(shopId, 64)).first()
+  const cleanShopId = cleanText(shopId, 64)
+  const shop = await env.DB.prepare('SELECT id, shop_name, owner_id FROM shops WHERE id = ?').bind(cleanShopId).first()
   if (!shop) return json({ error: 'Shop not found' }, 404)
 
-  // CASCADE deletes will remove products and reviews too
-  await env.DB.prepare('DELETE FROM shops WHERE id = ?').bind(shop.id).run()
+  // Explicitly delete shop, products, and reviews to guarantee no orphan data in D1
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM products WHERE shop_id = ?').bind(cleanShopId),
+    env.DB.prepare('DELETE FROM reviews WHERE shop_id = ?').bind(cleanShopId),
+    env.DB.prepare('DELETE FROM shops WHERE id = ?').bind(cleanShopId)
+  ])
+
   await logAdminAction(env, admin.sub, 'delete_shop', 'shop', shop.id, { shop_name: shop.shop_name, owner_id: shop.owner_id })
 
   return json({ success: true })
@@ -1107,7 +1117,8 @@ export default {
         const since = url.searchParams.get('since')
         const category = url.searchParams.get('category')
         const flashOnly = url.searchParams.get('flash_deals_only') === '1' || url.searchParams.get('flash_deals_only') === 'true'
-        const isGlobalPublicQuery = !shopId && !since && (!category || category === 'All') && !flashOnly
+        const hasCacheBust = url.searchParams.has('_cb') || request.headers.get('Cache-Control')?.includes('no-cache')
+        const isGlobalPublicQuery = !hasCacheBust && !shopId && !since && (!category || category === 'All') && !flashOnly
 
         // Check Cloudflare Edge RAM cache for lightning-fast ~8ms response
         if (isGlobalPublicQuery && typeof caches !== 'undefined' && caches.default) {

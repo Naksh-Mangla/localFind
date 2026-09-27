@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { useAuth } from './hooks/useAuth'
 import { usePWAInstall } from './hooks/usePWAInstall'
 import { useAdmin } from './hooks/useAdmin'
-import { apiFetch } from './lib/api'
+import { apiFetch, clearApiCache } from './lib/api'
 import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
 import { LocationPickerModal } from './components/LocationPickerModal'
@@ -371,8 +371,11 @@ export default function App() {
   // Fetch products from Cloudflare Worker (Silent background updates without unmounting UI)
   const fetchProducts = useCallback(async (isManualRefresh = false) => {
     try {
-      if (isManualRefresh) setIsRefreshing(true)
-      const data = await apiFetch('/api/products')
+      if (isManualRefresh) {
+        setIsRefreshing(true)
+        clearApiCache()
+      }
+      const data = await apiFetch('/api/products', isManualRefresh ? { bustCache: true } : {})
       if (data && Array.isArray(data.products)) {
         setProducts(data.products)
         checkAndNotifyNewDeals(data.products, userCoords)
@@ -441,7 +444,11 @@ export default function App() {
 
     const interval = setInterval(() => maybeFetch(true), 60000)
 
-    const handleVisibilityOrFocus = () => maybeFetch(false)
+    const handleVisibilityOrFocus = () => {
+      // Permission may have been revoked in browser settings while away
+      setDealAlertsActive(isDealAlertsEnabled())
+      maybeFetch(false)
+    }
     document.addEventListener('visibilitychange', handleVisibilityOrFocus)
     window.addEventListener('focus', handleVisibilityOrFocus)
 
@@ -568,10 +575,20 @@ export default function App() {
                 }
               >
                 <AdminDashboard
-                  onClose={() => setActiveView('discover')}
+                  onClose={() => {
+                    clearApiCache()
+                    fetchProducts(true)
+                    setActiveView('discover')
+                  }}
                   onLock={() => {
                     lockAdmin()
+                    clearApiCache()
+                    fetchProducts(true)
                     setActiveView('discover')
+                  }}
+                  onDataChanged={() => {
+                    clearApiCache()
+                    fetchProducts(true)
                   }}
                 />
               </Suspense>
@@ -608,7 +625,7 @@ export default function App() {
               onToggleDealAlerts={handleToggleDealAlerts}
             />
           </div>
-        ) : (
+        ) : activeView === 'merchant' ? (
           <div className="animate-fadeIn">
             <Suspense
               fallback={
@@ -627,6 +644,24 @@ export default function App() {
                 lastSyncedAt={lastSyncedAt}
               />
             </Suspense>
+          </div>
+        ) : (
+          // Unknown view (e.g. stale ?view=admin for non-admins) falls back to discover
+          <div className="animate-fadeIn">
+            <BuyerDiscover
+              products={products}
+              userCoords={userCoords}
+              currentUser={user}
+              onSelectProduct={(p) => setSelectedProduct(p)}
+              loading={initialLoading && products.length === 0}
+              onRefreshProducts={() => fetchProducts(true)}
+              refreshing={isRefreshing}
+              lastSyncedAt={lastSyncedAt}
+              onChangeLocation={() => setShowLocationPicker(true)}
+              locationStatus={locationStatus}
+              dealAlertsActive={dealAlertsActive}
+              onToggleDealAlerts={handleToggleDealAlerts}
+            />
           </div>
         )}
       </div>
