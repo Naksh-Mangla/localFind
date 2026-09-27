@@ -28,10 +28,12 @@ export async function apiFetch(path, options = {}) {
   const fetchPromise = (async () => {
     try {
       const token = auth.currentUser ? await auth.currentUser.getIdToken() : null
+      const adminToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('localfind_admin_token') : null
       const isFormData = options.body instanceof FormData
 
       const headers = {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : (adminToken ? { Authorization: `Bearer ${adminToken}` } : {})),
+        ...(adminToken ? { 'X-Admin-Token': adminToken } : {}),
         ...(options.headers ?? {})
       }
 

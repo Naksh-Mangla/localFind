@@ -6,6 +6,7 @@ import { apiFetch } from './lib/api'
 import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
 import { LocationPickerModal } from './components/LocationPickerModal'
+import { AdminAuthModal } from './components/AdminAuthModal'
 import { isDealAlertsEnabled, enableDealAlerts, disableDealAlerts, checkAndNotifyNewDeals } from './utils/notifications'
 import { triggerHaptic } from './utils/haptics'
 
@@ -34,9 +35,16 @@ const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard')
 export default function App() {
   const { user, signInWithGoogle, signOut } = useAuth()
   const { canInstall, promptInstall } = usePWAInstall()
-  const { isAdmin } = useAdmin(user)
-  // Default to buyer product discover screen
-  const [activeView, setActiveView] = useState('discover')
+  const { isAdmin, isUnlocked, loginWithPassword, lockAdmin } = useAdmin(user)
+  const [showAdminAuthModal, setShowAdminAuthModal] = useState(false)
+  // Default to buyer product discover screen (honours PWA shortcut ?view=merchant)
+  const [activeView, setActiveView] = useState(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('view') === 'merchant') return 'merchant'
+    } catch {}
+    return 'discover'
+  })
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [showLocationPicker, setShowLocationPicker] = useState(false)
   const [isFirstTimeFallback, setIsFirstTimeFallback] = useState(false)
@@ -48,8 +56,11 @@ export default function App() {
       const saved = localStorage.getItem('localfind_saved_location')
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (parsed.lat && parsed.lng) {
-          return { lat: parsed.lat, lng: parsed.lng, accuracy: 10 }
+        const lat = Number(parsed.lat)
+        const lng = Number(parsed.lng)
+        if (Number.isFinite(lat) && Number.isFinite(lng)) {
+          const accuracy = Number.isFinite(Number(parsed.accuracy)) ? Number(parsed.accuracy) : 10
+          return { lat, lng, accuracy }
         }
       }
     } catch {}
@@ -181,8 +192,11 @@ export default function App() {
     }
   }, [products])
 
+  // Monotonic id so slow out-of-order Nominatim replies never overwrite a newer fix
+  const geoRequestRef = useRef(0)
+
   // Reverse geocode coordinates to human-readable street/neighborhood name
-  const fetchAddressName = useCallback(async (lat, lng, statusPrefix = '', shouldSave = false) => {
+  const fetchAddressName = useCallback(async (lat, lng, statusPrefix = '', shouldSave = false, reqId = 0) => {
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
@@ -201,8 +215,9 @@ export default function App() {
           'Live GPS Location'
         
         const displayName = statusPrefix ? `${statusPrefix} - ${name}` : name
+        if (reqId && geoRequestRef.current !== reqId) return
         setUserLocationName(displayName)
-        
+
         if (shouldSave) {
           localStorage.setItem(
             'localfind_saved_location',
@@ -220,6 +235,7 @@ export default function App() {
     } catch (err) {
       console.warn('Reverse geocoding error:', err)
     }
+    if (reqId && geoRequestRef.current !== reqId) return
     const fallbackName = `GPS (${lat.toFixed(4)}, ${lng.toFixed(4)})`
     setUserLocationName(statusPrefix ? `${statusPrefix} - ${fallbackName}` : fallbackName)
     if (shouldSave) {
@@ -276,7 +292,9 @@ export default function App() {
       if (savedLocationStr) parsedSaved = JSON.parse(savedLocationStr)
     } catch {}
 
-    const hasSavedLocation = Boolean(parsedSaved?.lat && parsedSaved?.lng)
+    const savedLat = Number(parsedSaved?.lat)
+    const savedLng = Number(parsedSaved?.lng)
+    const hasSavedLocation = Number.isFinite(savedLat) && Number.isFinite(savedLng)
     
     // 🔒 Priority 1: User explicitly entered a manual location -> strictly preserve it!
     if (hasSavedLocation && (parsedSaved?.isManual || parsedSaved?.isGPS === false)) {
@@ -313,21 +331,23 @@ export default function App() {
       if (isTrueGPS) {
         setUserCoords({ lat, lng, accuracy })
         setLocationStatus('gps')
-        fetchAddressName(lat, lng, '', true)
+        fetchAddressName(lat, lng, '', true, ++geoRequestRef.current)
         setIsFirstTimeFallback(false)
         setShowLocationPicker(false)
         console.log('✅ Locked high-accuracy live GPS location!')
+      } else if (hasSavedLocation) {
+        // Keep the previously saved good fix — a worse approx fix must not
+        // overwrite it in memory (storage still holds the good one).
+        console.warn(`Ignoring approx fix (±${Math.round(accuracy)}m), keeping saved location.`)
       } else {
         // Approximate Wi-Fi / IP Location (Show AMBER, NOT GREEN)
         console.warn(`Approximate IP/Wi-Fi location (±${Math.round(accuracy)}m). Prompting user for exact area.`)
         setUserCoords({ lat, lng, accuracy })
         setLocationStatus('approx')
-        fetchAddressName(lat, lng, 'Approx', false)
+        fetchAddressName(lat, lng, 'Approx', false, ++geoRequestRef.current)
 
-        if (!hasSavedLocation) {
-          setIsFirstTimeFallback(true)
-          setShowLocationPicker(true)
-        }
+        setIsFirstTimeFallback(true)
+        setShowLocationPicker(true)
       }
     } else {
       // GPS completely unavailable / denied
@@ -369,6 +389,41 @@ export default function App() {
   useEffect(() => {
     fetchProducts(false)
   }, [fetchProducts])
+
+  // Keep the open product modal fresh across background syncs (price/deal edits)
+  useEffect(() => {
+    if (!selectedProduct) return
+    const fresh = products.find((p) => String(p.id) === String(selectedProduct.id))
+    if (fresh && fresh !== selectedProduct) {
+      setSelectedProduct(fresh)
+    }
+  }, [products]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Honour PWA shortcut ?view=admin once admin status is confirmed
+  useEffect(() => {
+    if (!isAdmin) return
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('view') === 'admin') {
+        setActiveView('admin')
+        params.delete('view')
+        const queryString = params.toString() ? `?${params.toString()}` : ''
+        window.history.replaceState({}, document.title, window.location.pathname + queryString + window.location.hash)
+      }
+    } catch {}
+  }, [isAdmin])
+
+  // Consume one-time ?view=merchant shortcut param so it doesn't linger in the URL
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('view') === 'merchant') {
+        params.delete('view')
+        const queryString = params.toString() ? `?${params.toString()}` : ''
+        window.history.replaceState({}, document.title, window.location.pathname + queryString + window.location.hash)
+      }
+    } catch {}
+  }, [])
 
   // Periodic background sync (every 60s) + Instant Sync on tab focus with Smart Visibility Pause
   useEffect(() => {
@@ -440,15 +495,40 @@ export default function App() {
       const isTrueGPS = Number.isFinite(accuracy) && accuracy <= 250 && mode === 'high'
       setUserCoords({ lat, lng, accuracy })
       setLocationStatus(isTrueGPS ? 'gps' : 'approx')
-      fetchAddressName(lat, lng, isTrueGPS ? '' : 'Approx', isTrueGPS)
+      fetchAddressName(lat, lng, isTrueGPS ? '' : 'Approx', isTrueGPS, ++geoRequestRef.current)
       if (isTrueGPS) {
         setIsFirstTimeFallback(false)
+      } else {
+        // Approx on a fresh device with nothing saved: send the user back to
+        // manual entry instead of stranding them on an amber dot.
+        let hasSaved = false
+        try {
+          const s = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
+          hasSaved = Number.isFinite(Number(s?.lat)) && Number.isFinite(Number(s?.lng))
+        } catch {}
+        if (!hasSaved) {
+          setIsFirstTimeFallback(true)
+          setShowLocationPicker(true)
+        }
       }
     } else {
       setLocationStatus('error')
       setShowLocationPicker(true)
     }
   }, [getGPSPosition, fetchAddressName])
+
+  const handleOpenAdmin = () => {
+    if (isUnlocked) {
+      setActiveView('admin')
+    } else {
+      setShowAdminAuthModal(true)
+    }
+  }
+
+  const handleAdminUnlockSuccess = async (email, password) => {
+    await loginWithPassword(email, password)
+    setActiveView('admin')
+  }
 
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body-sm">
@@ -458,6 +538,7 @@ export default function App() {
         setActiveView={setActiveView}
         user={user}
         isAdmin={isAdmin}
+        onOpenAdmin={handleOpenAdmin}
         userLocationName={userLocationName}
         locationStatus={locationStatus}
         onDetectLocation={() => setShowLocationPicker(true)}
@@ -475,19 +556,41 @@ export default function App() {
 
       {/* View Router with Smooth Transitions */}
       <div className="flex-1 transition-all duration-300">
-        {activeView === 'admin' && isAdmin ? (
-          <div className="animate-fadeIn">
-            <Suspense
-              fallback={
-                <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
-                  <div className="w-10 h-10 rounded-full border-2 border-blue-400 border-t-transparent animate-spin mb-3"></div>
-                  <span className="text-xs font-bold text-on-surface-variant">Loading Admin Panel...</span>
-                </div>
-              }
-            >
-              <AdminDashboard onClose={() => setActiveView('discover')} />
-            </Suspense>
-          </div>
+        {activeView === 'admin' ? (
+          isUnlocked ? (
+            <div className="animate-fadeIn">
+              <Suspense
+                fallback={
+                  <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-10 h-10 rounded-full border-2 border-purple-400 border-t-transparent animate-spin mb-3"></div>
+                    <span className="text-xs font-bold text-on-surface-variant">Loading Admin Panel...</span>
+                  </div>
+                }
+              >
+                <AdminDashboard
+                  onClose={() => setActiveView('discover')}
+                  onLock={() => {
+                    lockAdmin()
+                    setActiveView('discover')
+                  }}
+                />
+              </Suspense>
+            </div>
+          ) : (
+            <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl mb-3">
+                🔒
+              </div>
+              <h3 className="text-base font-bold text-on-surface mb-1">Admin Panel Locked</h3>
+              <p className="text-xs text-on-surface-variant mb-4">Please enter your admin credentials to continue.</p>
+              <button
+                onClick={() => setShowAdminAuthModal(true)}
+                className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-bold rounded-xl shadow-md active:scale-95 transition-all"
+              >
+                Unlock with Password
+              </button>
+            </div>
+          )
         ) : activeView === 'discover' ? (
           <div className="animate-fadeIn">
             <BuyerDiscover
@@ -550,6 +653,14 @@ export default function App() {
         isFirstTimeFallback={isFirstTimeFallback}
       />
 
+      {/* Admin Password Gatekeeper Modal */}
+      <AdminAuthModal
+        isOpen={showAdminAuthModal}
+        onClose={() => setShowAdminAuthModal(false)}
+        onUnlockSuccess={handleAdminUnlockSuccess}
+        initialEmail={user?.email || ''}
+      />
+
       {/* 🍎 Ultra-Sleek Floating Pill Dock for Mobile & Android */}
       <nav className="md:hidden fixed bottom-2.5 left-1/2 -translate-x-1/2 z-40 bg-surface/90 dark:bg-zinc-900/90 apple-frosted shadow-[0_6px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4)] border border-surface-variant/50 rounded-full p-1 inline-flex items-center gap-1 transition-all duration-300 mb-[env(safe-area-inset-bottom,0px)]">
         <button
@@ -586,7 +697,7 @@ export default function App() {
           <button
             onClick={() => {
               triggerHaptic('selection')
-              setActiveView('admin')
+              handleOpenAdmin()
             }}
             className={`flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full transition-all duration-200 active:scale-95 text-[11px] font-bold ${
               activeView === 'admin'

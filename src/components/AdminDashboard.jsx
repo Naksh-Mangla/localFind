@@ -433,6 +433,136 @@ function AuditTab() {
 }
 
 /* ────────────────────────────────────────────
+   TAB: Settings / Security
+   ──────────────────────────────────────────── */
+function SettingsTab({ onLock }) {
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState(null)
+  const [err, setErr] = useState(null)
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault()
+    setMsg(null)
+    setErr(null)
+
+    if (newPassword.length < 6) {
+      setErr('New password must be at least 6 characters long.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setErr('New passwords do not match.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const res = await apiFetch('/api/admin/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          current_password: currentPassword,
+          new_password: newPassword
+        })
+      })
+      if (res?.success) {
+        setMsg('Password updated successfully! Next time you log in, use your new password.')
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      }
+    } catch (e) {
+      setErr(e.message || 'Failed to update password')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="max-w-xl mx-auto space-y-6 animate-fadeIn">
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-5 sm:p-6">
+        <h3 className="text-base font-bold text-white mb-1 flex items-center gap-2">
+          <span>🔒</span> Change Admin Password
+        </h3>
+        <p className="text-xs text-white/50 mb-5">
+          Update the master password required to access this admin panel.
+        </p>
+
+        {msg && (
+          <div className="mb-4 p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2">
+            <span>✅</span> <span>{msg}</span>
+          </div>
+        )}
+
+        {err && (
+          <div className="mb-4 p-3 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-xs flex items-center gap-2">
+            <span>⚠️</span> <span>{err}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleChangePassword} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-white/60 mb-1">Current Password</label>
+            <input
+              type="password"
+              value={currentPassword}
+              onChange={e => setCurrentPassword(e.target.value)}
+              placeholder="Enter current password..."
+              required
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-white/60 mb-1">New Password</label>
+            <input
+              type="password"
+              value={newPassword}
+              onChange={e => setNewPassword(e.target.value)}
+              placeholder="At least 6 characters..."
+              required
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-white/60 mb-1">Confirm New Password</label>
+            <input
+              type="password"
+              value={confirmPassword}
+              onChange={e => setConfirmPassword(e.target.value)}
+              placeholder="Repeat new password..."
+              required
+              className="w-full px-3.5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-purple-500/50"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-2.5 px-4 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs shadow-md transition-all active:scale-[0.98] disabled:opacity-50"
+          >
+            {loading ? 'Updating Password...' : 'Save New Password'}
+          </button>
+        </form>
+      </div>
+
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-5 flex items-center justify-between">
+        <div>
+          <h4 className="text-sm font-bold text-white">Lock Admin Session</h4>
+          <p className="text-xs text-white/50">Log out of the admin panel and require password to re-enter.</p>
+        </div>
+        <button
+          onClick={onLock}
+          className="px-4 py-2 bg-red-500/15 hover:bg-red-500/25 text-red-400 border border-red-500/30 rounded-xl text-xs font-semibold transition-all active:scale-95"
+        >
+          🔒 Lock Now
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/* ────────────────────────────────────────────
    MAIN: Admin Dashboard
    ──────────────────────────────────────────── */
 const TABS = [
@@ -441,9 +571,10 @@ const TABS = [
   { id: 'products', label: 'Products', icon: '📦' },
   { id: 'reviews', label: 'Reviews', icon: '⭐' },
   { id: 'audit', label: 'Audit Log', icon: '📋' },
+  { id: 'settings', label: 'Security', icon: '🔐' },
 ]
 
-export function AdminDashboard({ onClose }) {
+export function AdminDashboard({ onClose, onLock }) {
   const [tab, setTab] = useState('overview')
 
   // Close on Escape key
@@ -452,6 +583,11 @@ export function AdminDashboard({ onClose }) {
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
   }, [onClose])
+
+  const handleLockAndClose = () => {
+    onLock?.()
+    onClose?.()
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0b] text-white pb-safe">
@@ -464,12 +600,23 @@ export function AdminDashboard({ onClose }) {
               Admin Panel
             </h1>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white/60 hover:text-white"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleLockAndClose}
+              title="Lock Admin Session"
+              className="px-3 py-1.5 rounded-full bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
+            >
+              <span>🔒</span>
+              <span className="hidden sm:inline">Lock</span>
+            </button>
+            <button
+              onClick={onClose}
+              title="Close Dashboard"
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white/60 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         {/* Tab bar */}
@@ -500,6 +647,7 @@ export function AdminDashboard({ onClose }) {
         {tab === 'products' && <ProductsTab />}
         {tab === 'reviews' && <ReviewsTab />}
         {tab === 'audit' && <AuditTab />}
+        {tab === 'settings' && <SettingsTab onLock={handleLockAndClose} />}
       </div>
     </div>
   )

@@ -639,13 +639,95 @@ async function handleUploadImage(request, env, user) {
   return json({ url, key }, 201)
 }
 
-// ---------- Admin authorization ----------
+// ---------- Admin authorization & Password Hashing ----------
+
+const ADMIN_JWT_SECRET = 'localfind-admin-secret-2026-key-secure'
+const DEFAULT_ADMIN_PASSWORD = 'Admin@LocalFind2026'
+
+async function hashAdminPassword(password, salt) {
+  const enc = new TextEncoder()
+  const data = enc.encode(`${salt}:${password}`)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function signAdminToken(payload, secret = ADMIN_JWT_SECRET) {
+  const enc = new TextEncoder()
+  const headerB64 = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+  const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+  const data = `${headerB64}.${payloadB64}`
+  const key = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+  const sig = await crypto.subtle.sign('HMAC', key, enc.encode(data))
+  const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
+  return `${data}.${sigB64}`
+}
+
+async function verifyAdminToken(token, secret = ADMIN_JWT_SECRET) {
+  if (!token || typeof token !== 'string') return null
+  const parts = token.split('.')
+  if (parts.length !== 3) return null
+  const [headerB64, payloadB64, sigB64] = parts
+  const data = `${headerB64}.${payloadB64}`
+  const enc = new TextEncoder()
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      enc.encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['verify']
+    )
+    let pad = sigB64.replace(/-/g, '+').replace(/_/g, '/')
+    while (pad.length % 4) pad += '='
+    const sigBytes = Uint8Array.from(atob(pad), c => c.charCodeAt(0))
+    const valid = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(data))
+    if (!valid) return null
+    let padPayload = payloadB64.replace(/-/g, '+').replace(/_/g, '/')
+    while (padPayload.length % 4) padPayload += '='
+    const payload = JSON.parse(atob(padPayload))
+    if (payload.exp && payload.exp < Date.now()) return null
+    return payload
+  } catch {
+    return null
+  }
+}
 
 async function requireAdmin(request, env) {
-  const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
-  const admin = await env.DB.prepare('SELECT uid, role FROM admin_users WHERE uid = ?').bind(user.sub).first()
-  if (!admin) throw new AuthError('Admin access required')
-  return { ...user, adminRole: admin.role }
+  const adminHeader = request.headers.get('X-Admin-Token')
+  const authHeader = request.headers.get('Authorization')
+
+  // 1. Check custom X-Admin-Token
+  if (adminHeader) {
+    const payload = await verifyAdminToken(adminHeader, env.ADMIN_SECRET || ADMIN_JWT_SECRET)
+    if (payload?.sub) {
+      const admin = await env.DB.prepare('SELECT uid, email, role FROM admin_users WHERE uid = ?').bind(payload.sub).first()
+      if (admin) return { sub: admin.uid, email: admin.email, adminRole: admin.role, authType: 'admin_token' }
+    }
+  }
+
+  // 2. Check Authorization Bearer header (could be Admin JWT or Firebase Token)
+  if (authHeader?.startsWith('Bearer ')) {
+    const rawToken = authHeader.slice(7)
+    const adminPayload = await verifyAdminToken(rawToken, env.ADMIN_SECRET || ADMIN_JWT_SECRET)
+    if (adminPayload?.sub) {
+      const admin = await env.DB.prepare('SELECT uid, email, role FROM admin_users WHERE uid = ?').bind(adminPayload.sub).first()
+      if (admin) return { sub: admin.uid, email: admin.email, adminRole: admin.role, authType: 'admin_token' }
+    }
+
+    try {
+      const user = await verifyFirebaseIdToken(authHeader, env)
+      const admin = await env.DB.prepare('SELECT uid, email, role FROM admin_users WHERE uid = ?').bind(user.sub).first()
+      if (admin) return { ...user, email: admin.email || user.email, adminRole: admin.role, authType: 'firebase' }
+    } catch {}
+  }
+
+  throw new AuthError('Admin access required')
 }
 
 async function logAdminAction(env, adminUid, action, targetType, targetId, details) {
@@ -656,8 +738,106 @@ async function logAdminAction(env, adminUid, action, targetType, targetId, detai
 
 // ---------- Admin API handlers ----------
 
+async function handleAdminLogin(request, env) {
+  const body = await request.json().catch(() => null)
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const email = cleanText(body.email, 120)?.toLowerCase()
+  const password = body.password
+
+  if (!email || !password) {
+    return json({ error: 'Admin email and password are required' }, 400)
+  }
+
+  // Find admin user by email (case-insensitive) or UID
+  const admin = await env.DB.prepare(
+    'SELECT uid, email, role, password_hash, password_salt FROM admin_users WHERE LOWER(email) = ? OR uid = ?'
+  ).bind(email, email).first()
+
+  if (!admin) {
+    return json({ error: 'Invalid admin email or password' }, 401)
+  }
+
+  let isMatch = false
+  if (admin.password_hash && admin.password_salt) {
+    const computedHash = await hashAdminPassword(password, admin.password_salt)
+    isMatch = (computedHash === admin.password_hash)
+  } else {
+    // Default master password check if password_hash not yet set
+    if (password === DEFAULT_ADMIN_PASSWORD || password === 'admin123') {
+      isMatch = true
+      // Auto-set the password hash for future security
+      const newSalt = crypto.randomUUID()
+      const newHash = await hashAdminPassword(password, newSalt)
+      await env.DB.prepare(
+        'UPDATE admin_users SET password_hash = ?, password_salt = ? WHERE uid = ?'
+      ).bind(newHash, newSalt, admin.uid).run()
+    }
+  }
+
+  if (!isMatch) {
+    return json({ error: 'Invalid admin email or password' }, 401)
+  }
+
+  // 24-hour session expiration
+  const exp = Date.now() + 24 * 60 * 60 * 1000
+  const token = await signAdminToken(
+    { sub: admin.uid, email: admin.email, role: admin.role, exp },
+    env.ADMIN_SECRET || ADMIN_JWT_SECRET
+  )
+
+  await logAdminAction(env, admin.uid, 'admin_login', 'auth', admin.uid, { email: admin.email })
+
+  return json({
+    success: true,
+    token,
+    user: {
+      uid: admin.uid,
+      email: admin.email,
+      role: admin.role
+    }
+  })
+}
+
+async function handleAdminChangePassword(request, env, admin) {
+  const body = await request.json().catch(() => null)
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const currentPassword = body.current_password
+  const newPassword = body.new_password
+
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+    return json({ error: 'New password must be at least 6 characters long' }, 400)
+  }
+
+  const row = await env.DB.prepare(
+    'SELECT uid, password_hash, password_salt FROM admin_users WHERE uid = ?'
+  ).bind(admin.sub).first()
+
+  if (!row) return json({ error: 'Admin account not found' }, 404)
+
+  if (row.password_hash && row.password_salt) {
+    if (!currentPassword) return json({ error: 'Current password is required' }, 400)
+    const currentHash = await hashAdminPassword(currentPassword, row.password_salt)
+    if (currentHash !== row.password_hash) {
+      return json({ error: 'Incorrect current password' }, 401)
+    }
+  }
+
+  const newSalt = crypto.randomUUID()
+  const newHash = await hashAdminPassword(newPassword, newSalt)
+
+  await env.DB.prepare(
+    'UPDATE admin_users SET password_hash = ?, password_salt = ? WHERE uid = ?'
+  ).bind(newHash, newSalt, row.uid).run()
+
+  await logAdminAction(env, admin.sub, 'change_password', 'auth', admin.sub, { updated: true })
+
+  return json({ success: true, message: 'Password updated successfully' })
+}
+
 async function handleAdminCheck(env, admin) {
-  return json({ isAdmin: true, role: admin.adminRole, uid: admin.sub })
+  return json({ isAdmin: true, role: admin.adminRole, uid: admin.sub, email: admin.email })
 }
 
 async function handleAdminStats(env) {
@@ -838,10 +1018,19 @@ export default {
     try {
       // ---------- Admin routes ----------
       if (url.pathname.startsWith('/api/admin')) {
+        // Public admin login endpoint (no auth token required beforehand)
+        if (request.method === 'POST' && url.pathname === '/api/admin/login') {
+          return await handleAdminLogin(request, env)
+        }
+
+        // All other admin endpoints require admin authorization
         const admin = await requireAdmin(request, env)
 
         if (request.method === 'GET' && url.pathname === '/api/admin/check') {
           return await handleAdminCheck(env, admin)
+        }
+        if (request.method === 'POST' && url.pathname === '/api/admin/change-password') {
+          return await handleAdminChangePassword(request, env, admin)
         }
         if (request.method === 'GET' && url.pathname === '/api/admin/stats') {
           return await handleAdminStats(env)

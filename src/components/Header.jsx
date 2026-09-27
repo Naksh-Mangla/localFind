@@ -7,6 +7,7 @@ export function Header({
   setActiveView,
   user,
   isAdmin = false,
+  onOpenAdmin,
   userLocationName,
   locationStatus = 'loading',
   onDetectLocation,
@@ -134,9 +135,10 @@ export function Header({
             <button
               onClick={() => {
                 triggerHaptic('selection')
-                setActiveView('admin')
+                if (onOpenAdmin) onOpenAdmin()
+                else setActiveView('admin')
               }}
-              title="Admin Panel"
+              title="Admin Panel (Password Protected)"
               className={`p-1.5 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
                 activeView === 'admin'
                   ? 'bg-purple-500/20 text-purple-400 border-purple-500/40'
@@ -262,7 +264,11 @@ export function Header({
 
           {isAdmin && (
             <button
-              onClick={() => setActiveView('admin')}
+              onClick={() => {
+                if (onOpenAdmin) onOpenAdmin()
+                else setActiveView('admin')
+              }}
+              title="Admin Control Panel"
               className={`flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${
                 activeView === 'admin'
                   ? 'bg-surface text-purple-500 font-bold shadow-crisp-xs'

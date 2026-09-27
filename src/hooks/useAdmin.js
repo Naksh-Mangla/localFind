@@ -1,48 +1,79 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '../lib/api'
 
 /**
- * Checks if the currently signed-in Firebase user is an admin.
- * Calls /api/admin/check on mount. If it returns 200, isAdmin = true.
- * If user is not signed in or the check returns 401/403, isAdmin stays false.
- * No visible UI side-effects for non-admins — they never know the route exists.
+ * Manages Admin Authentication & Session Lock.
+ * Provides password-protected gatekeeper with session storage token.
  */
 export function useAdmin(user) {
   const [isAdmin, setIsAdmin] = useState(false)
-  const [adminRole, setAdminRole] = useState(null)
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [adminUser, setAdminUser] = useState(null)
   const [checking, setChecking] = useState(true)
 
-  useEffect(() => {
-    if (!user) {
-      setIsAdmin(false)
-      setAdminRole(null)
-      setChecking(false)
-      return
-    }
-
-    let cancelled = false
-
-    async function check() {
-      try {
-        const data = await apiFetch('/api/admin/check')
-        if (!cancelled && data?.isAdmin) {
-          setIsAdmin(true)
-          setAdminRole(data.role || 'admin')
+  // Verify active session or Firebase admin status
+  const verifyStatus = useCallback(async () => {
+    const savedToken = typeof sessionStorage !== 'undefined' ? sessionStorage.getItem('localfind_admin_token') : null
+    
+    try {
+      const data = await apiFetch('/api/admin/check')
+      if (data?.isAdmin) {
+        setIsAdmin(true)
+        setAdminUser({
+          email: data.email || user?.email || 'Administrator',
+          role: data.role || 'admin',
+          uid: data.uid || user?.uid
+        })
+        if (savedToken) {
+          setIsUnlocked(true)
         }
-      } catch {
-        // 401/403 — user is not an admin, that's fine
-        if (!cancelled) {
-          setIsAdmin(false)
-          setAdminRole(null)
-        }
-      } finally {
-        if (!cancelled) setChecking(false)
       }
+    } catch {
+      if (!savedToken) {
+        setIsAdmin(false)
+        setIsUnlocked(false)
+        setAdminUser(null)
+      }
+    } finally {
+      setChecking(false)
     }
-
-    check()
-    return () => { cancelled = true }
   }, [user])
 
-  return { isAdmin, adminRole, checking }
+  useEffect(() => {
+    verifyStatus()
+  }, [verifyStatus])
+
+  // Login with Admin Email + Password
+  const loginWithPassword = useCallback(async (email, password) => {
+    const res = await apiFetch('/api/admin/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password })
+    })
+
+    if (res?.token) {
+      sessionStorage.setItem('localfind_admin_token', res.token)
+      setIsAdmin(true)
+      setIsUnlocked(true)
+      setAdminUser(res.user)
+      return { success: true, user: res.user }
+    }
+
+    throw new Error(res?.error || 'Login failed')
+  }, [])
+
+  // Lock admin session
+  const lockAdmin = useCallback(() => {
+    sessionStorage.removeItem('localfind_admin_token')
+    setIsUnlocked(false)
+  }, [])
+
+  return {
+    isAdmin,
+    isUnlocked,
+    adminUser,
+    checking,
+    loginWithPassword,
+    lockAdmin,
+    refreshAdmin: verifyStatus
+  }
 }
