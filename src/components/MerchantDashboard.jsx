@@ -119,8 +119,9 @@ export function MerchantDashboard({
 
       // Optimized: Fetch current merchant's shop directly (indexed by owner_id)
       // NOTE: /api/my-shop returns the shop unfiltered (banned included), but the
-      // /api/shops fallback filters WHERE is_banned = 0 — so a null fallback result
-      // after a primary failure CANNOT distinguish "new merchant" from "banned shop".
+      // /api/shops fallback hides effectively-banned shops (incl. unexpired timed
+      // bans) — so a null fallback result after a primary failure CANNOT distinguish
+      // "new merchant" from "banned shop".
       let myShop = null
       let primaryFailed = false
       try {
@@ -145,7 +146,9 @@ export function MerchantDashboard({
       setShop(myShop || null)
 
       if (myShop) {
-        if (myShop.is_banned === 1 || Boolean(myShop.is_banned)) {
+        const untilMs = myShop.banned_until ? Date.parse(myShop.banned_until) : NaN
+        const effectivelyBanned = Boolean(myShop.is_banned) && (!myShop.banned_until || !Number.isFinite(untilMs) || untilMs > Date.now())
+        if (effectivelyBanned) {
           showToast(`Your shop has been banned by admin. Reason: ${myShop.ban_reason || FALLBACK_BAN_REASON}`, 'error', 'Shop Banned')
           setProducts([])
           return
@@ -1181,7 +1184,16 @@ export function MerchantDashboard({
   }
 
   // Screen 2.5: Authenticated Merchant whose Shop has been Banned by Admin
-  if (shop && (shop.is_banned === 1 || Boolean(shop.is_banned))) {
+  // Expiry-aware (mirrors worker): an expired ban falls through to the normal dashboard.
+  const banUntilMs = shop?.banned_until ? Date.parse(shop.banned_until) : NaN
+  const banIsEffective = Boolean(shop?.is_banned) && (!shop?.banned_until || !Number.isFinite(banUntilMs) || banUntilMs > Date.now())
+  const banUntilText = Number.isFinite(banUntilMs) && banUntilMs > Date.now()
+    ? new Date(banUntilMs).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null
+  const banDaysLeft = Number.isFinite(banUntilMs) && banUntilMs > Date.now()
+    ? Math.ceil((banUntilMs - Date.now()) / 86400000)
+    : null
+  if (banIsEffective) {
     return (
       <main className="pt-20 md:pt-24 px-container-margin max-w-xl mx-auto pb-24 animate-fadeIn">
         <div className="bg-surface-container-lowest dark:bg-zinc-900 p-6 md:p-8 rounded-3xl border-2 border-error/40 shadow-xl text-center">
@@ -1199,7 +1211,7 @@ export function MerchantDashboard({
           </h2>
 
           <p className="text-xs text-on-surface-variant max-w-md mx-auto mb-6">
-            Your store <strong className="text-on-surface font-semibold">"{shop.shop_name}"</strong> has been suspended by the platform administrator. All of your products have been removed from local discovery, and you cannot manage listings or edit your shop.
+            Your store <strong className="text-on-surface font-semibold">"{shop.shop_name}"</strong> has been suspended by the platform administrator{banUntilText ? <> until <strong className="text-on-surface font-semibold">{banUntilText}</strong> ({banDaysLeft} {banDaysLeft === 1 ? 'day' : 'days'} left)</> : <> indefinitely</>}. Your items are hidden from buyers for now but <strong className="text-on-surface font-semibold">nothing is deleted</strong> — they come back automatically when the ban ends. You cannot manage listings or edit your shop meanwhile.
           </p>
 
           {/* Reason Alert Box */}
@@ -1227,7 +1239,7 @@ export function MerchantDashboard({
               <span className="text-on-surface-variant/80">Store Status:</span>
               <span className="font-bold text-error flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-error animate-pulse"></span>
-                Banned / Offline
+                {banUntilText ? `Banned till ${banUntilText}` : 'Banned / Offline'}
               </span>
             </div>
           </div>

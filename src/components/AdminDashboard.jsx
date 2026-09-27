@@ -160,6 +160,24 @@ function ShopsTab({ onDataChanged, showToast }) {
   const [confirmDeleteShop, setConfirmDeleteShop] = useState(null)
   const [banTargetShop, setBanTargetShop] = useState(null)
   const [banReason, setBanReason] = useState('')
+  const [banDays, setBanDays] = useState(7) // 7 | 15 | 30 | null (permanent)
+
+  // Expiry-aware ban check (mirrors worker): expired bans read as unbanned.
+  // Fail-closed like the worker: a malformed banned_until counts as banned.
+  const isShopBanned = (s) => {
+    if (!s?.is_banned) return false
+    if (!s?.banned_until) return true
+    const ms = Date.parse(s.banned_until)
+    return !Number.isFinite(ms) || ms > Date.now()
+  }
+
+  const banRemainingText = (s) => {
+    if (!s?.banned_until) return 'Permanent'
+    const ms = Date.parse(s.banned_until) - Date.now()
+    if (!Number.isFinite(ms) || ms <= 0) return 'Expired'
+    const days = Math.ceil(ms / 86400000)
+    return days <= 1 ? '1 day left' : `${days} days left`
+  }
 
   const loadShops = useCallback(async () => {
     try {
@@ -179,10 +197,11 @@ function ShopsTab({ onDataChanged, showToast }) {
   }, [loadShops])
 
   const handleToggleBan = async (shop) => {
-    const isCurrentlyBanned = Boolean(shop.is_banned)
+    const isCurrentlyBanned = isShopBanned(shop)
     if (!isCurrentlyBanned) {
       setBanTargetShop(shop)
       setBanReason('')
+      setBanDays(7)
       return
     }
 
@@ -209,10 +228,15 @@ function ShopsTab({ onDataChanged, showToast }) {
         body: JSON.stringify({
           shop_id: banTargetShop.id,
           banned: 1,
-          reason: banReason.trim() || 'Violating local policies'
+          reason: banReason.trim() || 'Violating local policies',
+          duration_days: banDays
         })
       })
-      showToast?.(`Shop "${banTargetShop.shop_name}" has been banned.`, 'success', 'Shop Banned')
+      showToast?.(
+        `Shop "${banTargetShop.shop_name}" has been banned${banDays ? ` for ${banDays} days` : ' permanently'}. Items are kept and auto-restore after expiry.`,
+        'success',
+        'Shop Banned'
+      )
       triggerHaptic('warning')
       clearApiCache()
       onDataChanged?.()
@@ -274,7 +298,7 @@ function ShopsTab({ onDataChanged, showToast }) {
       ) : (
         <div className="grid grid-cols-1 gap-3">
           {shops.map((s) => {
-            const isBanned = Boolean(s.is_banned)
+            const isBanned = isShopBanned(s)
             return (
               <div
                 key={s.id}
@@ -289,7 +313,7 @@ function ShopsTab({ onDataChanged, showToast }) {
                     <h4 className="font-headline-lg text-base font-bold text-on-surface truncate">{s.shop_name}</h4>
                     {isBanned ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-error/15 text-error border border-error/30 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-xs">block</span> Banned
+                        <span className="material-symbols-outlined text-xs">block</span> Banned · {banRemainingText(s)}
                       </span>
                     ) : (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
@@ -305,6 +329,17 @@ function ShopsTab({ onDataChanged, showToast }) {
 
                   <p className="text-xs text-on-surface-variant flex items-center gap-1 flex-wrap">
                     <span>Owner: <strong>{s.owner_name || 'Store Owner'}</strong></span>
+                    <span>•</span>
+                    {s.owner_email ? (
+                      <a
+                        href={`mailto:${s.owner_email}`}
+                        className="text-primary hover:underline font-semibold break-all"
+                      >
+                        {s.owner_email}
+                      </a>
+                    ) : (
+                      <span className="opacity-60">no email on file</span>
+                    )}
                     <span>•</span>
                     <a
                       href={`https://wa.me/91${s.whatsapp_number}`}
@@ -377,7 +412,7 @@ function ShopsTab({ onDataChanged, showToast }) {
               <h3 className="font-headline-lg text-base font-bold">Ban "{banTargetShop.shop_name}"</h3>
             </div>
             <p className="text-xs text-on-surface-variant leading-relaxed">
-              This shop will be hidden from the public explore map and product search. Please enter a brief reason:
+              This shop will be hidden from the public explore map and product search. Its items are kept and come back automatically when the ban ends. Please enter a brief reason:
             </p>
             <input
               type="text"
@@ -386,6 +421,35 @@ function ShopsTab({ onDataChanged, showToast }) {
               placeholder="e.g. Misleading pricing / fake items"
               className="w-full bg-surface-container-high border border-surface-variant rounded-xl p-2.5 text-xs text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
             />
+            <div>
+              <span className="block text-[11px] font-bold text-on-surface-variant uppercase tracking-wider mb-1.5">
+                Ban Duration
+              </span>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { label: '7 days', value: 7 },
+                  { label: '15 days', value: 15 },
+                  { label: '30 days', value: 30 },
+                  { label: 'Permanent', value: null }
+                ].map((opt) => {
+                  const active = banDays === opt.value
+                  return (
+                    <button
+                      key={opt.label}
+                      type="button"
+                      onClick={() => setBanDays(opt.value)}
+                      className={`px-2 py-2 rounded-xl text-[11px] font-bold transition-all border active:scale-95 ${
+                        active
+                          ? 'bg-amber-600 text-white border-amber-700 shadow-crisp-xs'
+                          : 'bg-surface-container-high text-on-surface border-surface-variant/60 hover:border-amber-600/50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
             <div className="grid grid-cols-2 gap-2 pt-2">
               <button
                 onClick={() => setBanTargetShop(null)}

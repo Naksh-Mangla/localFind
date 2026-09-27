@@ -175,18 +175,40 @@ function sanitizeRating(value) {
   return rounded
 }
 
+// ---------- Timed-ban helpers ----------
+// Bans NEVER delete anything — banned shops/items are only hidden from public
+// reads and blocked from writes. An expired ban auto-restores everywhere with
+// no cron job: every check below treats past banned_until as unbanned.
+function isEffectivelyBanned(shop) {
+  if (!shop || !shop.is_banned) return false
+  if (!shop.banned_until) return true // indefinite ban
+  const ms = Date.parse(shop.banned_until)
+  return !Number.isFinite(ms) || ms > Date.now()
+}
+
+function banForbiddenResponse(shop) {
+  const until = shop?.banned_until && Number.isFinite(Date.parse(shop.banned_until))
+    ? ` (until ${new Date(shop.banned_until).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })})`
+    : ''
+  return json({
+    error: `Your shop has been banned by admin. Reason: ${shop?.ban_reason || 'Violation of community policies'}${until}`
+  }, 403)
+}
+
+// SQL fragment matching only effectively-banned shops (table alias configurable)
+const EFFECTIVELY_BANNED_SQL = (alias) =>
+  `(${alias}.is_banned = 1 AND (${alias}.banned_until IS NULL OR ${alias}.banned_until > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`
+
 // ---------- Request handlers ----------
 
 async function handleCreateShop(request, env, user) {
   const body = await request.json().catch(() => null)
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
-  // Check if existing shop for this owner is banned
-  const existingShop = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
-  if (existingShop && existingShop.is_banned) {
-    return json({
-      error: `Your shop has been banned by admin. Reason: ${existingShop.ban_reason || 'Violation of community policies'}`
-    }, 403)
+  // Check if existing shop for this owner is banned (expiry-aware: expired bans auto-restore)
+  const existingShop = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (isEffectivelyBanned(existingShop)) {
+    return banForbiddenResponse(existingShop)
   }
 
   const shop_name = cleanText(body.shop_name, 80)
@@ -203,12 +225,19 @@ async function handleCreateShop(request, env, user) {
     return json({ error: 'lng must be a number between -180 and 180' }, 400)
   }
 
+  // Owner email from the verified Firebase token (for admin contact list).
+  // Phone-auth users have no email — stored as NULL, never blocks saving.
+  const ownerEmail = typeof user.email === 'string' && user.email.includes('@')
+    ? user.email.trim().slice(0, 120)
+    : null
+
   // Atomic upsert with RETURNING id: eliminates redundant follow-up SELECT round-trip
   const id = crypto.randomUUID()
   const row = await env.DB.prepare(
-    `INSERT INTO shops (id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO shops (id, owner_id, owner_email, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(owner_id) DO UPDATE SET
+       owner_email = COALESCE(excluded.owner_email, shops.owner_email),
        shop_name   = excluded.shop_name,
        owner_name  = excluded.owner_name,
        description = excluded.description,
@@ -222,6 +251,7 @@ async function handleCreateShop(request, env, user) {
   ).bind(
     id,
     user.sub,
+    ownerEmail,
     shop_name,
     cleanText(body.owner_name, 80),
     cleanText(body.description, 500),
@@ -258,12 +288,10 @@ async function handleCreateProduct(request, env, user) {
   }
 
   // Fast ownership and ban check via unique index
-  const shop = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE id = ? AND owner_id = ?').bind(shop_id, user.sub).first()
+  const shop = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason FROM shops WHERE id = ? AND owner_id = ?').bind(shop_id, user.sub).first()
   if (!shop) return json({ error: 'Forbidden: shop not found or belongs to another user' }, 403)
-  if (shop.is_banned) {
-    return json({
-      error: `Your shop has been banned by admin. Reason: ${shop.ban_reason || 'Violation of community policies'}`
-    }, 403)
+  if (isEffectivelyBanned(shop)) {
+    return banForbiddenResponse(shop)
   }
 
   const isFlashDeal = body.is_flash_deal ? 1 : 0
@@ -296,12 +324,10 @@ async function handleUpdateProduct(request, env, user) {
   const body = await request.json().catch(() => null)
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
-  // Ban check for shopkeeper
-  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
-  if (bannedCheck && bannedCheck.is_banned) {
-    return json({
-      error: `Your shop has been banned by admin. Reason: ${bannedCheck.ban_reason || 'Violation of community policies'}`
-    }, 403)
+  // Ban check for shopkeeper (expired bans auto-restore)
+  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (isEffectivelyBanned(bannedCheck)) {
+    return banForbiddenResponse(bannedCheck)
   }
 
   const id = cleanText(body.id, 64)
@@ -349,12 +375,10 @@ async function handleUpdateProduct(request, env, user) {
 }
 
 async function handleDeleteProduct(request, env, user, url) {
-  // Ban check for shopkeeper
-  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
-  if (bannedCheck && bannedCheck.is_banned) {
-    return json({
-      error: `Your shop has been banned by admin. Reason: ${bannedCheck.ban_reason || 'Violation of community policies'}`
-    }, 403)
+  // Ban check for shopkeeper (expired bans auto-restore)
+  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (isEffectivelyBanned(bannedCheck)) {
+    return banForbiddenResponse(bannedCheck)
   }
 
   const id = url.searchParams.get('id')
@@ -464,8 +488,11 @@ async function handleDeleteReview(request, env, user, url) {
 }
 
 async function handleListShops(env) {
+  // Expired bans auto-restore: banned_until in the past counts as unbanned
   const { results } = await env.DB.prepare(
-    'SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at FROM shops WHERE is_banned = 0 ORDER BY created_at DESC LIMIT 200'
+    `SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at FROM shops
+     WHERE (is_banned = 0 OR (banned_until IS NOT NULL AND banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
+     ORDER BY created_at DESC LIMIT 200`
   ).all()
   return json({ shops: results })
 }
@@ -509,11 +536,11 @@ async function handleListProducts(env, url, request, ctx) {
            s.owner_id AS owner_id,
            (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = p.shop_id) AS avg_rating,
            (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = p.shop_id) AS review_count
-    FROM products p
-    JOIN shops s ON s.id = p.shop_id AND s.is_banned = 0
-    ${whereClause}
-    ORDER BY p.created_at DESC
-    LIMIT ?`
+     FROM products p
+     JOIN shops s ON s.id = p.shop_id AND (s.is_banned = 0 OR (s.banned_until IS NOT NULL AND s.banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
+     ${whereClause}
+     ORDER BY p.created_at DESC
+     LIMIT ?`
   bindings.push(limit)
 
   let results
@@ -531,11 +558,11 @@ async function handleListProducts(env, url, request, ctx) {
                s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
                s.owner_id AS owner_id,
                NULL AS avg_rating, 0 AS review_count
-        FROM products p
-        JOIN shops s ON s.id = p.shop_id AND s.is_banned = 0
-        ${whereClause}
-        ORDER BY p.created_at DESC
-        LIMIT ?`
+         FROM products p
+         JOIN shops s ON s.id = p.shop_id AND (s.is_banned = 0 OR (s.banned_until IS NOT NULL AND s.banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
+         ${whereClause}
+         ORDER BY p.created_at DESC
+         LIMIT ?`
       const stmt2 = env.DB.prepare(fallbackQuery)
       const res2 = await stmt2.bind(...bindings).all()
       results = res2.results || []
@@ -626,12 +653,10 @@ async function handleUploadImage(request, env, user) {
     return json({ error: 'R2 bucket binding "IMAGES_BUCKET" not configured on worker.' }, 500)
   }
 
-  // Ban check for shopkeeper
-  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
-  if (bannedCheck && bannedCheck.is_banned) {
-    return json({
-      error: `Your shop has been banned by admin. Reason: ${bannedCheck.ban_reason || 'Violation of community policies'}`
-    }, 403)
+  // Ban check for shopkeeper (expired bans auto-restore)
+  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (isEffectivelyBanned(bannedCheck)) {
+    return banForbiddenResponse(bannedCheck)
   }
 
   const formData = await request.formData().catch(() => null)
@@ -879,7 +904,7 @@ async function handleAdminStats(env) {
     env.DB.prepare('SELECT COUNT(*) as count FROM shops').first(),
     env.DB.prepare('SELECT COUNT(*) as count FROM products').first(),
     env.DB.prepare('SELECT COUNT(*) as count FROM reviews').first(),
-    env.DB.prepare('SELECT COUNT(*) as count FROM shops WHERE is_banned = 1').first()
+    env.DB.prepare("SELECT COUNT(*) as count FROM shops WHERE is_banned = 1 AND (banned_until IS NULL OR banned_until > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))").first()
   ])
 
   // New shops this week
@@ -913,13 +938,14 @@ async function handleAdminListShops(env, url) {
     WHERE 1=1`
   const bindings = []
 
-  if (filter === 'active') { query += ' AND s.is_banned = 0'; }
-  else if (filter === 'banned') { query += ' AND s.is_banned = 1'; }
+  // Expired bans read as active (auto-restored) in both filters
+  if (filter === 'active') { query += ` AND NOT ${EFFECTIVELY_BANNED_SQL('s')}`; }
+  else if (filter === 'banned') { query += ` AND ${EFFECTIVELY_BANNED_SQL('s')}`; }
 
   if (search) {
-    query += ' AND (s.shop_name LIKE ? OR s.owner_name LIKE ? OR s.address_text LIKE ?)'
+    query += ' AND (s.shop_name LIKE ? OR s.owner_name LIKE ? OR s.owner_email LIKE ? OR s.address_text LIKE ?)'
     const wildcard = `%${search}%`
-    bindings.push(wildcard, wildcard, wildcard)
+    bindings.push(wildcard, wildcard, wildcard, wildcard)
   }
 
   query += ' ORDER BY s.created_at DESC LIMIT ?'
@@ -937,19 +963,33 @@ async function handleAdminBanShop(request, env, admin) {
   const banned = body.banned ? 1 : 0
   const reason = banned ? (cleanText(body.reason, 300) || 'Violating local platform policies or standards') : null
 
+  // Optional ban length in days (admin quicks: 7 / 15 / 30). Absent/null = indefinite.
+  // Products are NEVER deleted by a ban — they hide during the ban and auto-restore on expiry.
+  let durationDays = null
+  if (banned && body.duration_days !== undefined && body.duration_days !== null && body.duration_days !== '') {
+    durationDays = Math.floor(Number(body.duration_days))
+    if (!Number.isFinite(durationDays) || durationDays < 1 || durationDays > 365) {
+      return json({ error: 'duration_days must be a number between 1 and 365 (or omitted for indefinite)' }, 400)
+    }
+  }
+
   if (!shopId) return json({ error: 'shop_id is required' }, 400)
 
   const shop = await env.DB.prepare('SELECT id, shop_name FROM shops WHERE id = ?').bind(shopId).first()
   if (!shop) return json({ error: 'Shop not found' }, 404)
 
-  await env.DB.prepare('UPDATE shops SET is_banned = ?, ban_reason = ? WHERE id = ?').bind(banned, reason, shopId).run()
+  const bannedUntil = banned && durationDays
+    ? new Date(Date.now() + durationDays * 86400000).toISOString()
+    : null
+
+  await env.DB.prepare('UPDATE shops SET is_banned = ?, ban_reason = ?, banned_until = ? WHERE id = ?').bind(banned, reason, bannedUntil, shopId).run()
 
   // Bump products updated_at for this shop so client ETags invalidate immediately
   await env.DB.prepare("UPDATE products SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE shop_id = ?").bind(shopId).run()
 
-  await logAdminAction(env, admin.sub, banned ? 'ban_shop' : 'unban_shop', 'shop', shopId, { shop_name: shop.shop_name, reason })
+  await logAdminAction(env, admin.sub, banned ? 'ban_shop' : 'unban_shop', 'shop', shopId, { shop_name: shop.shop_name, reason, duration_days: durationDays, banned_until: bannedUntil })
 
-  return json({ success: true, action: banned ? 'banned' : 'unbanned' })
+  return json({ success: true, action: banned ? 'banned' : 'unbanned', banned_until: bannedUntil })
 }
 
 async function handleAdminDeleteShop(request, env, admin, url) {
