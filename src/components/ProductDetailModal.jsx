@@ -458,10 +458,15 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                       <span className="text-xs font-bold text-on-surface">{myExistingReview ? 'Your review (tap stars to update)' : 'Tap stars to rate'}</span>
                       {myExistingReview && <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded-full">1 per shop • editable</span>}
                     </div>
-                    <div className="flex flex-col items-center gap-1">
+                    <div className="flex flex-col items-center gap-1.5 py-1">
                       <ReviewStars rating={myRating} size="lg" interactive onChange={(v) => { setReviewError(''); setMyRating(v); triggerHaptic('selection') }} />
-                      <span className={`text-[10px] font-medium ${myRating ? 'text-amber-600' : 'text-rose-500'}`}>
-                        {myRating ? `${myRating} / 5 selected — tap another star to change` : 'No stars selected — tap 1 to 5 stars (48px targets)'}
+                      <span className={`text-xs font-semibold ${myRating ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                        {myRating === 5 && '⭐⭐⭐⭐⭐ 5/5 — Excellent!'}
+                        {myRating === 4 && '⭐⭐⭐⭐ 4/5 — Very Good'}
+                        {myRating === 3 && '⭐⭐⭐ 3/5 — Good'}
+                        {myRating === 2 && '⭐⭐ 2/5 — Fair'}
+                        {myRating === 1 && '⭐ 1/5 — Needs Improvement'}
+                        {!myRating && 'Tap a star to rate (1 to 5 stars)'}
                       </span>
                     </div>
                     <textarea
