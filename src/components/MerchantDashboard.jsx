@@ -21,7 +21,8 @@ export function MerchantDashboard({
   signOut,
   userCoords,
   onRefreshProducts,
-  lastSyncedAt
+  lastSyncedAt,
+  onSwitchToBuyer
 }) {
   const syncRAG = getRAGStatus(lastSyncedAt)
   const [shop, setShop] = useState(null)
@@ -33,6 +34,10 @@ export function MerchantDashboard({
   const showToast = (message, type = 'info', title = '') => {
     setToast({ message, type, title })
   }
+
+  // Single fallback ban reason (matches worker 403s: 'Violation of community policies').
+  // Persisted per-shop reasons from the admin panel always take precedence when present.
+  const FALLBACK_BAN_REASON = 'Violation of community policies'
 
   // Shop creation / edit state
   const [shopName, setShopName] = useState('')
@@ -113,22 +118,39 @@ export function MerchantDashboard({
       setShopError('')
 
       // Optimized: Fetch current merchant's shop directly (indexed by owner_id)
+      // NOTE: /api/my-shop returns the shop unfiltered (banned included), but the
+      // /api/shops fallback filters WHERE is_banned = 0 — so a null fallback result
+      // after a primary failure CANNOT distinguish "new merchant" from "banned shop".
       let myShop = null
+      let primaryFailed = false
       try {
         const myShopRes = await apiFetch('/api/my-shop')
         if (myShopRes && myShopRes.shop) {
           myShop = myShopRes.shop
         }
       } catch {
+        primaryFailed = true
         // Fallback to /api/shops if /api/my-shop fails
         const data = await apiFetch('/api/shops')
         const currentUid = user.uid || user.sub
         myShop = (data.shops || []).find((s) => s.owner_id === currentUid) || null
       }
 
+      if (!myShop && primaryFailed) {
+        // Don't masquerade as "new shop" — the user may be banned (filtered from
+        // the fallback list) or offline. Surface retry instead of a doomed form.
+        setShopError("We couldn't verify your shop status. Check your connection and retry — don't re-register yet.")
+      }
+
       setShop(myShop || null)
 
       if (myShop) {
+        if (myShop.is_banned === 1 || Boolean(myShop.is_banned)) {
+          showToast(`Your shop has been banned by admin. Reason: ${myShop.ban_reason || FALLBACK_BAN_REASON}`, 'error', 'Shop Banned')
+          setProducts([])
+          return
+        }
+
         setShopName(myShop.shop_name || '')
         setOwnerName(myShop.owner_name || user?.displayName || '')
         setShopDescription(myShop.description || '')
@@ -878,6 +900,19 @@ export function MerchantDashboard({
     return (
       <main className="pt-20 md:pt-24 px-container-margin max-w-xl mx-auto pb-24">
         <div className="bg-surface-container-lowest p-6 md:p-8 rounded-2xl border border-surface-variant shadow-lg">
+          {shopError && (
+            <div className="mb-5 p-3.5 rounded-2xl border border-amber-500/40 bg-amber-500/10 flex items-center gap-3">
+              <span className="material-symbols-outlined text-amber-600 dark:text-amber-400">cloud_off</span>
+              <p className="flex-1 text-xs font-semibold text-on-surface">{shopError}</p>
+              <button
+                type="button"
+                onClick={() => fetchMerchantShop()}
+                className="flex-shrink-0 bg-primary text-on-primary px-3.5 py-2 rounded-full text-xs font-bold active:scale-95 transition-all"
+              >
+                Retry
+              </button>
+            </div>
+          )}
           <h2 className="font-headline-lg text-2xl font-bold text-on-surface mb-1">Set Up Your Shop</h2>
           <p className="text-xs text-on-surface-variant mb-6">
             Welcome, {user.displayName}! Fill out your store details to start showcasing your products locally.
@@ -1140,6 +1175,96 @@ export function MerchantDashboard({
               )}
             </button>
           </form>
+        </div>
+      </main>
+    )
+  }
+
+  // Screen 2.5: Authenticated Merchant whose Shop has been Banned by Admin
+  if (shop && (shop.is_banned === 1 || Boolean(shop.is_banned))) {
+    return (
+      <main className="pt-20 md:pt-24 px-container-margin max-w-xl mx-auto pb-24 animate-fadeIn">
+        <div className="bg-surface-container-lowest dark:bg-zinc-900 p-6 md:p-8 rounded-3xl border-2 border-error/40 shadow-xl text-center">
+          {/* Ban Warning Icon */}
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-error/15 text-error flex items-center justify-center border border-error/30 shadow-inner">
+            <span className="material-symbols-outlined text-3xl">block</span>
+          </div>
+
+          <span className="inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-error/15 text-error border border-error/30 mb-3">
+            Shop Suspended
+          </span>
+
+          <h2 className="font-headline-lg text-2xl font-bold text-on-surface mb-2">
+            Your Shop Has Been Banned by Admin
+          </h2>
+
+          <p className="text-xs text-on-surface-variant max-w-md mx-auto mb-6">
+            Your store <strong className="text-on-surface font-semibold">"{shop.shop_name}"</strong> has been suspended by the platform administrator. All of your products have been removed from local discovery, and you cannot manage listings or edit your shop.
+          </p>
+
+          {/* Reason Alert Box */}
+          <div className="bg-error/10 dark:bg-error/20 border border-error/30 rounded-2xl p-4 mb-6 text-left">
+            <div className="flex items-center gap-2 text-error font-bold text-xs mb-1.5">
+              <span className="material-symbols-outlined text-base">report</span>
+              <span>Reason for Ban:</span>
+            </div>
+            <p className="text-sm font-semibold text-on-surface break-words pl-6">
+              "{shop.ban_reason || FALLBACK_BAN_REASON}"
+            </p>
+          </div>
+
+          {/* Store Details Card */}
+          <div className="bg-surface-container-low dark:bg-zinc-800/60 rounded-2xl p-4 text-xs text-on-surface-variant mb-6 text-left space-y-2.5 border border-surface-variant/40">
+            <div className="flex justify-between items-center">
+              <span className="text-on-surface-variant/80">Store Name:</span>
+              <span className="font-bold text-on-surface">{shop.shop_name}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-on-surface-variant/80">Registered Owner:</span>
+              <span className="font-semibold text-on-surface">{shop.owner_name || user?.displayName || 'Store Owner'}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-on-surface-variant/80">Store Status:</span>
+              <span className="font-bold text-error flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-error animate-pulse"></span>
+                Banned / Offline
+              </span>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-col sm:flex-row gap-3">
+            {onSwitchToBuyer && (
+              <button
+                type="button"
+                onClick={onSwitchToBuyer}
+                className="flex-1 bg-surface-container-high hover:bg-surface-variant text-on-surface font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-surface-variant/60 active:scale-95"
+              >
+                <span className="material-symbols-outlined text-base">storefront</span>
+                <span>Browse Local Deals</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={signOut}
+              className="flex-1 bg-error/15 hover:bg-error/25 text-error font-bold py-3 px-4 rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-error/30 active:scale-95"
+            >
+              <span className="material-symbols-outlined text-base">logout</span>
+              <span>Sign Out</span>
+            </button>
+          </div>
+
+          {/* Appeal / Support link */}
+          <div className="mt-5 pt-4 border-t border-surface-variant/40 text-[11px] text-on-surface-variant">
+            Believe this was a mistake? Contact administration at{' '}
+            <a
+              href={`mailto:admin@localfind.app?subject=${encodeURIComponent(`Ban Appeal: ${shop.shop_name}`)}&body=${encodeURIComponent(`Store Name: ${shop.shop_name}\nShop ID: ${shop.id}\nOwner: ${shop.owner_name || user?.displayName}\nReason Shown: ${shop.ban_reason || 'N/A'}\n\nPlease review my shop.`)}`}
+              className="text-primary hover:underline font-semibold"
+            >
+              admin@localfind.app
+            </a>
+          </div>
         </div>
       </main>
     )

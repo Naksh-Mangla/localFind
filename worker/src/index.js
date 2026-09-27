@@ -181,6 +181,14 @@ async function handleCreateShop(request, env, user) {
   const body = await request.json().catch(() => null)
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
+  // Check if existing shop for this owner is banned
+  const existingShop = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (existingShop && existingShop.is_banned) {
+    return json({
+      error: `Your shop has been banned by admin. Reason: ${existingShop.ban_reason || 'Violation of community policies'}`
+    }, 403)
+  }
+
   const shop_name = cleanText(body.shop_name, 80)
   const whatsapp_number = typeof body.whatsapp_number === 'string' ? body.whatsapp_number.replace(/[^0-9]/g, '') : ''
   const lat = Number(body.lat)
@@ -249,9 +257,14 @@ async function handleCreateProduct(request, env, user) {
     return json({ error: 'price must be a valid positive number' }, 400)
   }
 
-  // Fast ownership check via unique index
-  const shop = await env.DB.prepare('SELECT id FROM shops WHERE id = ? AND owner_id = ?').bind(shop_id, user.sub).first()
+  // Fast ownership and ban check via unique index
+  const shop = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE id = ? AND owner_id = ?').bind(shop_id, user.sub).first()
   if (!shop) return json({ error: 'Forbidden: shop not found or belongs to another user' }, 403)
+  if (shop.is_banned) {
+    return json({
+      error: `Your shop has been banned by admin. Reason: ${shop.ban_reason || 'Violation of community policies'}`
+    }, 403)
+  }
 
   const isFlashDeal = body.is_flash_deal ? 1 : 0
   const id = crypto.randomUUID()
@@ -282,6 +295,14 @@ async function handleCreateProduct(request, env, user) {
 async function handleUpdateProduct(request, env, user) {
   const body = await request.json().catch(() => null)
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  // Ban check for shopkeeper
+  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (bannedCheck && bannedCheck.is_banned) {
+    return json({
+      error: `Your shop has been banned by admin. Reason: ${bannedCheck.ban_reason || 'Violation of community policies'}`
+    }, 403)
+  }
 
   const id = cleanText(body.id, 64)
   const name = cleanText(body.name, 120)
@@ -328,6 +349,14 @@ async function handleUpdateProduct(request, env, user) {
 }
 
 async function handleDeleteProduct(request, env, user, url) {
+  // Ban check for shopkeeper
+  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (bannedCheck && bannedCheck.is_banned) {
+    return json({
+      error: `Your shop has been banned by admin. Reason: ${bannedCheck.ban_reason || 'Violation of community policies'}`
+    }, 403)
+  }
+
   const id = url.searchParams.get('id')
   if (!id || id.length > 64) return json({ error: 'Product id parameter is required' }, 400)
 
@@ -595,6 +624,14 @@ function sniffImageMime(bytes) {
 async function handleUploadImage(request, env, user) {
   if (!env.IMAGES_BUCKET) {
     return json({ error: 'R2 bucket binding "IMAGES_BUCKET" not configured on worker.' }, 500)
+  }
+
+  // Ban check for shopkeeper
+  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (bannedCheck && bannedCheck.is_banned) {
+    return json({
+      error: `Your shop has been banned by admin. Reason: ${bannedCheck.ban_reason || 'Violation of community policies'}`
+    }, 403)
   }
 
   const formData = await request.formData().catch(() => null)
@@ -898,7 +935,7 @@ async function handleAdminBanShop(request, env, admin) {
 
   const shopId = cleanText(body.shop_id, 64)
   const banned = body.banned ? 1 : 0
-  const reason = cleanText(body.reason, 300) || null
+  const reason = banned ? (cleanText(body.reason, 300) || 'Violating local platform policies or standards') : null
 
   if (!shopId) return json({ error: 'shop_id is required' }, 400)
 

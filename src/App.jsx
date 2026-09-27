@@ -642,6 +642,7 @@ export default function App() {
                 userCoords={userCoords}
                 onRefreshProducts={() => fetchProducts(true)}
                 lastSyncedAt={lastSyncedAt}
+                onSwitchToBuyer={() => setActiveView('discover')}
               />
             </Suspense>
           </div>
