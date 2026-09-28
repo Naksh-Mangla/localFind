@@ -9,13 +9,49 @@ const inFlightRequests = new Map()
 const memoryPayloadCache = new Map()
 const memoryEtagCache = new Map()
 
-// Initialize product cache from localStorage for instant offline/0ms boot
+// Initialize product cache from localStorage for instant offline/0ms boot.
+// CAUTION: the persisted copy may be "slim" (inline photos stripped, marked
+// with _slim) to fit the ~5MB quota. A slim copy must NEVER seed the memory
+// cache: a later 304 would serve imageless products and the UI would stick on
+// placeholder images. Slim boots force one unconditional fetch instead (below).
 try {
   const savedEtag = localStorage.getItem('localfind_cached_products_etag')
   const savedProducts = localStorage.getItem('localfind_cached_products')
   if (savedEtag) memoryEtagCache.set('/api/products', savedEtag)
-  if (savedProducts) memoryPayloadCache.set('/api/products', JSON.parse(savedProducts))
+  if (savedProducts) {
+    const parsed = JSON.parse(savedProducts)
+    if (parsed && !parsed._slim) memoryPayloadCache.set('/api/products', parsed)
+  }
 } catch {}
+
+// Lossy copy for localStorage: drops inline base64 photos (remote URLs kept).
+function slimProductsForStorage(body) {
+  if (!Array.isArray(body?.products)) return body
+  return {
+    ...body,
+    _slim: true,
+    products: body.products.map((p) =>
+      p && typeof p.image_url === 'string' && p.image_url.startsWith('data:image/')
+        ? { ...p, image_url: null }
+        : p
+    )
+  }
+}
+
+// Persist the catalog: prefer the FULL copy (photos included) so later boots
+// can serve 304s with images; fall back to the slim copy only on quota errors.
+// A single data-URL photo (~200KB) can otherwise exhaust the ~5MB quota and
+// silently kill instant boot for photo-heavy catalogs.
+function persistProductsCache(body) {
+  if (!body) return
+  try {
+    localStorage.setItem('localfind_cached_products', JSON.stringify({ ...body, _slim: false }))
+  } catch {
+    try {
+      localStorage.setItem('localfind_cached_products', JSON.stringify(slimProductsForStorage(body)))
+    } catch {}
+  }
+}
 
 // Clear all cached responses in memory and localStorage for instant refresh
 export function clearApiCache() {
@@ -71,9 +107,32 @@ export async function apiFetch(path, options = {}) {
         credentials: 'omit'
       })
 
-      // 🏷️ HTTP 304 Not Modified: Return locally cached payload instantly
-      if (res.status === 304 && isGet && !options.bustCache && memoryPayloadCache.has(path)) {
-        return memoryPayloadCache.get(path)
+      // 🏷️ HTTP 304 Not Modified: Return locally cached payload instantly.
+      // If memory holds no full copy (slim boot cache), the 304 is unusable —
+      // refetch unconditionally instead of serving imageless products.
+      if (res.status === 304 && isGet) {
+        if (memoryPayloadCache.has(path)) {
+          return memoryPayloadCache.get(path)
+        }
+        const retryHeaders = { ...headers }
+        delete retryHeaders['If-None-Match']
+        const retry = await fetch(url, { ...options, headers: retryHeaders, credentials: 'omit' })
+        const retryBody = await retry.json().catch(() => null)
+        if (!retry.ok) throw new Error(retryBody?.error ?? `Request failed (${retry.status})`)
+        if (retryBody) {
+          const retryEtag = retry.headers.get('ETag')
+          if (retryEtag) {
+            memoryEtagCache.set(path, retryEtag)
+            if (path === '/api/products') {
+              try {
+                localStorage.setItem('localfind_cached_products_etag', retryEtag)
+              } catch {}
+            }
+          }
+          memoryPayloadCache.set(path, retryBody)
+          persistProductsCache(retryBody)
+        }
+        return retryBody
       }
 
       const body = await res.json().catch(() => null)
@@ -92,23 +151,7 @@ export async function apiFetch(path, options = {}) {
         }
         memoryPayloadCache.set(path, body)
         if (path === '/api/products') {
-          try {
-            // Strip inline base64 photos before persisting: a single data-URL image
-            // (~200KB) can exhaust the ~5MB localStorage quota and silently kill
-            // instant boot for photo-heavy catalogs. Remote http(s) URLs are tiny
-            // and safe to keep; data URLs re-download on next fetch anyway.
-            const slim = Array.isArray(body?.products)
-              ? {
-                  ...body,
-                  products: body.products.map((p) =>
-                    p && typeof p.image_url === 'string' && p.image_url.startsWith('data:image/')
-                      ? { ...p, image_url: null }
-                      : p
-                  )
-                }
-              : body
-            localStorage.setItem('localfind_cached_products', JSON.stringify(slim))
-          } catch {}
+          persistProductsCache(body)
         }
       }
 
