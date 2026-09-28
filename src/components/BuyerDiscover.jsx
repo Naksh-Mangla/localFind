@@ -92,12 +92,8 @@ const ProductCard = React.memo(function ProductCard({
   const flashInfo = getFlashDealInfo(product)
   const itemRAG = getRAGStatus(product.updated_at || product.created_at)
 
-  // Hero visuals require effective Level 5 (flag + 200 five-stars, or persisted
-  // badge_level 5) — a premature flag alone must not show the verified treatment.
-  const heroCount = Number(product.five_star_reviews_count) || 0
-  const isHero =
-    Number(product.badge_level) === 5 ||
-    (Boolean(product.is_hero_shop || product.isHeroShop) && heroCount >= 200)
+  // Hero is a pure admin override: the flag alone earns the verified treatment.
+  const isHero = Boolean(product.is_hero_shop || product.isHeroShop)
 
   return (
     <div

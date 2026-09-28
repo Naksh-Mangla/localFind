@@ -263,15 +263,12 @@ function ShopsTab({ onDataChanged, showToast }) {
         body: JSON.stringify({ shop_id: shop.id, is_hero: newHeroState })
       })
       const serverBadge = res?.badge
-      const reachedHero = newHeroState && serverBadge?.level === 5
       showToast?.(
         newHeroState
-          ? reachedHero
-            ? `Shop "${shop.shop_name}" granted verified Hero Shop status! ✅`
-            : `Hero flag recorded for "${shop.shop_name}" — Level 5 unlocks at 200 five-star reviews (currently ${serverBadge?.fiveStarCount ?? 0}).`
+          ? `Shop "${shop.shop_name}" granted verified Hero Shop status! ✅`
           : `Hero Shop status removed from "${shop.shop_name}".`,
         'success',
-        newHeroState ? (reachedHero ? 'Hero Shop Granted' : 'Hero Flag Recorded') : 'Status Updated'
+        newHeroState ? 'Hero Shop Granted' : 'Status Updated'
       )
       triggerHaptic('success')
       clearApiCache()
@@ -347,11 +344,8 @@ function ShopsTab({ onDataChanged, showToast }) {
         <div className="grid grid-cols-1 gap-3">
           {shops.map((s) => {
             const isBanned = isShopBanned(s)
-            // Same effective-Level-5 rule as buyer cards: flag alone is not enough
-            const heroCount = Number(s.five_star_reviews_count) || 0
-            const isHero =
-              Number(s.badge_level) === 5 ||
-              (Boolean(s.is_hero_shop) && heroCount >= 200)
+            // Hero is a pure admin override: the flag alone earns the tick
+            const isHero = Boolean(s.is_hero_shop)
 
             return (
               <div

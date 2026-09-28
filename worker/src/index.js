@@ -200,11 +200,11 @@ const EFFECTIVELY_BANNED_SQL = (alias) =>
   `(${alias}.is_banned = 1 AND (${alias}.banned_until IS NULL OR ${alias}.banned_until > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`
 
 // ---------- Shop badge & milestone system (mirrors src/utils/shopBadges.js) ----------
-// Levels 1-4 are automatic from five-star review counts; Level 5 (Hero) additionally
-// requires the admin-granted is_hero_shop flag. Server is the source of truth.
+// Levels 1-4 are automatic from five-star review counts. Level 5 (Hero) is a pure
+// admin override: the flag alone grants it, no review threshold. Server is truth.
 function calculateBadgeLevel(fiveStarCount, isHeroShop) {
+  if (isHeroShop) return 5
   const count = Number(fiveStarCount) || 0
-  if (isHeroShop && count >= 200) return 5
   if (count >= 200) return 4
   if (count >= 50) return 3
   if (count >= 5) return 2
@@ -1273,8 +1273,7 @@ async function handleAdminHeroShop(request, env, admin) {
   // otherwise clients keep 304s / edge-cached non-hero cards until TTL expiry.
   await env.DB.prepare("UPDATE products SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE shop_id = ?").bind(shopId).run()
 
-  // Recompute level: hero grants Level 5 only at 200+ five-stars, otherwise the
-  // earned auto level applies (mirrors calculateBadgeLevel).
+  // Recompute level: hero flag alone grants Level 5 (admin override, no threshold).
   const badge = await refreshShopBadge(env, shopId).catch((badgeErr) => { console.warn('Badge refresh failed:', badgeErr?.message); return null })
 
   await logAdminAction(env, admin.sub, isHero ? 'grant_hero_shop' : 'revoke_hero_shop', 'shop', shopId, { shop_name: shop.shop_name, badge_level: badge?.level })

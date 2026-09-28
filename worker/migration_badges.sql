@@ -15,9 +15,11 @@ CREATE INDEX IF NOT EXISTS idx_shops_badge ON shops(badge_level);
 CREATE INDEX IF NOT EXISTS idx_shops_hero ON shops(is_hero_shop);
 CREATE INDEX IF NOT EXISTS idx_reviews_shop_rating ON reviews(shop_id, rating);
 
--- Backfill earned levels from existing reviews (hero flags stay admin-granted).
+-- Backfill earned levels from existing reviews. Hero is a pure admin override:
+-- any shop already carrying the flag lands on Level 5 regardless of reviews.
 UPDATE shops SET badge_level = (
   CASE
+    WHEN is_hero_shop = 1 THEN 5
     WHEN (SELECT COUNT(*) FROM reviews WHERE reviews.shop_id = shops.id AND reviews.rating = 5) >= 200 THEN 4
     WHEN (SELECT COUNT(*) FROM reviews WHERE reviews.shop_id = shops.id AND reviews.rating = 5) >= 50 THEN 3
     WHEN (SELECT COUNT(*) FROM reviews WHERE reviews.shop_id = shops.id AND reviews.rating = 5) >= 5 THEN 2

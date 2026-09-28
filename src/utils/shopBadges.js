@@ -269,16 +269,15 @@ export function getShopBadge(fiveStarCountOrShop = 0, isHeroShop = false) {
     count = Number(fiveStarCountOrShop) || 0
   }
 
-  // Server-persisted level wins when present (server is source of truth —
-  // it already folds the hero flag and review count together).
-  if (directLevel && directLevel >= 1 && directLevel <= 5) {
-    return getShopBadgeByLevel(directLevel)
+  // Hero Shop is a pure admin override: the flag alone grants Level 5, no review
+  // threshold (mirrors worker calculateBadgeLevel). Admin word is final.
+  if (isHero) {
+    return SHOP_BADGES[4] // Level 5: Hero Shop
   }
 
-  // Hero Shop: admin flag AND 200 five-star reviews (mirrors worker
-  // calculateBadgeLevel). A premature grant stays at the earned auto level.
-  if (isHero && count >= 200) {
-    return SHOP_BADGES[4] // Level 5: Hero Shop
+  // Server-persisted level wins when present (source of truth for auto levels).
+  if (directLevel && directLevel >= 1 && directLevel <= 5) {
+    return getShopBadgeByLevel(directLevel)
   }
 
   // Walk backwards from highest auto-level (Level 4) to find the right badge
