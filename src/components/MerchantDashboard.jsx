@@ -10,6 +10,8 @@ import { getFlashDealInfo } from '../utils/flashDeals'
 import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
 import { triggerHaptic } from '../utils/haptics'
 import { lookupPincode } from '../utils/postalPincode'
+import { ShopBadgePill, HeroShopBadge, ShopMilestoneCard, MilestoneCelebrationModal, AllTiersModal } from './ShopBadge'
+import { getShopBadge } from '../utils/shopBadges'
 
 const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
 
@@ -57,6 +59,11 @@ export function MerchantDashboard({
   const [showEditShopModal, setShowEditShopModal] = useState(false)
   const [showQRStandeeModal, setShowQRStandeeModal] = useState(false)
 
+  // Shop trust badges & reviews state
+  const [reviewStats, setReviewStats] = useState(null)
+  const [showCelebrationModal, setShowCelebrationModal] = useState(null)
+  const [showAllTiersModal, setShowAllTiersModal] = useState(false)
+
   // Product management state
   const [products, setProducts] = useState([])
   const [showAddProductModal, setShowAddProductModal] = useState(false)
@@ -70,6 +77,8 @@ export function MerchantDashboard({
 
   useAndroidBackHandler(showEditShopModal, () => setShowEditShopModal(false), 'merchant_edit_shop')
   useAndroidBackHandler(showQRStandeeModal, () => setShowQRStandeeModal(false), 'merchant_qr_standee')
+  useAndroidBackHandler(showAllTiersModal, () => setShowAllTiersModal(false), 'merchant_all_tiers')
+  useAndroidBackHandler(Boolean(showCelebrationModal), () => setShowCelebrationModal(null), 'merchant_celebration')
   const [productName, setProductName] = useState('')
   const [productPrice, setProductPrice] = useState('')
   const [productCategory, setProductCategory] = useState('General')
@@ -185,6 +194,24 @@ export function MerchantDashboard({
         // Optimized: Fetch only this shop's products instead of entire database catalog
         const prodData = await apiFetch(`/api/products?shop_id=${encodeURIComponent(myShop.id)}`)
         setProducts(prodData.products || [])
+
+        // Fetch reviews breakdown & check for level up
+        try {
+          const reviewsData = await apiFetch(`/api/reviews?shop_id=${encodeURIComponent(myShop.id)}`)
+          if (reviewsData?.stats) {
+            setReviewStats(reviewsData.stats)
+            const fiveStars = Number(reviewsData.stats.breakdown?.[5] ?? reviewsData.stats.five_star_count ?? 0)
+            const currentBadge = getShopBadge(fiveStars, Boolean(myShop.is_hero_shop))
+            const lastSeenKey = `localfind_badge_level_${myShop.id}`
+            const lastSeenLevel = Number(localStorage.getItem(lastSeenKey) || 0)
+            if (lastSeenLevel > 0 && currentBadge.level > lastSeenLevel) {
+              setShowCelebrationModal(currentBadge.id)
+            }
+            localStorage.setItem(lastSeenKey, String(currentBadge.level))
+          }
+        } catch (revErr) {
+          console.warn('Could not fetch review stats for merchant shop:', revErr)
+        }
       }
     } catch (err) {
       console.error('Failed to load merchant shop:', err)
@@ -1320,6 +1347,13 @@ export function MerchantDashboard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
               <h2 className="font-headline-lg text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">{shop.shop_name}</h2>
+              <ShopBadgePill
+                shop={shop}
+                fiveStarCount={reviewStats?.breakdown?.[5]}
+                size="sm"
+                interactive
+                onClick={() => setShowAllTiersModal(true)}
+              />
               <span className="bg-primary/10 text-primary border border-primary/20 px-3 py-1 rounded-full text-xs font-bold">
                 Live Window
               </span>
@@ -1365,6 +1399,18 @@ export function MerchantDashboard({
               </span>
               <span className="text-[10px] text-amber-700 dark:text-amber-300 font-bold uppercase tracking-wider">Deals</span>
             </div>
+            <button
+              type="button"
+              onClick={() => setShowAllTiersModal(true)}
+              className="bg-purple-500/10 hover:bg-purple-500/15 px-4 py-2 rounded-2xl border border-purple-500/30 flex flex-col text-center transition-all active:scale-95 cursor-pointer"
+              title="Click to view shop milestones & unlocked perks"
+            >
+              <span className="text-base font-black text-purple-600 dark:text-purple-400 flex items-center justify-center gap-0.5">
+                <span className="material-symbols-outlined text-sm text-amber-500 fill-1">star</span>
+                <span>{reviewStats?.breakdown?.[5] ?? shop?.five_star_reviews_count ?? 0}</span>
+              </span>
+              <span className="text-[10px] text-purple-700 dark:text-purple-300 font-bold uppercase tracking-wider">5-Stars</span>
+            </button>
           </div>
         </div>
 
@@ -1405,6 +1451,14 @@ export function MerchantDashboard({
           </button>
         </div>
       </div>
+
+      {/* 🏅 Shop Trust & Milestone Progression Card */}
+      <ShopMilestoneCard
+        shop={shop}
+        reviewStats={reviewStats}
+        onOpenAllTiers={() => setShowAllTiersModal(true)}
+        className="mb-8"
+      />
 
       {/* Product List Grid */}
       <div className="flex items-center justify-between mb-4 px-1">
@@ -2193,6 +2247,22 @@ export function MerchantDashboard({
             onClose={() => setShowQRStandeeModal(false)}
           />
         </React.Suspense>
+      )}
+
+      {/* 🎉 Milestone Level-Up Celebration Modal */}
+      {showCelebrationModal && (
+        <MilestoneCelebrationModal
+          badgeId={showCelebrationModal}
+          onClose={() => setShowCelebrationModal(null)}
+        />
+      )}
+
+      {/* 🏅 All Tiers & Perks Guide Modal */}
+      {showAllTiersModal && shop && (
+        <AllTiersModal
+          currentLevel={getShopBadge(reviewStats?.breakdown?.[5] ?? shop?.five_star_reviews_count ?? 0, Boolean(shop.is_hero_shop)).level}
+          onClose={() => setShowAllTiersModal(false)}
+        />
       )}
     </main>
   )

@@ -3,6 +3,7 @@ import { apiFetch, clearApiCache } from '../lib/api'
 import { Toast } from './Toast'
 import { ConfirmModal } from './ConfirmModal'
 import { ReviewStars } from './ReviewStars'
+import { ShopBadgePill, HeroShopBadge } from './ShopBadge'
 import { triggerHaptic } from '../utils/haptics'
 
 /* ────────────────────────────────────────────
@@ -247,6 +248,53 @@ function ShopsTab({ onDataChanged, showToast }) {
     }
   }
 
+  const [heroPendingId, setHeroPendingId] = useState(null)
+
+  const handleToggleHero = async (shop) => {
+    if (heroPendingId) return // one hero request at a time: no grant+revoke race
+    const newHeroState = !Boolean(shop.is_hero_shop)
+    setHeroPendingId(shop.id)
+    try {
+      // Server recomputes the level (hero needs 200 five-stars) and returns it —
+      // use that truth instead of hardcoding Level 5, so grant and revoke both
+      // land on the correct level even if a refetch interleaves.
+      const res = await apiFetch('/api/admin/hero-shop', {
+        method: 'POST',
+        body: JSON.stringify({ shop_id: shop.id, is_hero: newHeroState })
+      })
+      const serverBadge = res?.badge
+      const reachedHero = newHeroState && serverBadge?.level === 5
+      showToast?.(
+        newHeroState
+          ? reachedHero
+            ? `Shop "${shop.shop_name}" granted verified Hero Shop status! ✅`
+            : `Hero flag recorded for "${shop.shop_name}" — Level 5 unlocks at 200 five-star reviews (currently ${serverBadge?.fiveStarCount ?? 0}).`
+          : `Hero Shop status removed from "${shop.shop_name}".`,
+        'success',
+        newHeroState ? (reachedHero ? 'Hero Shop Granted' : 'Hero Flag Recorded') : 'Status Updated'
+      )
+      triggerHaptic('success')
+      clearApiCache()
+      onDataChanged?.()
+      setShops((prev) =>
+        prev.map((item) =>
+          item.id === shop.id
+            ? {
+                ...item,
+                is_hero_shop: res?.is_hero_shop ? 1 : 0,
+                badge_level: serverBadge?.level ?? item.badge_level ?? 1,
+                five_star_reviews_count: serverBadge?.fiveStarCount ?? item.five_star_reviews_count
+              }
+            : item
+        )
+      )
+    } catch (e) {
+      showToast?.(`Failed to update Hero status: ${e.message}`, 'error')
+    } finally {
+      setHeroPendingId(null)
+    }
+  }
+
   const handleDeleteShop = async () => {
     if (!confirmDeleteShop) return
     try {
@@ -299,18 +347,33 @@ function ShopsTab({ onDataChanged, showToast }) {
         <div className="grid grid-cols-1 gap-3">
           {shops.map((s) => {
             const isBanned = isShopBanned(s)
+            // Same effective-Level-5 rule as buyer cards: flag alone is not enough
+            const heroCount = Number(s.five_star_reviews_count) || 0
+            const isHero =
+              Number(s.badge_level) === 5 ||
+              (Boolean(s.is_hero_shop) && heroCount >= 200)
+
             return (
               <div
                 key={s.id}
                 className={`bg-surface-container-lowest dark:bg-zinc-900 border rounded-2xl p-4 sm:p-5 shadow-crisp-xs flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
                   isBanned
                     ? 'border-error/30 bg-error/5'
+                    : isHero
+                    ? 'border-emerald-500/40 ring-1 ring-emerald-500/20 hover:border-emerald-500/60'
                     : 'border-surface-variant/60 dark:border-zinc-800 hover:border-surface-variant'
                 }`}
               >
                 <div className="space-y-1 flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <h4 className="font-headline-lg text-base font-bold text-on-surface truncate">{s.shop_name}</h4>
+                    <h4 className="font-headline-lg text-base font-bold text-on-surface truncate flex items-center gap-1.5">
+                      <span>{s.shop_name}</span>
+                      {isHero && <HeroShopBadge size="sm" />}
+                    </h4>
+
+                    {/* Milestone Trust Badge Pill */}
+                    <ShopBadgePill shop={s} size="xs" />
+
                     {isBanned ? (
                       <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-error/15 text-error border border-error/30 flex items-center gap-1">
                         <span className="material-symbols-outlined text-xs">block</span> Banned · {banRemainingText(s)}
@@ -364,22 +427,37 @@ function ShopsTab({ onDataChanged, showToast }) {
                 </div>
 
                 {/* Action buttons */}
-                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center flex-wrap">
+                  {/* Hero Shop Admin Toggle */}
+                  <button
+                    onClick={() => handleToggleHero(s)}
+                    disabled={heroPendingId !== null}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 flex items-center gap-1 cursor-pointer disabled:opacity-50 disabled:cursor-wait ${
+                      isHero
+                        ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                        : 'bg-surface-container-high text-on-surface-variant hover:text-emerald-600 dark:hover:text-emerald-400 border-surface-variant/60 hover:border-emerald-500/40'
+                    }`}
+                    title={isHero ? 'Click to revoke Hero Shop badge' : 'Click to grant verified Hero Shop badge (Level 5)'}
+                  >
+                    <span className="material-symbols-outlined text-sm text-emerald-500 fill-1">verified</span>
+                    <span>{isHero ? 'Hero Shop ✅' : 'Make Hero'}</span>
+                  </button>
+
                   <button
                     onClick={() => handleToggleBan(s)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 flex items-center gap-1 ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all active:scale-95 flex items-center gap-1 cursor-pointer ${
                       isBanned
                         ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/25'
                         : 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/25'
                     }`}
                   >
                     <span className="material-symbols-outlined text-sm">{isBanned ? 'check' : 'block'}</span>
-                    <span>{isBanned ? 'Unban Shop' : 'Ban Shop'}</span>
+                    <span>{isBanned ? 'Unban' : 'Ban'}</span>
                   </button>
 
                   <button
                     onClick={() => setConfirmDeleteShop(s)}
-                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-error/10 hover:bg-error/20 text-error border border-error/20 transition-all active:scale-95 flex items-center gap-1"
+                    className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-error/10 hover:bg-error/20 text-error border border-error/20 transition-all active:scale-95 flex items-center gap-1 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">delete</span>
                     <span>Delete</span>

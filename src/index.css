@@ -490,3 +490,52 @@ h1, h2, h3, .font-headline-lg, .font-display-lg {
   }
 }
 
+/* 🏅 Shop Badge & Milestone Glow & Sparkle System */
+@keyframes badgePulseGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 3px rgba(245, 158, 11, 0.35));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(245, 158, 11, 0.7));
+  }
+}
+
+.badge-glow {
+  animation: badgePulseGlow 3s ease-in-out infinite;
+}
+
+@keyframes heroSparkleBorder {
+  0% {
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+  }
+  50% {
+    border-color: rgba(16, 185, 129, 0.85);
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.35);
+  }
+  100% {
+    border-color: rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+  }
+}
+
+.hero-shop-card {
+  animation: heroSparkleBorder 4s ease-in-out infinite;
+}
+
+@keyframes scaleUpModal {
+  from {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-scaleUp {
+  animation: scaleUpModal 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+

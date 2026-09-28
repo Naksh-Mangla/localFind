@@ -11,6 +11,7 @@ import {
 import { getFlashDealInfo, useFlashDeal } from '../utils/flashDeals'
 import { triggerHaptic } from '../utils/haptics'
 import { ReviewStars } from './ReviewStars'
+import { ShopBadgePill, HeroShopBadge } from './ShopBadge'
 import { apiFetch } from '../lib/api'
 
 // Android-optimized: lazy-load free map only when user opens Map tab (saves 140KB on List view)
@@ -91,11 +92,20 @@ const ProductCard = React.memo(function ProductCard({
   const flashInfo = getFlashDealInfo(product)
   const itemRAG = getRAGStatus(product.updated_at || product.created_at)
 
+  // Hero visuals require effective Level 5 (flag + 200 five-stars, or persisted
+  // badge_level 5) — a premature flag alone must not show the verified treatment.
+  const heroCount = Number(product.five_star_reviews_count) || 0
+  const isHero =
+    Number(product.badge_level) === 5 ||
+    (Boolean(product.is_hero_shop || product.isHeroShop) && heroCount >= 200)
+
   return (
     <div
       onClick={() => onSelectProduct(product)}
       className={`product-card-contain bg-surface-container-lowest rounded-2xl sm:rounded-3xl shadow-crisp-xs hover:apple-product-shadow overflow-hidden border flex flex-col group cursor-pointer transition-all duration-300 touch-press ${
-        isDistant 
+        isHero
+          ? 'hero-shop-card border-emerald-500/50 ring-1 ring-emerald-500/30'
+          : isDistant 
           ? 'border-amber-500/30 hover:border-amber-500/60' 
           : 'border-surface-variant/40 hover:border-primary/40'
       }`}
@@ -158,13 +168,14 @@ const ProductCard = React.memo(function ProductCard({
 
         {/* Shop Name + Distance & Opening Status Row */}
         <div className="flex items-center justify-between gap-1 mb-1.5 min-w-0">
-          <p className="font-body-sm text-[10px] sm:text-xs text-on-surface-variant truncate flex-1 font-medium">
-            {product.shop_name}
+          <p className="font-body-sm text-[10px] sm:text-xs text-on-surface-variant truncate flex-1 font-medium flex items-center gap-1">
+            <span className="truncate">{product.shop_name}</span>
+            {isHero && <HeroShopBadge size="xs" />}
           </p>
           <StoreStatusBadge openingTime={product.opening_time} closingTime={product.closing_time} />
         </div>
 
-        {/* Distance & Rating Metadata Pill in Body (Never overlaps photo) */}
+        {/* Distance, Rating & Trust Badge Metadata Row */}
         <div className="mb-2 flex items-center gap-1.5 flex-wrap">
           {product.isOwner ? (
             <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
@@ -192,6 +203,9 @@ const ProductCard = React.memo(function ProductCard({
               <span className="opacity-70 font-normal">({product.review_count})</span>
             </span>
           )}
+
+          {/* Shop Milestone Trust Badge */}
+          <ShopBadgePill shop={product} size="xs" />
         </div>
 
         {/* Price & Action Bottom Row */}
@@ -309,7 +323,10 @@ export function BuyerDiscover({
               lat: found.lat,
               lng: found.lng,
               avgRating: found.avg_rating ? Number(found.avg_rating) : null,
-              reviewCount: found.review_count ? Number(found.review_count) : 0
+              reviewCount: found.review_count ? Number(found.review_count) : 0,
+              badge_level: found.badge_level ?? null,
+              is_hero_shop: found.is_hero_shop ? 1 : 0,
+              five_star_reviews_count: found.five_star_reviews_count ?? null
             })
           }
         }
@@ -522,7 +539,10 @@ export function BuyerDiscover({
           closingTime: matchedProduct.closing_time,
           distanceKm: matchedProduct.distanceKm,
           avgRating: matchedProduct.avg_rating ? Number(matchedProduct.avg_rating) : null,
-          reviewCount: matchedProduct.review_count ? Number(matchedProduct.review_count) : 0
+          reviewCount: matchedProduct.review_count ? Number(matchedProduct.review_count) : 0,
+          badge_level: matchedProduct.badge_level ?? null,
+          is_hero_shop: matchedProduct.is_hero_shop ? 1 : 0,
+          five_star_reviews_count: matchedProduct.five_star_reviews_count ?? null
         }
       }
     }
@@ -672,9 +692,7 @@ export function BuyerDiscover({
                       <h1 className="font-display-lg text-xl sm:text-2xl font-black text-on-surface tracking-tight">
                         {targetShop.name}
                       </h1>
-                      <span className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
-                        ✨ Verified Store
-                      </span>
+                      <ShopBadgePill shop={targetShop} size="sm" />
                     </div>
 
                     <div className="flex items-center gap-2.5 flex-wrap text-xs text-on-surface-variant">

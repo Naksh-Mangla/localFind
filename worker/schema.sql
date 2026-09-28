@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS shops (
   ban_reason      TEXT,
   banned_until    TEXT,
   owner_email     TEXT,
+  is_hero_shop    INTEGER NOT NULL DEFAULT 0,
+  badge_level     INTEGER NOT NULL DEFAULT 1,
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
@@ -73,7 +75,10 @@ CREATE TABLE IF NOT EXISTS admin_audit_log (
 
 CREATE INDEX IF NOT EXISTS idx_reviews_shop ON reviews(shop_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_reviews_user ON reviews(user_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_shop_rating ON reviews(shop_id, rating);
 CREATE INDEX IF NOT EXISTS idx_audit_admin ON admin_audit_log(admin_uid, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_target ON admin_audit_log(target_type, target_id);
 CREATE INDEX IF NOT EXISTS idx_shops_banned ON shops(is_banned);
 CREATE INDEX IF NOT EXISTS idx_shops_ban_expiry ON shops(is_banned, banned_until);
+CREATE INDEX IF NOT EXISTS idx_shops_badge ON shops(badge_level);
+CREATE INDEX IF NOT EXISTS idx_shops_hero ON shops(is_hero_shop);

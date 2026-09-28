@@ -199,6 +199,37 @@ function banForbiddenResponse(shop) {
 const EFFECTIVELY_BANNED_SQL = (alias) =>
   `(${alias}.is_banned = 1 AND (${alias}.banned_until IS NULL OR ${alias}.banned_until > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))`
 
+// ---------- Shop badge & milestone system (mirrors src/utils/shopBadges.js) ----------
+// Levels 1-4 are automatic from five-star review counts; Level 5 (Hero) additionally
+// requires the admin-granted is_hero_shop flag. Server is the source of truth.
+function calculateBadgeLevel(fiveStarCount, isHeroShop) {
+  const count = Number(fiveStarCount) || 0
+  if (isHeroShop && count >= 200) return 5
+  if (count >= 200) return 4
+  if (count >= 50) return 3
+  if (count >= 5) return 2
+  return 1
+}
+
+// Recount five-star reviews for a shop, persist badge_level if it changed.
+// Returns { fiveStarCount, prevLevel, level, unlocked } or null if shop missing.
+async function refreshShopBadge(env, shopId) {
+  const row = await env.DB.prepare(
+    `SELECT
+       (SELECT COUNT(*) FROM reviews WHERE shop_id = ? AND rating = 5) AS five,
+       badge_level AS lvl,
+       is_hero_shop AS hero
+     FROM shops WHERE id = ?`
+  ).bind(shopId, shopId).first()
+  if (!row) return null
+  const prev = Number(row.lvl) || 1
+  const next = calculateBadgeLevel(Number(row.five) || 0, Boolean(row.hero))
+  if (next !== prev) {
+    await env.DB.prepare('UPDATE shops SET badge_level = ? WHERE id = ?').bind(next, shopId).run()
+  }
+  return { fiveStarCount: Number(row.five) || 0, prevLevel: prev, level: next, unlocked: next > prev }
+}
+
 // ---------- Request handlers ----------
 
 async function handleCreateShop(request, env, user) {
@@ -269,8 +300,22 @@ async function handleCreateShop(request, env, user) {
 }
 
 async function handleGetMyShop(env, user) {
-  const shop = await env.DB.prepare('SELECT * FROM shops WHERE owner_id = ?').bind(user.sub).first()
-  return json({ shop: shop || null })
+  // Badge columns ride along via SELECT *; five-star count added for the contract.
+  // Falls back gracefully on DBs where the reviews table is not yet migrated.
+  try {
+    const shop = await env.DB.prepare(
+      `SELECT *,
+         (SELECT COUNT(*) FROM reviews r WHERE r.shop_id = shops.id AND r.rating = 5) AS five_star_reviews_count
+       FROM shops WHERE owner_id = ?`
+    ).bind(user.sub).first()
+    return json({ shop: shop || null })
+  } catch (err) {
+    if (String(err.message || '').includes('no such table')) {
+      const shop = await env.DB.prepare('SELECT * FROM shops WHERE owner_id = ?').bind(user.sub).first()
+      return json({ shop: shop ? { ...shop, five_star_reviews_count: 0 } : null })
+    }
+    throw err
+  }
 }
 
 async function handleCreateProduct(request, env, user) {
@@ -433,7 +478,10 @@ async function handleSaveReview(request, env, user) {
      RETURNING id, rating, comment, updated_at`
   ).bind(id, shop_id, user.sub, user_name, rating, comment || null).first()
 
-  return json({ success: true, review: row })
+  // Recalculate the shop's badge level (auto levels 1-4; may unlock a milestone)
+  const badge = await refreshShopBadge(env, shop_id).catch((badgeErr) => { console.warn('Badge refresh failed:', badgeErr?.message); return null })
+
+  return json({ success: true, review: row, badge })
 }
 
 async function handleGetShopReviews(env, url) {
@@ -484,17 +532,44 @@ async function handleDeleteReview(request, env, user, url) {
 
   const cleanShopId = cleanText(shopId, 64)
   await env.DB.prepare('DELETE FROM reviews WHERE shop_id = ? AND user_id = ?').bind(cleanShopId, user.sub).run()
-  return json({ success: true })
+
+  // Recalculate in case the removal drops the shop below a badge threshold
+  const badge = await refreshShopBadge(env, cleanShopId).catch((badgeErr) => { console.warn('Badge refresh failed:', badgeErr?.message); return null })
+
+  return json({ success: true, badge })
 }
 
 async function handleListShops(env) {
-  // Expired bans auto-restore: banned_until in the past counts as unbanned
-  const { results } = await env.DB.prepare(
-    `SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at FROM shops
-     WHERE (is_banned = 0 OR (banned_until IS NOT NULL AND banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
-     ORDER BY created_at DESC LIMIT 200`
-  ).all()
-  return json({ shops: results })
+  // Expired bans auto-restore: banned_until in the past counts as unbanned.
+  // Badge fields included per the frontend contract (no owner_email here: public endpoint, no PII).
+  try {
+    const { results } = await env.DB.prepare(
+      `SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at,
+         badge_level, is_hero_shop,
+         (SELECT COUNT(*) FROM reviews r WHERE r.shop_id = shops.id AND r.rating = 5) AS five_star_reviews_count,
+         (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = shops.id) AS avg_rating,
+         (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = shops.id) AS review_count
+       FROM shops
+       WHERE (is_banned = 0 OR (banned_until IS NOT NULL AND banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
+       ORDER BY created_at DESC LIMIT 200`
+    ).all()
+    return json({ shops: results || [] })
+  } catch (err) {
+    // Pre-migration DBs lack badge/review tables: legacy shape, feed must not 500
+    const msg = String(err.message || '')
+    if (msg.includes('no such table') || msg.includes('no such column')) {
+      const { results } = await env.DB.prepare(
+        `SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at,
+           1 AS badge_level, 0 AS is_hero_shop, 0 AS five_star_reviews_count,
+           NULL AS avg_rating, 0 AS review_count
+         FROM shops
+         WHERE (is_banned = 0 OR (banned_until IS NOT NULL AND banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
+         ORDER BY created_at DESC LIMIT 200`
+      ).all()
+      return json({ shops: results || [] })
+    }
+    throw err
+  }
 }
 
 async function handleListProducts(env, url, request, ctx) {
@@ -534,6 +609,9 @@ async function handleListProducts(env, url, request, ctx) {
            p.version, p.updated_at, p.created_at,
            s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
            s.owner_id AS owner_id,
+           s.badge_level AS badge_level,
+           s.is_hero_shop AS is_hero_shop,
+           (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = p.shop_id AND r.rating = 5) AS five_star_reviews_count,
            (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = p.shop_id) AS avg_rating,
            (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = p.shop_id) AS review_count
      FROM products p
@@ -549,14 +627,18 @@ async function handleListProducts(env, url, request, ctx) {
     const res = await stmt.bind(...bindings).all()
     results = res.results || []
   } catch (err) {
-    // Fallback if reviews table not yet migrated (first deploy) - don't break product feed
-    if (String(err.message || '').includes('no such table: reviews')) {
+    // Fallback if reviews/badge columns not yet migrated (first deploy) - don't break product feed
+    const msg = String(err.message || '')
+    if (msg.includes('no such table: reviews') || msg.includes('no such column')) {
       const fallbackQuery = `
         SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
                p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
                p.version, p.updated_at, p.created_at,
                s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
                s.owner_id AS owner_id,
+               1 AS badge_level,
+               0 AS is_hero_shop,
+               0 AS five_star_reviews_count,
                NULL AS avg_rating, 0 AS review_count
          FROM products p
          JOIN shops s ON s.id = p.shop_id AND (s.is_banned = 0 OR (s.banned_until IS NOT NULL AND s.banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
@@ -992,6 +1074,33 @@ async function handleAdminBanShop(request, env, admin) {
   return json({ success: true, action: banned ? 'banned' : 'unbanned', banned_until: bannedUntil })
 }
 
+async function handleAdminHeroShop(request, env, admin) {
+  const body = await request.json().catch(() => null)
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const shopId = cleanText(body.shop_id, 64)
+  if (!shopId) return json({ error: 'shop_id is required' }, 400)
+  // Strict coercion: truthy strings like "false" must not grant hero status
+  const isHero = body.is_hero === true || body.is_hero === 1 ? 1 : 0
+
+  const shop = await env.DB.prepare('SELECT id, shop_name, badge_level FROM shops WHERE id = ?').bind(shopId).first()
+  if (!shop) return json({ error: 'Shop not found' }, 404)
+
+  await env.DB.prepare('UPDATE shops SET is_hero_shop = ? WHERE id = ?').bind(isHero, shopId).run()
+
+  // Bump products updated_at so feed ETags invalidate immediately (same as ban):
+  // otherwise clients keep 304s / edge-cached non-hero cards until TTL expiry.
+  await env.DB.prepare("UPDATE products SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE shop_id = ?").bind(shopId).run()
+
+  // Recompute level: hero grants Level 5 only at 200+ five-stars, otherwise the
+  // earned auto level applies (mirrors calculateBadgeLevel).
+  const badge = await refreshShopBadge(env, shopId).catch((badgeErr) => { console.warn('Badge refresh failed:', badgeErr?.message); return null })
+
+  await logAdminAction(env, admin.sub, isHero ? 'grant_hero_shop' : 'revoke_hero_shop', 'shop', shopId, { shop_name: shop.shop_name, badge_level: badge?.level })
+
+  return json({ success: true, is_hero_shop: Boolean(isHero), badge })
+}
+
 async function handleAdminDeleteShop(request, env, admin, url) {
   const shopId = url.searchParams.get('id')
   if (!shopId) return json({ error: 'Shop id is required' }, 400)
@@ -1078,7 +1187,10 @@ async function handleAdminDeleteReview(request, env, admin, url) {
   await env.DB.prepare('DELETE FROM reviews WHERE id = ?').bind(review.id).run()
   await logAdminAction(env, admin.sub, 'delete_review', 'review', review.id, { user_name: review.user_name, rating: review.rating, shop_name: review.shop_name })
 
-  return json({ success: true })
+  // Recalculate in case the removal drops the shop below a badge threshold
+  const badge = await refreshShopBadge(env, review.shop_id).catch((badgeErr) => { console.warn('Badge refresh failed:', badgeErr?.message); return null })
+
+  return json({ success: true, badge })
 }
 
 async function handleAdminAuditLog(env, url) {
@@ -1124,6 +1236,9 @@ export default {
         }
         if (request.method === 'POST' && url.pathname === '/api/admin/shops/ban') {
           return await handleAdminBanShop(request, env, admin)
+        }
+        if (request.method === 'POST' && url.pathname === '/api/admin/hero-shop') {
+          return await handleAdminHeroShop(request, env, admin)
         }
         if (request.method === 'DELETE' && url.pathname === '/api/admin/shops') {
           return await handleAdminDeleteShop(request, env, admin, url)
@@ -1237,3 +1352,4 @@ export default {
     }
   }
 }
+
