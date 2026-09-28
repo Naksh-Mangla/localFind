@@ -1552,7 +1552,7 @@ export function BuyerDiscover({
           </span>
           <span className="opacity-30">•</span>
           <span className="text-[9px] font-mono font-bold bg-surface-container-high/80 text-on-surface-variant px-1.5 py-0.2 rounded border border-surface-variant/50">
-            v2.3.0
+            v2.4.0
           </span>
         </div>
       </footer>

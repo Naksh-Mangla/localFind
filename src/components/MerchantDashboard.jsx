@@ -12,6 +12,7 @@ import { triggerHaptic } from '../utils/haptics'
 import { lookupPincode } from '../utils/postalPincode'
 import { ShopBadgePill, HeroShopBadge, ShopMilestoneCard, MilestoneCelebrationModal, AllTiersModal } from './ShopBadge'
 import { getShopBadge } from '../utils/shopBadges'
+import { SubscriptionCard } from './SubscriptionCard'
 
 const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
 
@@ -1457,11 +1458,18 @@ export function MerchantDashboard({
         shop={shop}
         reviewStats={reviewStats}
         onOpenAllTiers={() => setShowAllTiersModal(true)}
-        className="mb-8"
+        className="mb-5"
+      />
+
+      {/* 💎 Subscription Plan & Usage Card */}
+      <SubscriptionCard
+        shop={shop}
+        products={products}
+        onShowToast={showToast}
       />
 
       {/* Product List Grid */}
-      <div className="flex items-center justify-between mb-4 px-1">
+      <div className="flex items-center justify-between mb-4 px-1 mt-8">
         <h3 className="section-header-title">Your Product Showcase ({products.length})</h3>
       </div>
 

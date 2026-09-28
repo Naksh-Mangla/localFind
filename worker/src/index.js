@@ -230,6 +230,42 @@ async function refreshShopBadge(env, shopId) {
   return { fiveStarCount: Number(row.five) || 0, prevLevel: prev, level: next, unlocked: next > prev }
 }
 
+// ---------- Subscription tier system ----------
+// Tier limits: product count, flash deals per month, image upload type, badge cap.
+// Server is the source of truth — frontend mirrors these for UX but never bypasses.
+const TIER_LIMITS = {
+  free:    { maxProducts: 10, maxFlashDealsPerMonth: 0,  maxBadgeLevel: 2, allowImageUpload: false, allowR2Upload: false, label: 'Free' },
+  starter: { maxProducts: 50, maxFlashDealsPerMonth: 5,  maxBadgeLevel: 3, allowImageUpload: true,  allowR2Upload: false, label: 'Starter' },
+  pro:     { maxProducts: Infinity, maxFlashDealsPerMonth: Infinity, maxBadgeLevel: 4, allowImageUpload: true, allowR2Upload: true, label: 'Pro' },
+  hero:    { maxProducts: Infinity, maxFlashDealsPerMonth: Infinity, maxBadgeLevel: 5, allowImageUpload: true, allowR2Upload: true, label: 'Hero' }
+}
+
+// Resolve effective tier: if subscription has expired, treat as 'free'.
+function getEffectiveTier(shop) {
+  if (!shop) return 'free'
+  const tier = shop.subscription_tier || 'free'
+  if (tier === 'free') return 'free'
+  // Check expiration
+  if (shop.subscription_expires_at) {
+    const expiresMs = Date.parse(shop.subscription_expires_at)
+    if (Number.isFinite(expiresMs) && expiresMs < Date.now()) return 'free'
+  }
+  return tier
+}
+
+function getTierLimits(tier) {
+  return TIER_LIMITS[tier] || TIER_LIMITS.free
+}
+
+// Check if flash deal monthly counter needs resetting (new calendar month)
+function shouldResetFlashCounter(resetAtISO) {
+  if (!resetAtISO) return true
+  const resetDate = new Date(resetAtISO)
+  const now = new Date()
+  return resetDate.getUTCFullYear() !== now.getUTCFullYear() || resetDate.getUTCMonth() !== now.getUTCMonth()
+}
+
+
 // ---------- Request handlers ----------
 
 async function handleCreateShop(request, env, user) {
@@ -333,13 +369,67 @@ async function handleCreateProduct(request, env, user) {
   }
 
   // Fast ownership and ban check via unique index
-  const shop = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason FROM shops WHERE id = ? AND owner_id = ?').bind(shop_id, user.sub).first()
+  const shop = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason, subscription_tier, subscription_expires_at, flash_deals_used_this_month, flash_deals_reset_at FROM shops WHERE id = ? AND owner_id = ?').bind(shop_id, user.sub).first()
   if (!shop) return json({ error: 'Forbidden: shop not found or belongs to another user' }, 403)
   if (isEffectivelyBanned(shop)) {
     return banForbiddenResponse(shop)
   }
 
+  // ---------- Subscription tier enforcement ----------
+  const tier = getEffectiveTier(shop)
+  const limits = getTierLimits(tier)
+
+  // 1. Check product count limit
+  const productCount = await env.DB.prepare('SELECT COUNT(*) AS cnt FROM products WHERE shop_id = ?').bind(shop_id).first()
+  if ((productCount?.cnt || 0) >= limits.maxProducts) {
+    return json({
+      error: `Product limit reached for your ${limits.label} plan (${limits.maxProducts} products). Upgrade to add more.`,
+      tier_limit: true,
+      current_tier: tier,
+      max_products: limits.maxProducts
+    }, 403)
+  }
+
   const isFlashDeal = body.is_flash_deal ? 1 : 0
+
+  // 2. Check flash deal allowance
+  if (isFlashDeal) {
+    if (limits.maxFlashDealsPerMonth === 0) {
+      return json({
+        error: 'Flash Deals are not available on the Free plan. Upgrade to Starter (₹149/month) to activate deals.',
+        tier_limit: true,
+        current_tier: tier,
+        upgrade_needed: 'starter'
+      }, 403)
+    }
+    // Reset monthly counter if new month
+    let flashUsed = Number(shop.flash_deals_used_this_month) || 0
+    if (shouldResetFlashCounter(shop.flash_deals_reset_at)) {
+      flashUsed = 0
+      await env.DB.prepare("UPDATE shops SET flash_deals_used_this_month = 0, flash_deals_reset_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(shop_id).run()
+    }
+    if (Number.isFinite(limits.maxFlashDealsPerMonth) && flashUsed >= limits.maxFlashDealsPerMonth) {
+      return json({
+        error: `Monthly flash deal limit reached (${limits.maxFlashDealsPerMonth} per month on ${limits.label} plan). Upgrade to Pro for unlimited deals.`,
+        tier_limit: true,
+        current_tier: tier,
+        flash_deals_used: flashUsed,
+        max_flash_deals: limits.maxFlashDealsPerMonth
+      }, 403)
+    }
+  }
+
+  // 3. Check image upload permission (base64 data URLs)
+  const imageUrl = sanitizeImageUrl(body.image_url)
+  if (imageUrl && imageUrl.startsWith('data:image/') && !limits.allowImageUpload) {
+    return json({
+      error: 'Image upload is not available on the Free plan. Upgrade to Starter (₹149/month) or paste an external image URL instead.',
+      tier_limit: true,
+      current_tier: tier,
+      upgrade_needed: 'starter'
+    }, 403)
+  }
+
   const id = crypto.randomUUID()
   const now = new Date().toISOString()
   const res = await env.DB.prepare(
@@ -352,7 +442,7 @@ async function handleCreateProduct(request, env, user) {
     name,
     price,
     category,
-    sanitizeImageUrl(body.image_url),
+    imageUrl,
     body.is_affiliate_fallback ? 1 : 0,
     sanitizeHttpUrl(body.affiliate_link),
     isFlashDeal,
@@ -362,6 +452,12 @@ async function handleCreateProduct(request, env, user) {
   ).first()
 
   if (!res?.id) return json({ error: 'Insert failed' }, 500)
+
+  // Increment flash deal counter if this was a flash deal
+  if (isFlashDeal) {
+    await env.DB.prepare('UPDATE shops SET flash_deals_used_this_month = flash_deals_used_this_month + 1 WHERE id = ?').bind(shop_id).run()
+  }
+
   return json({ id: res.id }, 201)
 }
 
@@ -370,9 +466,9 @@ async function handleUpdateProduct(request, env, user) {
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   // Ban check for shopkeeper (expired bans auto-restore)
-  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
-  if (isEffectivelyBanned(bannedCheck)) {
-    return banForbiddenResponse(bannedCheck)
+  const shopCheck = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason, subscription_tier, subscription_expires_at, flash_deals_used_this_month, flash_deals_reset_at FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  if (isEffectivelyBanned(shopCheck)) {
+    return banForbiddenResponse(shopCheck)
   }
 
   const id = cleanText(body.id, 64)
@@ -387,6 +483,53 @@ async function handleUpdateProduct(request, env, user) {
 
   const isFlashDeal = body.is_flash_deal ? 1 : 0
 
+  // ---------- Subscription tier enforcement for updates ----------
+  const tier = getEffectiveTier(shopCheck)
+  const limits = getTierLimits(tier)
+
+  // Check if the product is being NEWLY promoted to a flash deal
+  if (isFlashDeal) {
+    // Check if product was already a flash deal (avoid double-counting)
+    const existing = await env.DB.prepare('SELECT is_flash_deal FROM products WHERE id = ? AND shop_id = ?').bind(id, shopCheck.id).first()
+    const wasAlreadyFlash = existing && existing.is_flash_deal
+
+    if (!wasAlreadyFlash) {
+      if (limits.maxFlashDealsPerMonth === 0) {
+        return json({
+          error: 'Flash Deals are not available on the Free plan. Upgrade to Starter (₹149/month) to activate deals.',
+          tier_limit: true,
+          current_tier: tier,
+          upgrade_needed: 'starter'
+        }, 403)
+      }
+      let flashUsed = Number(shopCheck.flash_deals_used_this_month) || 0
+      if (shouldResetFlashCounter(shopCheck.flash_deals_reset_at)) {
+        flashUsed = 0
+        await env.DB.prepare("UPDATE shops SET flash_deals_used_this_month = 0, flash_deals_reset_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?").bind(shopCheck.id).run()
+      }
+      if (Number.isFinite(limits.maxFlashDealsPerMonth) && flashUsed >= limits.maxFlashDealsPerMonth) {
+        return json({
+          error: `Monthly flash deal limit reached (${limits.maxFlashDealsPerMonth} per month on ${limits.label} plan). Upgrade to Pro for unlimited deals.`,
+          tier_limit: true,
+          current_tier: tier,
+          flash_deals_used: flashUsed,
+          max_flash_deals: limits.maxFlashDealsPerMonth
+        }, 403)
+      }
+    }
+  }
+
+  // Check image upload permission
+  const imageUrl = sanitizeImageUrl(body.image_url)
+  if (imageUrl && imageUrl.startsWith('data:image/') && !limits.allowImageUpload) {
+    return json({
+      error: 'Image upload is not available on the Free plan. Upgrade to Starter (₹149/month) or paste an external image URL instead.',
+      tier_limit: true,
+      current_tier: tier,
+      upgrade_needed: 'starter'
+    }, 403)
+  }
+
   // Atomic single-trip update with subquery ownership authorization
   const updatedRow = await env.DB.prepare(
     `UPDATE products
@@ -400,7 +543,7 @@ async function handleUpdateProduct(request, env, user) {
     name,
     price,
     category,
-    sanitizeImageUrl(body.image_url),
+    imageUrl,
     body.is_affiliate_fallback ? 1 : 0,
     sanitizeHttpUrl(body.affiliate_link),
     isFlashDeal,
@@ -414,6 +557,13 @@ async function handleUpdateProduct(request, env, user) {
     const exists = await env.DB.prepare('SELECT id FROM products WHERE id = ?').bind(id).first()
     if (!exists) return json({ error: 'Product not found' }, 404)
     return json({ error: 'Forbidden: product belongs to another shopkeeper' }, 403)
+  }
+
+  // Increment flash deal counter if this was a NEW flash deal activation
+  if (isFlashDeal) {
+    const existingProduct = await env.DB.prepare('SELECT is_flash_deal FROM products WHERE id = ?').bind(id).first()
+    // The update already happened, so check the old value via the fact that we reach here
+    await env.DB.prepare('UPDATE shops SET flash_deals_used_this_month = flash_deals_used_this_month + 1 WHERE id = ? AND id IN (SELECT id FROM shops WHERE owner_id = ?)').bind(shopCheck.id, user.sub).run()
   }
 
   return json({ success: true })
@@ -684,7 +834,7 @@ async function handleListProducts(env, url, request, ctx) {
     })
   }
 
-  const response = new Response(JSON.stringify({ products: results, app_version: '2.3.0' }), {
+  const response = new Response(JSON.stringify({ products: results, app_version: '2.4.0' }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',
@@ -736,9 +886,21 @@ async function handleUploadImage(request, env, user) {
   }
 
   // Ban check for shopkeeper (expired bans auto-restore)
-  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason FROM shops WHERE owner_id = ?').bind(user.sub).first()
+  const bannedCheck = await env.DB.prepare('SELECT id, is_banned, banned_until, ban_reason, subscription_tier, subscription_expires_at FROM shops WHERE owner_id = ?').bind(user.sub).first()
   if (isEffectivelyBanned(bannedCheck)) {
     return banForbiddenResponse(bannedCheck)
+  }
+
+  // R2 upload requires Pro tier or above
+  const tier = getEffectiveTier(bannedCheck)
+  const limits = getTierLimits(tier)
+  if (!limits.allowR2Upload) {
+    return json({
+      error: `R2 image upload requires Pro plan (₹299/month) or higher. Your current plan: ${limits.label}. Use compressed image upload or paste an image URL instead.`,
+      tier_limit: true,
+      current_tier: tier,
+      upgrade_needed: 'pro'
+    }, 403)
   }
 
   const formData = await request.formData().catch(() => null)
@@ -1002,7 +1164,26 @@ async function handleAdminStats(env) {
     totalReviews: reviews?.count || 0,
     bannedShops: banned?.count || 0,
     newShopsThisWeek: newShops?.count || 0,
-    newProductsThisWeek: newProducts?.count || 0
+    newProductsThisWeek: newProducts?.count || 0,
+    // Subscription tier stats (graceful fallback for pre-migration DBs)
+    ...(await (async () => {
+      try {
+        const [free, starter, pro, hero] = await Promise.all([
+          env.DB.prepare("SELECT COUNT(*) as count FROM shops WHERE subscription_tier = 'free' OR subscription_tier IS NULL").first(),
+          env.DB.prepare("SELECT COUNT(*) as count FROM shops WHERE subscription_tier = 'starter'").first(),
+          env.DB.prepare("SELECT COUNT(*) as count FROM shops WHERE subscription_tier = 'pro'").first(),
+          env.DB.prepare("SELECT COUNT(*) as count FROM shops WHERE subscription_tier = 'hero'").first()
+        ])
+        return {
+          tierBreakdown: {
+            free: free?.count || 0,
+            starter: starter?.count || 0,
+            pro: pro?.count || 0,
+            hero: hero?.count || 0
+          }
+        }
+      } catch { return {} }
+    })())
   })
 }
 
@@ -1205,6 +1386,112 @@ async function handleAdminAuditLog(env, url) {
   return json({ logs: results || [] })
 }
 
+// ---------- Subscription API handlers ----------
+
+async function handleGetSubscription(env, user) {
+  try {
+    const shop = await env.DB.prepare(
+      `SELECT id, subscription_tier, subscription_expires_at, flash_deals_used_this_month, flash_deals_reset_at,
+              (SELECT COUNT(*) FROM products WHERE shop_id = shops.id) AS product_count
+       FROM shops WHERE owner_id = ?`
+    ).bind(user.sub).first()
+
+    if (!shop) return json({ subscription: null })
+
+    const tier = getEffectiveTier(shop)
+    const limits = getTierLimits(tier)
+
+    // Auto-reset flash counter if new month
+    let flashUsed = Number(shop.flash_deals_used_this_month) || 0
+    if (shouldResetFlashCounter(shop.flash_deals_reset_at)) {
+      flashUsed = 0
+    }
+
+    return json({
+      subscription: {
+        current_tier: tier,
+        stored_tier: shop.subscription_tier || 'free',
+        expires_at: shop.subscription_expires_at || null,
+        is_expired: tier === 'free' && shop.subscription_tier && shop.subscription_tier !== 'free',
+        limits: {
+          max_products: limits.maxProducts === Infinity ? null : limits.maxProducts,
+          max_flash_deals_per_month: limits.maxFlashDealsPerMonth === Infinity ? null : limits.maxFlashDealsPerMonth,
+          max_badge_level: limits.maxBadgeLevel,
+          allow_image_upload: limits.allowImageUpload,
+          allow_r2_upload: limits.allowR2Upload
+        },
+        usage: {
+          product_count: shop.product_count || 0,
+          flash_deals_used_this_month: flashUsed
+        },
+        tier_label: limits.label
+      }
+    })
+  } catch (err) {
+    // Graceful fallback for pre-migration databases
+    const msg = String(err.message || '')
+    if (msg.includes('no such column')) {
+      return json({
+        subscription: {
+          current_tier: 'free',
+          stored_tier: 'free',
+          expires_at: null,
+          is_expired: false,
+          limits: getTierLimits('free'),
+          usage: { product_count: 0, flash_deals_used_this_month: 0 },
+          tier_label: 'Free'
+        }
+      })
+    }
+    throw err
+  }
+}
+
+async function handleAdminUpdateSubscription(request, env, admin) {
+  const body = await request.json().catch(() => null)
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const shopId = cleanText(body.shop_id, 64)
+  const newTier = cleanText(body.tier, 20)
+  const durationDays = body.duration_days ? Math.floor(Number(body.duration_days)) : 30
+
+  if (!shopId) return json({ error: 'shop_id is required' }, 400)
+  if (!newTier || !TIER_LIMITS[newTier]) {
+    return json({ error: 'tier must be one of: free, starter, pro, hero' }, 400)
+  }
+  if (!Number.isFinite(durationDays) || durationDays < 1 || durationDays > 365) {
+    return json({ error: 'duration_days must be between 1 and 365' }, 400)
+  }
+
+  const shop = await env.DB.prepare('SELECT id, shop_name, subscription_tier FROM shops WHERE id = ?').bind(shopId).first()
+  if (!shop) return json({ error: 'Shop not found' }, 404)
+
+  const expiresAt = newTier === 'free'
+    ? null
+    : new Date(Date.now() + durationDays * 86400000).toISOString()
+
+  await env.DB.prepare(
+    'UPDATE shops SET subscription_tier = ?, subscription_expires_at = ? WHERE id = ?'
+  ).bind(newTier, expiresAt, shopId).run()
+
+  await logAdminAction(env, admin.sub, 'update_subscription', 'shop', shopId, {
+    shop_name: shop.shop_name,
+    old_tier: shop.subscription_tier || 'free',
+    new_tier: newTier,
+    duration_days: durationDays,
+    expires_at: expiresAt
+  })
+
+  return json({
+    success: true,
+    subscription: {
+      tier: newTier,
+      expires_at: expiresAt,
+      duration_days: durationDays
+    }
+  })
+}
+
 export default {
   async fetch(request, env, ctx) {
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() })
@@ -1258,6 +1545,9 @@ export default {
         if (request.method === 'GET' && url.pathname === '/api/admin/audit-log') {
           return await handleAdminAuditLog(env, url)
         }
+        if (request.method === 'POST' && url.pathname === '/api/admin/subscription') {
+          return await handleAdminUpdateSubscription(request, env, admin)
+        }
 
         return json({ error: 'Admin route not found' }, 404)
       }
@@ -1286,6 +1576,10 @@ export default {
       if (request.method === 'GET' && url.pathname === '/api/my-shop') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
         return await handleGetMyShop(env, user)
+      }
+      if (request.method === 'GET' && url.pathname === '/api/subscription') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleGetSubscription(env, user)
       }
       if (request.method === 'POST' && url.pathname === '/api/reviews') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
