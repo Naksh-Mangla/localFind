@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { triggerHaptic } from '../utils/haptics'
+import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
 
 export function AdminAuthModal({ isOpen, onClose, onUnlockSuccess, initialEmail = '' }) {
+  useAndroidBackHandler(isOpen, onClose, 'admin_auth')
+
   const [email, setEmail] = useState(initialEmail)
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)

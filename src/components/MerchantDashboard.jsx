@@ -527,15 +527,12 @@ export function MerchantDashboard({
   // This stores the image directly inside the app database — 100% reliable, 0 external API keys needed, 0 ads!
   const compressImageToBase64 = (file, maxDim = 800, quality = 0.75) => {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onerror = () => reject(new Error('Failed to read image file'))
-      reader.onload = (event) => {
-        const img = new Image()
-        img.onerror = () => reject(new Error('Failed to load image preview'))
-        img.onload = () => {
+      const render = (src) => {
+        try {
           const canvas = document.createElement('canvas')
-          let width = img.width
-          let height = img.height
+          // naturalWidth for <img> (layout size could differ under CSS), width for ImageBitmap
+          let width = src.naturalWidth ?? src.width
+          let height = src.naturalHeight ?? src.height
 
           const MAX_SIZE = maxDim
           if (width > height) {
@@ -553,7 +550,11 @@ export function MerchantDashboard({
           canvas.width = width
           canvas.height = height
           const ctx = canvas.getContext('2d')
-          ctx.drawImage(img, 0, 0, width, height)
+          if (!ctx) {
+            reject(new Error('Canvas not supported on this browser'))
+            return
+          }
+          ctx.drawImage(src, 0, 0, width, height)
 
           // WebP format offers 25-35% smaller file sizes than JPEG at identical quality
           let base64Data = canvas.toDataURL('image/webp', quality)
@@ -562,10 +563,38 @@ export function MerchantDashboard({
             base64Data = canvas.toDataURL('image/jpeg', quality)
           }
           resolve(base64Data)
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error('Failed to process image'))
         }
-        img.src = event.target.result
       }
-      reader.readAsDataURL(file)
+
+      // Prefer createImageBitmap: it applies EXIF orientation, so portrait phone
+      // photos no longer upload rotated 90 degrees. Falls back to <img> below.
+      if (typeof createImageBitmap === 'function') {
+        createImageBitmap(file, { imageOrientation: 'fromImage' })
+          .then((bmp) => {
+            try {
+              render(bmp)
+            } finally {
+              if (bmp && typeof bmp.close === 'function') bmp.close()
+            }
+          })
+          .catch(() => decodeViaImgTag())
+      } else {
+        decodeViaImgTag()
+      }
+
+      function decodeViaImgTag() {
+        const reader = new FileReader()
+        reader.onerror = () => reject(new Error('Failed to read image file'))
+        reader.onload = (event) => {
+          const img = new Image()
+          img.onerror = () => reject(new Error('Failed to load image preview'))
+          img.onload = () => render(img)
+          img.src = event.target.result
+        }
+        reader.readAsDataURL(file)
+      }
     })
   }
 
@@ -1284,7 +1313,7 @@ export function MerchantDashboard({
 
   // Screen 3: Authenticated Merchant with Active Shop Dashboard
   return (
-    <main className="pt-4 md:pt-6 px-container-margin max-w-6xl mx-auto pb-24">
+    <main className="pt-4 md:pt-6 px-container-margin max-w-6xl mx-auto pb-safe-nav md:pb-12 overscroll-contain">
       {/* 🏛️ Merchant Header Bar - Structured Apple Card */}
       <div className="bg-surface-container-lowest p-6 sm:p-7 rounded-3xl border border-surface-variant/50 shadow-crisp-xs mb-8">
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-5">

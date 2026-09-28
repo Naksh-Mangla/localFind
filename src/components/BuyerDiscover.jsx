@@ -16,8 +16,11 @@ import { apiFetch } from '../lib/api'
 // Android-optimized: lazy-load free map only when user opens Map tab (saves 140KB on List view)
 const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
 
+// Mirrors the merchant category list — every merchant category needs a buyer chip,
+// otherwise those products are only visible under 'All'.
 const CATEGORIES = [
   { label: 'All', icon: 'interests' },
+  { label: 'General', icon: 'inventory_2' },
   { label: 'Handmade', icon: 'handyman' },
   { label: 'Groceries', icon: 'local_cafe' },
   { label: 'Fashion', icon: 'checkroom' },
@@ -652,7 +655,7 @@ export function BuyerDiscover({
   }
 
   return (
-    <main className="pt-4 md:pt-6 px-container-margin max-w-7xl mx-auto pb-24 md:pb-12">
+    <main className="pt-4 md:pt-6 px-container-margin max-w-7xl mx-auto pb-safe-nav md:pb-12 overscroll-contain">
       {/* 🏪 MODE 1: Dedicated Clean Store Showcase (When QR Standee is Scanned) */}
       {targetShopId ? (
         <div className="space-y-5 animate-fadeIn">

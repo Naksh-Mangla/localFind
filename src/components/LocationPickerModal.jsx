@@ -12,8 +12,9 @@ export function LocationPickerModal({
   locationStatus,
   isFirstTimeFallback = false
 }) {
-  // Sync with Android back gesture
-  useAndroidBackHandler(isOpen, onClose, 'location_picker')
+  // Sync with Android back gesture — disabled while mandatory (first run with no
+  // saved location), matching the blocked X button, overlay tap and Escape key.
+  useAndroidBackHandler(isOpen, onClose, 'location_picker', isFirstTimeFallback)
 
   const [pincode, setPincode] = useState('')
   const [address, setAddress] = useState('')

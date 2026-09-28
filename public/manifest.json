@@ -3,7 +3,7 @@
   "short_name": "LocalFind",
   "description": "Discover live products in nearby local shops within a 2 km radius. 0% commission direct WhatsApp buying.",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui", "browser"],
@@ -13,6 +13,10 @@
   "dir": "ltr",
   "lang": "en",
   "prefer_related_applications": false,
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "handle_links": "preferred",
   "icons": [
     {
       "src": "/icon-192.png",

@@ -24,6 +24,7 @@ body {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
 }
 
 /* 📱 Android & Mobile Form Input Auto-Zoom Prevention */
@@ -45,13 +46,41 @@ a,
   touch-action: manipulation;
 }
 
+/* 📱 Android-Specific Pull-to-Refresh & Overscroll Protection */
+.overscroll-contain,
+[role="dialog"] {
+  overscroll-behavior-y: contain;
+  overscroll-behavior-x: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 🚀 Android GPU Smooth Scrolling & Touch Acceleration */
+main,
+#root {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Android touch feedback: responsive tactile button response.
+   Uses the independent `scale` property (not `transform`) so it composes with
+   Tailwind translate utilities instead of clobbering them while pressed. */
+button:active:not(:disabled),
+a:active,
+.active-press:active {
+  scale: 0.97;
+  transition: scale 0.08s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 /* Safe area bottom padding helper for Android gesture bar and iOS home bar */
 .pb-safe {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+}
+
+.pb-safe-nav {
+  padding-bottom: calc(6.5rem + env(safe-area-inset-bottom, 0px));
 }
 
 .pt-safe {
-  padding-top: max(0.5rem, env(safe-area-inset-top));
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
 }
 
 /* Material Symbols Fill & Star Glowing Effects */

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 
 import { useAuth } from './hooks/useAuth'
 import { usePWAInstall } from './hooks/usePWAInstall'
 import { useAdmin } from './hooks/useAdmin'
+import { useAndroidBackHandler } from './hooks/useAndroidBackHandler'
 import { apiFetch, clearApiCache } from './lib/api'
 import { Header } from './components/Header'
 import { BuyerDiscover } from './components/BuyerDiscover'
@@ -45,6 +46,19 @@ export default function App() {
     } catch {}
     return 'discover'
   })
+
+  // 📱 Android Back Gesture / Button: Return to 'discover' when in sub-views instead of exiting app.
+  // Not armed for the launch view: a deep link like ?view=merchant must keep Back
+  // returning to the referrer instead of landing inside the app on discover.
+  // Unknown views render the discover fallback, so they never arm the handler.
+  const initialViewRef = useRef(activeView)
+  const isSubView = activeView === 'merchant' || (activeView === 'admin' && isAdmin)
+  useAndroidBackHandler(
+    isSubView && activeView !== initialViewRef.current,
+    () => setActiveView('discover'),
+    'app_view'
+  )
+
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [showLocationPicker, setShowLocationPicker] = useState(false)
   const [isFirstTimeFallback, setIsFirstTimeFallback] = useState(false)
@@ -532,10 +546,41 @@ export default function App() {
     }
   }
 
+  // Unlock is a two-step sequence because history.back() (modal cleanup) is an
+  // async traversal while pushState (view entry) is synchronous: pushing the
+  // admin entry in the same commit as the modal close interleaves them and can
+  // either leak a stale entry or bounce straight back to discover, depending on
+  // task ordering. So: close first, wait for the modal's pop to land (or a
+  // timeout fallback), and only then push the admin entry.
+  const [pendingAdminView, setPendingAdminView] = useState(false)
+
   const handleAdminUnlockSuccess = async (email, password) => {
     await loginWithPassword(email, password)
-    setActiveView('admin')
+    // (The modal's own onClose() afterwards is a harmless no-op.)
+    setShowAdminAuthModal(false)
+    setPendingAdminView(true)
   }
+
+  useEffect(() => {
+    if (!pendingAdminView || showAdminAuthModal) return
+    let settled = false
+    const go = () => {
+      if (settled) return
+      settled = true
+      setPendingAdminView(false)
+      setActiveView('admin')
+    }
+    const timer = setTimeout(go, 400)
+    const onPop = () => {
+      window.removeEventListener('popstate', onPop)
+      go()
+    }
+    window.addEventListener('popstate', onPop)
+    return () => {
+      clearTimeout(timer)
+      window.removeEventListener('popstate', onPop)
+    }
+  }, [pendingAdminView, showAdminAuthModal])
 
   return (
     <div className="min-h-screen bg-surface text-on-surface flex flex-col font-body-sm">
