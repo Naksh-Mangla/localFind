@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS shops (
   owner_email     TEXT,
   is_hero_shop    INTEGER NOT NULL DEFAULT 0,
   badge_level     INTEGER NOT NULL DEFAULT 1,
+  subscription_tier TEXT NOT NULL DEFAULT 'free',
+  subscription_expires_at TEXT,
+  flash_deals_used_this_month INTEGER NOT NULL DEFAULT 0,
+  flash_deals_reset_at TEXT,
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
 
@@ -82,3 +86,4 @@ CREATE INDEX IF NOT EXISTS idx_shops_banned ON shops(is_banned);
 CREATE INDEX IF NOT EXISTS idx_shops_ban_expiry ON shops(is_banned, banned_until);
 CREATE INDEX IF NOT EXISTS idx_shops_badge ON shops(badge_level);
 CREATE INDEX IF NOT EXISTS idx_shops_hero ON shops(is_hero_shop);
+CREATE INDEX IF NOT EXISTS idx_shops_subscription ON shops(subscription_tier);

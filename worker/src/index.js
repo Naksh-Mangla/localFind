@@ -240,6 +240,12 @@ const TIER_LIMITS = {
   hero:    { maxProducts: Infinity, maxFlashDealsPerMonth: Infinity, maxBadgeLevel: 5, allowImageUpload: true, allowR2Upload: true, label: 'Hero' }
 }
 
+// Kill-switch: tier LIMITS enforce only once a real payment/upgrade flow exists.
+// Until then every merchant keeps full free access (pre-subscription behavior:
+// unlimited products, flash deals and phone-photo uploads). Columns/counters
+// stay in place so launch is a one-line flip.
+const SUBSCRIPTION_ENFORCEMENT_ENABLED = false
+
 // Resolve effective tier: if subscription has expired, treat as 'free'.
 function getEffectiveTier(shop) {
   if (!shop) return 'free'
@@ -381,7 +387,7 @@ async function handleCreateProduct(request, env, user) {
 
   // 1. Check product count limit
   const productCount = await env.DB.prepare('SELECT COUNT(*) AS cnt FROM products WHERE shop_id = ?').bind(shop_id).first()
-  if ((productCount?.cnt || 0) >= limits.maxProducts) {
+  if (SUBSCRIPTION_ENFORCEMENT_ENABLED && (productCount?.cnt || 0) >= limits.maxProducts) {
     return json({
       error: `Product limit reached for your ${limits.label} plan (${limits.maxProducts} products). Upgrade to add more.`,
       tier_limit: true,
@@ -393,7 +399,7 @@ async function handleCreateProduct(request, env, user) {
   const isFlashDeal = body.is_flash_deal ? 1 : 0
 
   // 2. Check flash deal allowance
-  if (isFlashDeal) {
+  if (isFlashDeal && SUBSCRIPTION_ENFORCEMENT_ENABLED) {
     if (limits.maxFlashDealsPerMonth === 0) {
       return json({
         error: 'Flash Deals are not available on the Free plan. Upgrade to Starter (₹149/month) to activate deals.',
@@ -421,7 +427,7 @@ async function handleCreateProduct(request, env, user) {
 
   // 3. Check image upload permission (base64 data URLs)
   const imageUrl = sanitizeImageUrl(body.image_url)
-  if (imageUrl && imageUrl.startsWith('data:image/') && !limits.allowImageUpload) {
+  if (SUBSCRIPTION_ENFORCEMENT_ENABLED && imageUrl && imageUrl.startsWith('data:image/') && !limits.allowImageUpload) {
     return json({
       error: 'Image upload is not available on the Free plan. Upgrade to Starter (₹149/month) or paste an external image URL instead.',
       tier_limit: true,
@@ -454,7 +460,7 @@ async function handleCreateProduct(request, env, user) {
   if (!res?.id) return json({ error: 'Insert failed' }, 500)
 
   // Increment flash deal counter if this was a flash deal
-  if (isFlashDeal) {
+  if (isFlashDeal && SUBSCRIPTION_ENFORCEMENT_ENABLED) {
     await env.DB.prepare('UPDATE shops SET flash_deals_used_this_month = flash_deals_used_this_month + 1 WHERE id = ?').bind(shop_id).run()
   }
 
@@ -488,7 +494,7 @@ async function handleUpdateProduct(request, env, user) {
   const limits = getTierLimits(tier)
 
   // Check if the product is being NEWLY promoted to a flash deal
-  if (isFlashDeal) {
+  if (isFlashDeal && SUBSCRIPTION_ENFORCEMENT_ENABLED) {
     // Check if product was already a flash deal (avoid double-counting)
     const existing = await env.DB.prepare('SELECT is_flash_deal FROM products WHERE id = ? AND shop_id = ?').bind(id, shopCheck.id).first()
     const wasAlreadyFlash = existing && existing.is_flash_deal
@@ -521,7 +527,7 @@ async function handleUpdateProduct(request, env, user) {
 
   // Check image upload permission
   const imageUrl = sanitizeImageUrl(body.image_url)
-  if (imageUrl && imageUrl.startsWith('data:image/') && !limits.allowImageUpload) {
+  if (SUBSCRIPTION_ENFORCEMENT_ENABLED && imageUrl && imageUrl.startsWith('data:image/') && !limits.allowImageUpload) {
     return json({
       error: 'Image upload is not available on the Free plan. Upgrade to Starter (₹149/month) or paste an external image URL instead.',
       tier_limit: true,
@@ -560,7 +566,7 @@ async function handleUpdateProduct(request, env, user) {
   }
 
   // Increment flash deal counter if this was a NEW flash deal activation
-  if (isFlashDeal) {
+  if (isFlashDeal && SUBSCRIPTION_ENFORCEMENT_ENABLED) {
     const existingProduct = await env.DB.prepare('SELECT is_flash_deal FROM products WHERE id = ?').bind(id).first()
     // The update already happened, so check the old value via the fact that we reach here
     await env.DB.prepare('UPDATE shops SET flash_deals_used_this_month = flash_deals_used_this_month + 1 WHERE id = ? AND id IN (SELECT id FROM shops WHERE owner_id = ?)').bind(shopCheck.id, user.sub).run()
