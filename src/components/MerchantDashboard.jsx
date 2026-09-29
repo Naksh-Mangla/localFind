@@ -18,6 +18,8 @@ const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m
 
 const StoreQRStandeeModal = React.lazy(() => import('./StoreQRStandeeModal').then(m => ({ default: m.default || m.StoreQRStandeeModal })))
 
+const ShopAnalytics = React.lazy(() => import('./ShopAnalytics').then(m => ({ default: m.ShopAnalytics })))
+
 export function MerchantDashboard({
   user,
   signInWithGoogle,
@@ -1467,6 +1469,19 @@ export function MerchantDashboard({
         products={products}
         onShowToast={showToast}
       />
+
+      {/* 📊 Shopkeeper Analytics — YouTube-Studio style, free for all shops */}
+      <div className="mt-5">
+        <React.Suspense
+          fallback={
+            <div className="bg-surface-container-lowest border border-surface-variant/50 rounded-3xl p-6 text-center text-xs text-on-surface-variant">
+              Loading your business numbers...
+            </div>
+          }
+        >
+          <ShopAnalytics shop={shop} products={products} />
+        </React.Suspense>
+      </div>
 
       {/* Product List Grid */}
       <div className="flex items-center justify-between mb-4 px-1 mt-8">

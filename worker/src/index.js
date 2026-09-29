@@ -1391,6 +1391,153 @@ async function handleAdminAuditLog(env, url) {
   return json({ logs: results || [] })
 }
 
+// ---------- Shopkeeper analytics (YouTube-Studio style) ----------
+
+const ANALYTICS_EVENT_TYPES = ['impression', 'detail_open', 'whatsapp_click', 'directions_click', 'share', 'wishlist', 'review']
+
+async function handleTrackEvent(request, env, user) {
+  const body = await request.json().catch(() => null)
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const event_type = typeof body.event_type === 'string' ? body.event_type.trim() : ''
+  const product_id = cleanText(body.product_id, 64)
+  const shop_id = cleanText(body.shop_id, 64)
+
+  if (!ANALYTICS_EVENT_TYPES.includes(event_type)) {
+    return json({ error: 'event_type must be one of: ' + ANALYTICS_EVENT_TYPES.join(', ') }, 400)
+  }
+  if (!product_id && !shop_id) return json({ error: 'product_id or shop_id is required' }, 400)
+
+  // Resolve shop + product, verify they exist and belong together
+  let resolvedShopId = shop_id
+  let resolvedProductId = product_id || null
+  if (product_id) {
+    const product = await env.DB.prepare('SELECT id, shop_id FROM products WHERE id = ?').bind(product_id).first()
+    if (!product) return json({ error: 'Product not found' }, 404)
+    resolvedProductId = product.id
+    resolvedShopId = product.shop_id
+    if (shop_id && shop_id !== product.shop_id) return json({ error: 'product does not belong to shop' }, 400)
+  }
+  const shop = await env.DB.prepare('SELECT id, owner_id FROM shops WHERE id = ?').bind(resolvedShopId).first()
+  if (!shop) return json({ error: 'Shop not found' }, 404)
+
+  // Owner self-traffic never counts (prevents gaming + keeps numbers honest)
+  if (shop.owner_id === user.sub) return json({ success: true, skipped: 'owner' })
+
+  try {
+    // NULL-safe per-user-per-day guard: SQLite treats NULLs as distinct in
+    // UNIQUE constraints, so the ON CONFLICT below never fires for shop-only
+    // events (product_id IS NULL). This SELECT caps those at 1/day too.
+    const today = new Date().toISOString().slice(0, 10)
+    const existing = await env.DB.prepare(
+      `SELECT id FROM product_events
+       WHERE user_id = ? AND event_type = ? AND event_date = ? AND shop_id = ?
+         AND ((product_id IS NULL AND ? IS NULL) OR product_id = ?)`
+    ).bind(user.sub, event_type, today, resolvedShopId, resolvedProductId, resolvedProductId).first()
+    if (existing) return json({ success: true, skipped: 'duplicate' })
+
+    await env.DB.prepare(
+      `INSERT INTO product_events (id, shop_id, product_id, user_id, event_type)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(user_id, product_id, event_type, event_date) DO NOTHING`
+    ).bind(crypto.randomUUID(), resolvedShopId, resolvedProductId, user.sub, event_type).run()
+  } catch (err) {
+    // Pre-migration DBs have no product_events table: fail soft, never break shopping
+    if (String(err.message || '').includes('no such table')) return json({ success: true, skipped: 'no-table' })
+    throw err
+  }
+  return json({ success: true })
+}
+
+async function handleGetShopAnalytics(env, url, user) {
+  const shopId = cleanText(url.searchParams.get('shop_id'), 64)
+  if (!shopId) return json({ error: 'shop_id is required' }, 400)
+  const daysRaw = Number(url.searchParams.get('days'))
+  const days = daysRaw === 28 ? 28 : daysRaw === 90 ? 90 : 7
+
+  const shop = await env.DB.prepare('SELECT id, owner_id, shop_name FROM shops WHERE id = ?').bind(shopId).first()
+  if (!shop) return json({ error: 'Shop not found' }, 404)
+  if (shop.owner_id !== user.sub) return json({ error: 'Forbidden: not your shop' }, 403)
+
+  const sinceDate = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10)
+
+  try {
+    const totalsRow = await env.DB.prepare(
+      `SELECT
+         SUM(CASE WHEN event_type = 'impression' THEN 1 ELSE 0 END) AS impressions,
+         SUM(CASE WHEN event_type = 'detail_open' THEN 1 ELSE 0 END) AS detail_opens,
+         SUM(CASE WHEN event_type = 'whatsapp_click' THEN 1 ELSE 0 END) AS whatsapp_clicks,
+         SUM(CASE WHEN event_type = 'directions_click' THEN 1 ELSE 0 END) AS directions_clicks,
+         SUM(CASE WHEN event_type = 'share' THEN 1 ELSE 0 END) AS shares,
+         SUM(CASE WHEN event_type = 'wishlist' THEN 1 ELSE 0 END) AS wishlists,
+         SUM(CASE WHEN event_type = 'review' THEN 1 ELSE 0 END) AS reviews,
+         COUNT(*) AS total_events,
+         COUNT(DISTINCT user_id) AS unique_viewers
+       FROM product_events
+       WHERE shop_id = ? AND event_date >= ?`
+    ).bind(shopId, sinceDate).first()
+
+    const timeseries = await env.DB.prepare(
+      `SELECT event_date AS date,
+         SUM(CASE WHEN event_type = 'impression' THEN 1 ELSE 0 END) AS impressions,
+         SUM(CASE WHEN event_type = 'detail_open' THEN 1 ELSE 0 END) AS detail_opens,
+         SUM(CASE WHEN event_type = 'whatsapp_click' THEN 1 ELSE 0 END) AS whatsapp_clicks,
+         SUM(CASE WHEN event_type = 'directions_click' THEN 1 ELSE 0 END) AS directions_clicks
+       FROM product_events
+       WHERE shop_id = ? AND event_date >= ?
+       GROUP BY event_date ORDER BY event_date ASC`
+    ).bind(shopId, sinceDate).all()
+
+    const byProduct = await env.DB.prepare(
+      `SELECT e.product_id, p.name AS product_name, p.price AS product_price, p.category AS product_category,
+         SUM(CASE WHEN e.event_type = 'impression' THEN 1 ELSE 0 END) AS impressions,
+         SUM(CASE WHEN e.event_type = 'detail_open' THEN 1 ELSE 0 END) AS detail_opens,
+         SUM(CASE WHEN e.event_type = 'whatsapp_click' THEN 1 ELSE 0 END) AS whatsapp_clicks,
+         SUM(CASE WHEN e.event_type = 'directions_click' THEN 1 ELSE 0 END) AS directions_clicks,
+         SUM(CASE WHEN e.event_type = 'share' THEN 1 ELSE 0 END) AS shares,
+         SUM(CASE WHEN e.event_type = 'wishlist' THEN 1 ELSE 0 END) AS wishlists,
+         COUNT(*) AS total_events
+       FROM product_events e
+       LEFT JOIN products p ON p.id = e.product_id
+       WHERE e.shop_id = ? AND e.event_date >= ? AND e.product_id IS NOT NULL
+       GROUP BY e.product_id ORDER BY detail_opens DESC, impressions DESC LIMIT 50`
+    ).bind(shopId, sinceDate).all()
+
+    const impressions = Number(totalsRow?.impressions) || 0
+    const detailOpens = Number(totalsRow?.detail_opens) || 0
+    const whatsappClicks = Number(totalsRow?.whatsapp_clicks) || 0
+    const ctr = impressions > 0 ? Math.round((detailOpens / impressions) * 1000) / 10 : 0
+
+    const res = json({
+      shop_id: shopId,
+      days,
+      since_date: sinceDate,
+      totals: {
+        impressions,
+        detail_opens: detailOpens,
+        whatsapp_clicks: whatsappClicks,
+        directions_clicks: Number(totalsRow?.directions_clicks) || 0,
+        shares: Number(totalsRow?.shares) || 0,
+        wishlists: Number(totalsRow?.wishlists) || 0,
+        reviews: Number(totalsRow?.reviews) || 0,
+        total_events: Number(totalsRow?.total_events) || 0,
+        unique_viewers: Number(totalsRow?.unique_viewers) || 0,
+        ctr_percent: ctr
+      },
+      funnel: { impressions, detail_opens: detailOpens, whatsapp_clicks: whatsappClicks },
+      timeseries: timeseries.results || [],
+      by_product: byProduct.results || []
+    })
+    res.headers.set('Cache-Control', 'no-store')
+    return res
+  } catch (err) {
+    if (String(err.message || '').includes('no such table')) {
+      return json({ shop_id: shopId, days, since_date: sinceDate, totals: { impressions: 0, detail_opens: 0, whatsapp_clicks: 0, directions_clicks: 0, shares: 0, wishlists: 0, reviews: 0, total_events: 0, unique_viewers: 0, ctr_percent: 0 }, funnel: { impressions: 0, detail_opens: 0, whatsapp_clicks: 0 }, timeseries: [], by_product: [], _empty: true })
+    }
+    throw err
+  }
+}
+
 // ---------- Subscription API handlers ----------
 
 async function handleGetSubscription(env, user) {
@@ -1585,6 +1732,14 @@ export default {
       if (request.method === 'GET' && url.pathname === '/api/subscription') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
         return await handleGetSubscription(env, user)
+      }
+      if (request.method === 'POST' && url.pathname === '/api/analytics/track') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleTrackEvent(request, env, user)
+      }
+      if (request.method === 'GET' && url.pathname === '/api/analytics/shop') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleGetShopAnalytics(env, url, user)
       }
       if (request.method === 'POST' && url.pathname === '/api/reviews') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)

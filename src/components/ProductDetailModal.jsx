@@ -8,6 +8,7 @@ import { useAndroidBackHandler } from '../hooks/useAndroidBackHandler'
 import { triggerHaptic } from '../utils/haptics'
 import { useAuth } from '../hooks/useAuth'
 import { apiFetch } from '../lib/api'
+import { trackProductEvent } from '../utils/analytics'
 import { ReviewStars } from './ReviewStars'
 
 export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
@@ -128,10 +129,13 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
       text: `Check out "${product.name}" at ₹${product.price} at ${product.shop_name || 'local shop'} on LocalFind!`,
       url: shareUrl
     }
+    // Count a share only when it actually succeeds — a dismissed
+    // share sheet (AbortError) or failed copy is not a share.
     if (navigator.share) {
       try {
         await navigator.share(shareData)
         triggerHaptic('success')
+        trackProductEvent('share', product, user)
       } catch (err) {
         if (err.name !== 'AbortError') {
           console.warn('Native share failed, fallback to copy', err)
@@ -140,6 +144,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
     } else {
       try {
         await navigator.clipboard.writeText(shareUrl)
+        trackProductEvent('share', product, user)
         alert('Product link copied to clipboard!')
       } catch (err) {
         console.warn('Failed to copy link', err)
@@ -208,6 +213,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
         })
       })
       triggerHaptic('success')
+      trackProductEvent('review', product, user)
       // Refresh reviews + products live avg
       const data = await apiFetch(`/api/reviews?shop_id=${encodeURIComponent(product.shop_id)}`)
       setReviews(Array.isArray(data.reviews) ? data.reviews : [])
@@ -293,7 +299,10 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                   localStorage.setItem('localfind_wishlist', JSON.stringify(next))
                   setIsWishlisted(next.includes(product.id))
                   window.dispatchEvent(new Event('storage'))
-                  if (next.includes(product.id)) triggerHaptic('selection')
+                  if (next.includes(product.id)) {
+                    triggerHaptic('selection')
+                    trackProductEvent('wishlist', product, user)
+                  }
                 } catch (e) {
                   console.warn(e)
                 }
@@ -557,6 +566,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                       href={queryUrl}
                       target="_blank"
                       rel="noopener noreferrer"
+                      onClick={() => trackProductEvent('whatsapp_click', product, user)}
                       className="bg-surface-container-high/80 hover:bg-[#25D366]/15 hover:border-[#25D366]/50 text-on-surface hover:text-emerald-700 dark:hover:text-emerald-400 p-2.5 sm:p-3 rounded-2xl text-xs font-semibold border border-surface-variant/70 flex items-center gap-2 transition-all shadow-crisp-xs active:scale-95 group text-left flex-shrink-0 w-[200px] sm:w-auto snap-start"
                     >
                       <span className="text-base sm:text-lg">{template.icon}</span>
@@ -592,6 +602,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                     href={whatsappUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackProductEvent('whatsapp_click', product, user)}
                     className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20 hover:shadow-[#25D366]/20"
                   >
                     <span className="material-symbols-outlined text-lg">chat</span>
@@ -610,6 +621,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                   href={mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() => trackProductEvent('directions_click', product, user)}
                   className="w-full bg-primary text-on-primary hover:bg-primary/90 py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20 hover:shadow-primary/20"
                 >
                   <span className="material-symbols-outlined text-lg">near_me</span>

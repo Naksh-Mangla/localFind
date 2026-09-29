@@ -10,6 +10,7 @@ import { LocationPickerModal } from './components/LocationPickerModal'
 import { AdminAuthModal } from './components/AdminAuthModal'
 import { isDealAlertsEnabled, enableDealAlerts, disableDealAlerts, checkAndNotifyNewDeals } from './utils/notifications'
 import { triggerHaptic } from './utils/haptics'
+import { trackDetailOpen } from './utils/analytics'
 
 // Performance optimization: Robust lazy loader with automatic deployment chunk-stale retry
 const lazyWithRetry = (importFn) =>
@@ -60,6 +61,11 @@ export default function App() {
   )
 
   const [selectedProduct, setSelectedProduct] = useState(null)
+  const handleSelectProduct = useCallback((p) => {
+    setSelectedProduct(p)
+    // YouTube-style "view": counts when a logged-in buyer opens a product
+    trackDetailOpen(p, user)
+  }, [user])
   const [showLocationPicker, setShowLocationPicker] = useState(false)
   const [isFirstTimeFallback, setIsFirstTimeFallback] = useState(false)
   const hasAutoDetectedRef = useRef(false)
@@ -154,7 +160,7 @@ export default function App() {
       if (prodId && products.length > 0) {
         const found = products.find((p) => String(p.id) === String(prodId))
         if (found) {
-          setSelectedProduct(found)
+          handleSelectProduct(found)
           setActiveView('discover')
         }
       }
@@ -167,7 +173,7 @@ export default function App() {
         if (products.length > 0) {
           const found = products.find((p) => String(p.id) === String(prodId))
           if (found) {
-            setSelectedProduct(found)
+            handleSelectProduct(found)
             setActiveView('discover')
           }
         }
@@ -181,7 +187,7 @@ export default function App() {
       if (urlProdId && products.length > 0) {
         const found = products.find((p) => String(p.id) === String(urlProdId))
         if (found) {
-          setSelectedProduct(found)
+          handleSelectProduct(found)
           setActiveView('discover')
           // Clean only product param without removing shopId or other params
           const currentParams = new URLSearchParams(window.location.search)
@@ -204,7 +210,7 @@ export default function App() {
         navigator.serviceWorker.removeEventListener('message', handleSWMessage)
       }
     }
-  }, [products])
+  }, [products, handleSelectProduct])
 
   // Monotonic id so slow out-of-order Nominatim replies never overwrite a newer fix
   const geoRequestRef = useRef(0)
@@ -659,7 +665,7 @@ export default function App() {
               products={products}
               userCoords={userCoords}
               currentUser={user}
-              onSelectProduct={(p) => setSelectedProduct(p)}
+              onSelectProduct={handleSelectProduct}
               loading={initialLoading && products.length === 0}
               onRefreshProducts={() => fetchProducts(true)}
               refreshing={isRefreshing}
@@ -698,7 +704,7 @@ export default function App() {
               products={products}
               userCoords={userCoords}
               currentUser={user}
-              onSelectProduct={(p) => setSelectedProduct(p)}
+              onSelectProduct={handleSelectProduct}
               loading={initialLoading && products.length === 0}
               onRefreshProducts={() => fetchProducts(true)}
               refreshing={isRefreshing}

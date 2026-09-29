@@ -10,6 +10,7 @@ import {
 } from '../utils/hinglishSearch'
 import { getFlashDealInfo, useFlashDeal } from '../utils/flashDeals'
 import { triggerHaptic } from '../utils/haptics'
+import { trackProductEvent, trackImpression } from '../utils/analytics'
 import { ReviewStars } from './ReviewStars'
 import { ShopBadgePill, HeroShopBadge } from './ShopBadge'
 import { apiFetch } from '../lib/api'
@@ -87,7 +88,8 @@ const ProductCard = React.memo(function ProductCard({
   isWishlisted,
   onToggleWishlist,
   priority = false,
-  isDistant = false
+  isDistant = false,
+  viewer = null
 }) {
   const flashInfo = getFlashDealInfo(product)
   const itemRAG = getRAGStatus(product.updated_at || product.created_at)
@@ -95,8 +97,40 @@ const ProductCard = React.memo(function ProductCard({
   // Hero is a pure admin override: the flag alone earns the verified treatment.
   const isHero = Boolean(product.is_hero_shop || product.isHeroShop)
 
+  // YouTube-style "impression": card ≥50% visible for 600ms, once per mount.
+  // Logged-out viewers no-op inside trackImpression; server dedupes per day.
+  const cardRef = useRef(null)
+  useEffect(() => {
+    const el = cardRef.current
+    if (!el || !viewer || !product?.id) return
+    if (typeof IntersectionObserver === 'undefined') return
+    let dwellTimer = null
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting) {
+          if (!dwellTimer) {
+            dwellTimer = setTimeout(() => {
+              trackImpression(product, viewer)
+              observer.disconnect()
+            }, 600)
+          }
+        } else if (dwellTimer) {
+          clearTimeout(dwellTimer)
+          dwellTimer = null
+        }
+      },
+      { threshold: 0.5 }
+    )
+    observer.observe(el)
+    return () => {
+      observer.disconnect()
+      if (dwellTimer) clearTimeout(dwellTimer)
+    }
+  }, [product?.id, viewer])
+
   return (
     <div
+      ref={cardRef}
       onClick={() => onSelectProduct(product)}
       className={`product-card-contain bg-surface-container-lowest rounded-2xl sm:rounded-3xl shadow-crisp-xs hover:apple-product-shadow overflow-hidden border flex flex-col group cursor-pointer transition-all duration-300 touch-press ${
         isHero
@@ -372,8 +406,19 @@ export function BuyerDiscover({
   // Quick set for O(1) wishlist membership check
   const wishlistSet = useMemo(() => new Set(wishlistIds), [wishlistIds])
 
+  // Latest-ids mirror: lets toggleWishlist read current membership without
+  // closing over wishlistIds (which would stale-race rapid taps on two cards
+  // and bust ProductCard's React.memo on every heart toggle).
+  const wishlistIdsRef = useRef(wishlistIds)
+  wishlistIdsRef.current = wishlistIds
+
   const toggleWishlist = useCallback((productId, e) => {
     if (e) e.stopPropagation()
+    // Tracking decision from the ref; the state write below stays a pure
+    // functional updater so chained rapid taps never lose an item
+    // (StrictMode may double-invoke the updater — it has no side effects
+    // beyond idempotent localStorage writes — but never the tracker).
+    const wasSaved = wishlistIdsRef.current.includes(productId)
     setWishlistIds((prev) => {
       const isSaved = prev.includes(productId)
       const next = isSaved ? prev.filter((id) => id !== productId) : [...prev, productId]
@@ -385,7 +430,13 @@ export function BuyerDiscover({
       }
       return next
     })
-  }, [])
+    if (!wasSaved) {
+      try {
+        const prod = (products || []).find((p) => String(p.id) === String(productId))
+        if (prod) trackProductEvent('wishlist', prod, currentUser)
+      } catch {}
+    }
+  }, [products, currentUser])
 
   // Sync wishlist across tabs/windows
   useEffect(() => {
@@ -664,6 +715,12 @@ export function BuyerDiscover({
   const handleWhatsAppShop = (e) => {
     if (e) e.stopPropagation()
     if (!targetShop?.whatsapp) return
+    try {
+      // Shop-level event only: never fall back to another shop's product,
+      // or the server would credit the wrong shop.
+      const firstProd = (filteredProducts || []).find((p) => String(p.shop_id || p.shopId) === String(targetShopId))
+      trackProductEvent('whatsapp_click', firstProd || { shop_id: targetShopId, id: null }, currentUser)
+    } catch {}
     const cleanPhone = String(targetShop.whatsapp).replace(/[^0-9]/g, '')
     const intlPhone = cleanPhone.startsWith('91') ? cleanPhone : `91${cleanPhone}`
     const message = encodeURIComponent(`Hi ${targetShop.name}! I scanned your counter QR on LocalFind and would like to ask about your products.`)
@@ -835,6 +892,7 @@ export function BuyerDiscover({
                     isWishlisted={wishlistSet.has(deal.id)}
                     onToggleWishlist={toggleWishlist}
                     priority={true}
+                    viewer={currentUser}
                   />
                 ))}
               </div>
@@ -859,6 +917,7 @@ export function BuyerDiscover({
                     isWishlisted={wishlistSet.has(p.id)}
                     onToggleWishlist={toggleWishlist}
                     priority={idx < 4}
+                    viewer={currentUser}
                   />
                 ))}
               </div>
@@ -1435,6 +1494,7 @@ export function BuyerDiscover({
                       isWishlisted={wishlistSet.has(product.id)}
                       onToggleWishlist={toggleWishlist}
                       priority={index < 4}
+                      viewer={currentUser}
                     />
                   ))}
                 </div>
@@ -1474,6 +1534,7 @@ export function BuyerDiscover({
                     onToggleWishlist={toggleWishlist}
                     priority={false}
                     isDistant={true}
+                    viewer={currentUser}
                   />
                 ))}
               </div>
