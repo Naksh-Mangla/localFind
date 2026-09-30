@@ -43,6 +43,33 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
     } catch (e) {}
   }, [product?.id])
 
+  // Flash-deal claim state, re-armed daily to match the server's
+  // per-user-per-day dedupe. Reads legacy id-list format too.
+  const todayStr = () => new Date().toISOString().slice(0, 10)
+  // Pure read (render-safe): legacy id-list entries count as claimed.
+  const readClaimed = (pid) => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('localfind_claimed_deals') || '[]')
+      if (Array.isArray(saved)) return saved.includes(pid)
+      return saved?.[pid] === todayStr()
+    } catch {
+      return false
+    }
+  }
+  const [dealClaimed, setDealClaimed] = useState(() => readClaimed(product?.id))
+  useEffect(() => {
+    // Legacy id-list → date-map migration runs here as a side effect, never
+    // during render. Old entries stamp today, so pre-update buyers re-arm
+    // tomorrow instead of being locked out forever.
+    try {
+      const raw = JSON.parse(localStorage.getItem('localfind_claimed_deals') || '[]')
+      if (Array.isArray(raw)) {
+        localStorage.setItem('localfind_claimed_deals', JSON.stringify(Object.fromEntries(raw.map((id) => [id, todayStr()]))))
+      }
+    } catch {}
+    setDealClaimed(readClaimed(product?.id))
+  }, [product?.id])
+
   // Listen to cross-component storage updates for wishlist sync
   useEffect(() => {
     const handleStorage = () => {
@@ -165,7 +192,26 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
       : `Hi, is "${product.name}" (₹${product.price}) currently available at ${product.shop_name}? I found it on LocalFind.`
   )
   const whatsappUrl = cleanWhatsapp ? `https://wa.me/${cleanWhatsapp}?text=${whatsappMsg}` : '#'
-  
+
+  // Declared after cleanWhatsapp/whatsappUrl (uses both at tap time).
+  const handleClaimDeal = () => {
+    triggerHaptic('medium')
+    // Track once per device per day: re-taps just re-open the shop chat.
+    if (!dealClaimed) {
+      trackProductEvent('flash_claim', product, user)
+      try {
+        const raw = JSON.parse(localStorage.getItem('localfind_claimed_deals') || '{}')
+        const map = Array.isArray(raw)
+          ? Object.fromEntries(raw.map((id) => [id, todayStr()]))
+          : (raw && typeof raw === 'object' ? raw : {})
+        map[product.id] = todayStr()
+        localStorage.setItem('localfind_claimed_deals', JSON.stringify(map))
+      } catch {}
+      setDealClaimed(true)
+    }
+    if (cleanWhatsapp) window.open(whatsappUrl, '_blank')
+  }
+
   const pLat = Number(product.lat)
   const pLng = Number(product.lng)
   const hasShopCoords = Number.isFinite(pLat) && Number.isFinite(pLng)
@@ -590,6 +636,23 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
             </div>
           )}
 
+          {/* ⚡ Flash Deal Claim — needs a WhatsApp number, else the buyer
+              could claim without any redemption path via chat */}
+          {flashInfo?.isLive && !product.is_affiliate_fallback && cleanWhatsapp && (
+            <button
+              onClick={handleClaimDeal}
+              aria-label={dealClaimed ? 'Flash deal claimed' : `Claim flash deal, ${flashInfo.discountPercent} percent off`}
+              className={`w-full py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm flex items-center justify-center gap-2 text-sm active:scale-98 border ${
+                dealClaimed
+                  ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40'
+                  : 'bg-gradient-to-r from-amber-500 via-rose-500 to-pink-600 text-white border-white/20 hover:shadow-md'
+              }`}
+            >
+              <span className="material-symbols-outlined text-lg">{dealClaimed ? 'verified' : 'bolt'}</span>
+              <span>{dealClaimed ? 'Deal Claimed — Show This at the Shop!' : `Claim Deal: ${flashInfo.discountPercent}% OFF at ₹${flashInfo.discountedPrice}`}</span>
+            </button>
+          )}
+
           {/* Zero-Cost Direct Connect Buttons */}
           <div className="flex flex-col gap-3 pt-2">
             {safeAffiliateLink ? (
@@ -603,27 +666,48 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                 <span>Buy Online (Affiliate Fallback)</span>
               </a>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {cleanWhatsapp ? (
-                  <a
-                    href={whatsappUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => trackProductEvent('whatsapp_click', product, user)}
-                    className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20 hover:shadow-[#25D366]/20"
-                  >
-                    <span className="material-symbols-outlined text-lg">chat</span>
-                    <span>Ask Custom on WhatsApp</span>
-                  </a>
-                ) : (
-                  <span
-                    title="Shop contact number unavailable"
-                    className="w-full bg-surface-variant/60 text-on-surface-variant py-3.5 px-4 rounded-2xl font-bold text-center flex items-center justify-center gap-2 text-sm border border-surface-variant/50 cursor-not-allowed"
-                  >
-                    <span className="material-symbols-outlined text-lg">chat</span>
-                    <span>WhatsApp Unavailable</span>
-                  </span>
-                )}
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  {cleanWhatsapp ? (
+                    <a
+                      href={whatsappUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackProductEvent('whatsapp_click', product, user)}
+                      className="w-full bg-[#25D366] hover:bg-[#20bd5a] text-white py-3.5 px-4 rounded-2xl font-bold text-center transition-all shadow-crisp-sm hover:shadow-md flex items-center justify-center gap-2 text-sm active:scale-98 border border-white/20 hover:shadow-[#25D366]/20"
+                    >
+                      <span className="material-symbols-outlined text-lg">chat</span>
+                      <span>WhatsApp</span>
+                    </a>
+                  ) : (
+                    <span
+                      title="Shop contact number unavailable"
+                      className="w-full bg-surface-variant/60 text-on-surface-variant py-3.5 px-4 rounded-2xl font-bold text-center flex items-center justify-center gap-2 text-sm border border-surface-variant/50 cursor-not-allowed"
+                    >
+                      <span className="material-symbols-outlined text-lg">chat</span>
+                      <span>No WhatsApp</span>
+                    </span>
+                  )}
+                  {cleanWhatsapp ? (
+                    <a
+                      href={`tel:+${cleanWhatsapp}`}
+                      onClick={() => trackProductEvent('call_click', product, user)}
+                      aria-label={`Call ${product.shop_name || 'shop'} now`}
+                      className="w-full bg-surface-container-high hover:bg-surface-variant text-on-surface py-3.5 px-4 rounded-2xl font-bold text-center transition-all border border-surface-variant/70 flex items-center justify-center gap-2 text-sm shadow-crisp-xs active:scale-98"
+                    >
+                      <span className="material-symbols-outlined text-lg text-primary">call</span>
+                      <span>Call Store</span>
+                    </a>
+                  ) : (
+                    <span
+                      title="Shop contact number unavailable"
+                      className="w-full bg-surface-variant/60 text-on-surface-variant py-3.5 px-4 rounded-2xl font-bold text-center flex items-center justify-center gap-2 text-sm border border-surface-variant/50 cursor-not-allowed"
+                    >
+                      <span className="material-symbols-outlined text-lg">call</span>
+                      <span>No Calls</span>
+                    </span>
+                  )}
+                </div>
                 <a
                   href={mapsUrl}
                   target="_blank"
@@ -634,7 +718,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                   <span className="material-symbols-outlined text-lg">near_me</span>
                   <span>Get Directions</span>
                 </a>
-              </div>
+              </>
             )}
           </div>
         </div>

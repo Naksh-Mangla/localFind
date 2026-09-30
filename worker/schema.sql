@@ -93,15 +93,24 @@ CREATE TABLE IF NOT EXISTS product_events (
   product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
   user_id TEXT NOT NULL,
   event_type TEXT NOT NULL
-    CHECK(event_type IN ('impression','detail_open','whatsapp_click','directions_click','share','wishlist','review')),
+    CHECK(event_type IN ('impression','detail_open','whatsapp_click','directions_click','share','wishlist','review','call_click','flash_claim','search_view')),
   created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
   event_date TEXT GENERATED ALWAYS AS (substr(created_at, 1, 10)) STORED,
+  hour_of_day INTEGER GENERATED ALWAYS AS (CAST(substr(created_at, 12, 2) AS INTEGER)) STORED,
+  search_query TEXT,
+  buyer_pincode TEXT,
   UNIQUE(user_id, product_id, event_type, event_date)
 );
 CREATE INDEX IF NOT EXISTS idx_events_shop_date ON product_events(shop_id, event_date);
 CREATE INDEX IF NOT EXISTS idx_events_product_date ON product_events(product_id, event_date);
 CREATE INDEX IF NOT EXISTS idx_events_shop_type_date ON product_events(shop_id, event_type, event_date);
 CREATE INDEX IF NOT EXISTS idx_events_user_type_date ON product_events(user_id, event_type, event_date, shop_id);
+CREATE INDEX IF NOT EXISTS idx_events_shop_hour ON product_events(shop_id, hour_of_day, event_date);
+CREATE INDEX IF NOT EXISTS idx_events_shop_search ON product_events(shop_id, search_query, event_date);
+CREATE INDEX IF NOT EXISTS idx_events_shop_pincode ON product_events(shop_id, buyer_pincode, event_date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_events_dedupe_once
+  ON product_events(user_id, shop_id, event_type, event_date,
+    COALESCE(product_id, ''), COALESCE(search_query, ''));
 CREATE TABLE IF NOT EXISTS admin_login_attempts (
   email_key    TEXT PRIMARY KEY,
   attempts     INTEGER NOT NULL DEFAULT 0,

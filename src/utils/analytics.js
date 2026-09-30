@@ -9,10 +9,24 @@ const VALID_TYPES = new Set([
   'detail_open',
   'whatsapp_click',
   'directions_click',
+  'call_click',
+  'flash_claim',
   'share',
   'wishlist',
   'review'
 ])
+
+// Buyer pincode from the saved manual location (coarse area only, no GPS
+// trail). Absent for GPS-only buyers — those events simply carry no pincode.
+function readBuyerPincode() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
+    const pin = String(saved?.pincode || '').replace(/[^0-9]/g, '').slice(0, 6)
+    return pin.length === 6 ? pin : null
+  } catch {
+    return null
+  }
+}
 
 // Client-side throttle: max 1 identical event per product per 10s (avoids double taps)
 const lastSentAt = new Map()
@@ -36,7 +50,34 @@ export function trackProductEvent(eventType, product, user) {
       body: JSON.stringify({
         event_type: eventType,
         product_id: product.id || null,
-        shop_id: product.shop_id || null
+        shop_id: product.shop_id || null,
+        buyer_pincode: readBuyerPincode()
+      })
+    }).catch(() => {})
+  } catch {}
+}
+
+// Search attribution: one debounced call per query with the shop IDs shown.
+// Throttled per query text (60s) so typing doesn't spam the endpoint.
+const lastSearchSent = new Map()
+
+export function trackSearchView(query, shopIds, user) {
+  try {
+    if (!user) return
+    const q = typeof query === 'string' ? query.trim().toLowerCase().slice(0, 80) : ''
+    if (q.length < 2) return
+    const ids = [...new Set((shopIds || []).map(String))].slice(0, 5)
+    if (ids.length === 0) return
+    const now = Date.now()
+    if (now - (lastSearchSent.get(q) || 0) < 60000) return
+    lastSearchSent.set(q, now)
+
+    apiFetch('/api/analytics/track-search', {
+      method: 'POST',
+      body: JSON.stringify({
+        query: q,
+        shop_ids: ids,
+        buyer_pincode: readBuyerPincode()
       })
     }).catch(() => {})
   } catch {}

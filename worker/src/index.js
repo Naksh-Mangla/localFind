@@ -1673,7 +1673,44 @@ async function handleAdminAuditLog(env, url) {
 
 // ---------- Shopkeeper analytics (YouTube-Studio style) ----------
 
-const ANALYTICS_EVENT_TYPES = ['impression', 'detail_open', 'whatsapp_click', 'directions_click', 'share', 'wishlist', 'review']
+const ANALYTICS_EVENT_TYPES = ['impression', 'detail_open', 'whatsapp_click', 'directions_click', 'share', 'wishlist', 'review', 'call_click', 'flash_claim', 'search_view']
+
+// Normalized search text: lowercase, trimmed, max 80 chars, min 2 chars.
+function sanitizeSearchQuery(value) {
+  if (typeof value !== 'string') return null
+  const q = value.trim().toLowerCase().slice(0, 80)
+  return q.length >= 2 ? q : null
+}
+
+// Buyer pincode is coarse location only: exactly 6 digits or nothing.
+function sanitizeBuyerPincode(value) {
+  if (typeof value !== 'string') return null
+  const digits = value.replace(/[^0-9]/g, '').slice(0, 6)
+  return digits.length === 6 ? digits : null
+}
+
+// Single-insert with NULL-safe per-user-per-day guard. Returns 'inserted',
+// 'duplicate', 'owner', or throws. Shared by track + track-search.
+async function insertEventOnce(env, { shopId, productId, userId, eventType, searchQuery, buyerPincode, ownerId }) {
+  if (ownerId === userId) return 'owner'
+  const today = new Date().toISOString().slice(0, 10)
+  const existing = await env.DB.prepare(
+    `SELECT id FROM product_events
+     WHERE user_id = ? AND event_type = ? AND event_date = ? AND shop_id = ?
+       AND ((product_id IS NULL AND ? IS NULL) OR product_id = ?)
+       AND ((search_query IS NULL AND ? IS NULL) OR search_query = ?)`
+  ).bind(userId, eventType, today, shopId, productId, productId, searchQuery, searchQuery).first()
+  if (existing) return 'duplicate'
+  // Bare DO NOTHING (no conflict target): atomic backstop for races the
+  // SELECT guard can miss, enforced by idx_events_dedupe_once (NULL-safe).
+  // meta.changes tells a real insert from a swallowed conflict.
+  const written = await env.DB.prepare(
+    `INSERT INTO product_events (id, shop_id, product_id, user_id, event_type, search_query, buyer_pincode)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
+     ON CONFLICT DO NOTHING`
+  ).bind(crypto.randomUUID(), shopId, productId, userId, eventType, searchQuery, buyerPincode).run()
+  return (written?.meta?.changes ?? 1) > 0 ? 'inserted' : 'duplicate'
+}
 
 async function handleTrackEvent(request, env, user) {
   const { body, tooLarge } = await readJsonBody(request, 64 * 1024)
@@ -1683,6 +1720,7 @@ async function handleTrackEvent(request, env, user) {
   const event_type = typeof body.event_type === 'string' ? body.event_type.trim() : ''
   const product_id = cleanText(body.product_id, 64)
   const shop_id = cleanText(body.shop_id, 64)
+  const buyer_pincode = sanitizeBuyerPincode(body.buyer_pincode)
 
   if (!ANALYTICS_EVENT_TYPES.includes(event_type)) {
     return json({ error: 'event_type must be one of: ' + ANALYTICS_EVENT_TYPES.join(', ') }, 400)
@@ -1699,35 +1737,88 @@ async function handleTrackEvent(request, env, user) {
     resolvedShopId = product.shop_id
     if (shop_id && shop_id !== product.shop_id) return json({ error: 'product does not belong to shop' }, 400)
   }
+  // search_view rows carry the query; other types must not (keeps tallies clean).
+  const searchQuery = event_type === 'search_view' ? sanitizeSearchQuery(body.search_query) : null
+  if (event_type === 'search_view' && !searchQuery) return json({ error: 'search_query is required for search_view' }, 400)
+
   const shop = await env.DB.prepare('SELECT id, owner_id FROM shops WHERE id = ?').bind(resolvedShopId).first()
   if (!shop) return json({ error: 'Shop not found' }, 404)
 
-  // Owner self-traffic never counts (prevents gaming + keeps numbers honest)
-  if (shop.owner_id === user.sub) return json({ success: true, skipped: 'owner' })
-
   try {
-    // NULL-safe per-user-per-day guard: SQLite treats NULLs as distinct in
-    // UNIQUE constraints, so the ON CONFLICT below never fires for shop-only
-    // events (product_id IS NULL). This SELECT caps those at 1/day too.
-    const today = new Date().toISOString().slice(0, 10)
-    const existing = await env.DB.prepare(
-      `SELECT id FROM product_events
-       WHERE user_id = ? AND event_type = ? AND event_date = ? AND shop_id = ?
-         AND ((product_id IS NULL AND ? IS NULL) OR product_id = ?)`
-    ).bind(user.sub, event_type, today, resolvedShopId, resolvedProductId, resolvedProductId).first()
-    if (existing) return json({ success: true, skipped: 'duplicate' })
-
-    await env.DB.prepare(
-      `INSERT INTO product_events (id, shop_id, product_id, user_id, event_type)
-       VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(user_id, product_id, event_type, event_date) DO NOTHING`
-    ).bind(crypto.randomUUID(), resolvedShopId, resolvedProductId, user.sub, event_type).run()
+    const outcome = await insertEventOnce(env, {
+      shopId: resolvedShopId,
+      productId: resolvedProductId,
+      userId: user.sub,
+      eventType: event_type,
+      searchQuery,
+      buyerPincode: buyer_pincode,
+      ownerId: shop.owner_id
+    })
+    return json({ success: true, ...(outcome === 'inserted' ? {} : { skipped: outcome }) })
   } catch (err) {
-    // Pre-migration DBs have no product_events table: fail soft, never break shopping
-    if (String(err.message || '').includes('no such table')) return json({ success: true, skipped: 'no-table' })
+    // Pre-migration DBs: missing table OR old event_type CHECK (worker
+    // deployed before v3 migration) — fail soft, never break shopping.
+    const msg = String(err.message || '')
+    if (msg.includes('no such table') || msg.includes('CHECK constraint failed')) {
+      return json({ success: true, skipped: 'no-table' })
+    }
     throw err
   }
-  return json({ success: true })
+}
+
+// Batched search attribution: one search_view row per shop shown in the
+// buyer's results (capped), so Top Keywords tallies per-shop demand.
+async function handleTrackSearch(request, env, user) {
+  const { body, tooLarge } = await readJsonBody(request, 4 * 1024)
+  if (tooLarge) return BODY_TOO_LARGE()
+  if (!body) return json({ error: 'Invalid JSON body' }, 400)
+
+  const searchQuery = sanitizeSearchQuery(body.query)
+  if (!searchQuery) return json({ error: 'query must be at least 2 characters' }, 400)
+  const rawIds = Array.isArray(body.shop_ids) ? body.shop_ids : []
+  const shopIds = [...new Set(rawIds.map((id) => cleanText(id, 64)).filter(Boolean))].slice(0, 5)
+  if (shopIds.length === 0) return json({ error: 'shop_ids must list at least one shop' }, 400)
+  const buyer_pincode = sanitizeBuyerPincode(body.buyer_pincode)
+
+  // Abuse quota: at most 50 DISTINCT searches per user per day. Counted by
+  // query (not rows — one search fans out to 5 shops), so legit buyers
+  // never hit it; a script spamming shop_ids can't pollute tallies at
+  // volume. Per-shop daily dedupe already caps one account vs one shop.
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    const used = await env.DB.prepare(
+      `SELECT COUNT(DISTINCT search_query) AS n FROM product_events
+       WHERE user_id = ? AND event_type = 'search_view' AND event_date = ?`
+    ).bind(user.sub, today).first()
+    if ((Number(used?.n) || 0) >= 50) return json({ success: true, skipped: 'quota' })
+  } catch {
+    // No table yet (pre-migration): fall through to the fail-soft insert path.
+  }
+
+  let recorded = 0
+  try {
+    for (const shopId of shopIds) {
+      const shop = await env.DB.prepare('SELECT id, owner_id FROM shops WHERE id = ?').bind(shopId).first()
+      if (!shop) continue
+      const outcome = await insertEventOnce(env, {
+        shopId: shop.id,
+        productId: null,
+        userId: user.sub,
+        eventType: 'search_view',
+        searchQuery,
+        buyerPincode: buyer_pincode,
+        ownerId: shop.owner_id
+      })
+      if (outcome === 'inserted') recorded++
+    }
+  } catch (err) {
+    const msg = String(err.message || '')
+    if (msg.includes('no such table') || msg.includes('CHECK constraint failed')) {
+      return json({ success: true, skipped: 'no-table' })
+    }
+    throw err
+  }
+  return json({ success: true, recorded })
 }
 
 async function handleGetShopAnalytics(env, url, user) {
@@ -1749,6 +1840,8 @@ async function handleGetShopAnalytics(env, url, user) {
          SUM(CASE WHEN event_type = 'detail_open' THEN 1 ELSE 0 END) AS detail_opens,
          SUM(CASE WHEN event_type = 'whatsapp_click' THEN 1 ELSE 0 END) AS whatsapp_clicks,
          SUM(CASE WHEN event_type = 'directions_click' THEN 1 ELSE 0 END) AS directions_clicks,
+         SUM(CASE WHEN event_type = 'call_click' THEN 1 ELSE 0 END) AS call_clicks,
+         SUM(CASE WHEN event_type = 'flash_claim' THEN 1 ELSE 0 END) AS flash_claims,
          SUM(CASE WHEN event_type = 'share' THEN 1 ELSE 0 END) AS shares,
          SUM(CASE WHEN event_type = 'wishlist' THEN 1 ELSE 0 END) AS wishlists,
          SUM(CASE WHEN event_type = 'review' THEN 1 ELSE 0 END) AS reviews,
@@ -1757,6 +1850,35 @@ async function handleGetShopAnalytics(env, url, user) {
        FROM product_events
        WHERE shop_id = ? AND event_date >= ?`
     ).bind(shopId, sinceDate).first()
+
+    // Peak hours: unique viewers per UTC hour across view-type events.
+    // (Daily dedupe means this is active-shopper hours, not raw footfall.)
+    const hourlyRows = await env.DB.prepare(
+      `SELECT hour_of_day AS hour, COUNT(DISTINCT user_id) AS viewers
+       FROM product_events
+       WHERE shop_id = ? AND event_date >= ?
+         AND hour_of_day IS NOT NULL
+         AND event_type IN ('impression', 'detail_open')
+       GROUP BY hour_of_day`
+    ).bind(shopId, sinceDate).all().catch(() => ({ results: [] }))
+
+    // Distinct shoppers, not rows: one buyer opening 3 products must not
+    // triple-count their pincode (events fan out per product).
+    const topKeywords = await env.DB.prepare(
+      `SELECT search_query AS query, COUNT(DISTINCT user_id) AS count
+       FROM product_events
+       WHERE shop_id = ? AND event_date >= ?
+         AND event_type = 'search_view' AND search_query IS NOT NULL
+       GROUP BY search_query ORDER BY count DESC LIMIT 10`
+    ).bind(shopId, sinceDate).all().catch(() => ({ results: [] }))
+
+    const areaReach = await env.DB.prepare(
+      `SELECT buyer_pincode AS pincode, COUNT(DISTINCT user_id) AS count
+       FROM product_events
+       WHERE shop_id = ? AND event_date >= ?
+         AND buyer_pincode IS NOT NULL
+       GROUP BY buyer_pincode ORDER BY count DESC LIMIT 10`
+    ).bind(shopId, sinceDate).all().catch(() => ({ results: [] }))
 
     const timeseries = await env.DB.prepare(
       `SELECT event_date AS date,
@@ -1775,6 +1897,8 @@ async function handleGetShopAnalytics(env, url, user) {
          SUM(CASE WHEN e.event_type = 'detail_open' THEN 1 ELSE 0 END) AS detail_opens,
          SUM(CASE WHEN e.event_type = 'whatsapp_click' THEN 1 ELSE 0 END) AS whatsapp_clicks,
          SUM(CASE WHEN e.event_type = 'directions_click' THEN 1 ELSE 0 END) AS directions_clicks,
+         SUM(CASE WHEN e.event_type = 'call_click' THEN 1 ELSE 0 END) AS call_clicks,
+         SUM(CASE WHEN e.event_type = 'flash_claim' THEN 1 ELSE 0 END) AS flash_claims,
          SUM(CASE WHEN e.event_type = 'share' THEN 1 ELSE 0 END) AS shares,
          SUM(CASE WHEN e.event_type = 'wishlist' THEN 1 ELSE 0 END) AS wishlists,
          COUNT(*) AS total_events
@@ -1787,7 +1911,17 @@ async function handleGetShopAnalytics(env, url, user) {
     const impressions = Number(totalsRow?.impressions) || 0
     const detailOpens = Number(totalsRow?.detail_opens) || 0
     const whatsappClicks = Number(totalsRow?.whatsapp_clicks) || 0
+    const callClicks = Number(totalsRow?.call_clicks) || 0
+    const directionsClicks = Number(totalsRow?.directions_clicks) || 0
+    const flashClaims = Number(totalsRow?.flash_claims) || 0
     const ctr = impressions > 0 ? Math.round((detailOpens / impressions) * 1000) / 10 : 0
+
+    // Dense 24-slot array so the chart never has gaps.
+    const hourly = Array.from({ length: 24 }, (_, h) => ({ hour: h, viewers: 0 }))
+    for (const row of hourlyRows.results || []) {
+      const h = Number(row.hour)
+      if (Number.isInteger(h) && h >= 0 && h < 24) hourly[h].viewers = Number(row.viewers) || 0
+    }
 
     const res = json({
       shop_id: shopId,
@@ -1797,7 +1931,9 @@ async function handleGetShopAnalytics(env, url, user) {
         impressions,
         detail_opens: detailOpens,
         whatsapp_clicks: whatsappClicks,
-        directions_clicks: Number(totalsRow?.directions_clicks) || 0,
+        directions_clicks: directionsClicks,
+        call_clicks: callClicks,
+        flash_claims: flashClaims,
         shares: Number(totalsRow?.shares) || 0,
         wishlists: Number(totalsRow?.wishlists) || 0,
         reviews: Number(totalsRow?.reviews) || 0,
@@ -1805,7 +1941,17 @@ async function handleGetShopAnalytics(env, url, user) {
         unique_viewers: Number(totalsRow?.unique_viewers) || 0,
         ctr_percent: ctr
       },
-      funnel: { impressions, detail_opens: detailOpens, whatsapp_clicks: whatsappClicks },
+      funnel: {
+        impressions,
+        detail_opens: detailOpens,
+        whatsapp_clicks: whatsappClicks,
+        call_clicks: callClicks,
+        directions_clicks: directionsClicks,
+        flash_claims: flashClaims
+      },
+      hourly,
+      top_keywords: topKeywords.results || [],
+      area_reach: areaReach.results || [],
       timeseries: timeseries.results || [],
       by_product: byProduct.results || []
     })
@@ -1813,7 +1959,8 @@ async function handleGetShopAnalytics(env, url, user) {
     return res
   } catch (err) {
     if (String(err.message || '').includes('no such table')) {
-      return json({ shop_id: shopId, days, since_date: sinceDate, totals: { impressions: 0, detail_opens: 0, whatsapp_clicks: 0, directions_clicks: 0, shares: 0, wishlists: 0, reviews: 0, total_events: 0, unique_viewers: 0, ctr_percent: 0 }, funnel: { impressions: 0, detail_opens: 0, whatsapp_clicks: 0 }, timeseries: [], by_product: [], _empty: true })
+      const emptyTotals = { impressions: 0, detail_opens: 0, whatsapp_clicks: 0, directions_clicks: 0, call_clicks: 0, flash_claims: 0, shares: 0, wishlists: 0, reviews: 0, total_events: 0, unique_viewers: 0, ctr_percent: 0 }
+      return json({ shop_id: shopId, days, since_date: sinceDate, totals: emptyTotals, funnel: { impressions: 0, detail_opens: 0, whatsapp_clicks: 0, call_clicks: 0, directions_clicks: 0, flash_claims: 0 }, hourly: Array.from({ length: 24 }, (_, hour) => ({ hour, viewers: 0 })), top_keywords: [], area_reach: [], timeseries: [], by_product: [], _empty: true })
     }
     throw err
   }
@@ -2015,6 +2162,10 @@ async function routeRequest(request, env, ctx) {
       if (request.method === 'POST' && url.pathname === '/api/analytics/track') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
         return await handleTrackEvent(request, env, user)
+      }
+      if (request.method === 'POST' && url.pathname === '/api/analytics/track-search') {
+        const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)
+        return await handleTrackSearch(request, env, user)
       }
       if (request.method === 'GET' && url.pathname === '/api/analytics/shop') {
         const user = await verifyFirebaseIdToken(request.headers.get('Authorization'), env)

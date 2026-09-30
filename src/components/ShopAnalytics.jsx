@@ -62,7 +62,7 @@ function TimeSeriesChart({ points }) {
   )
 }
 
-function FunnelBar({ label, value, max, color }) {
+function FunnelBar({ label, value, max, color, conv }) {
   const pct = max > 0 ? Math.max(4, Math.round((value / max) * 100)) : 0
   return (
     <div className="flex items-center gap-3">
@@ -71,6 +71,67 @@ function FunnelBar({ label, value, max, color }) {
         <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
       </div>
       <span className="text-xs font-black text-on-surface w-10 text-right">{value}</span>
+      {conv != null && <span className="text-[10px] font-bold text-on-surface-variant w-11 text-right shrink-0">{conv}%</span>}
+    </div>
+  )
+}
+
+// Peak shopping hours: UTC buckets shifted to IST (+5:30) for shopkeepers.
+// Only the UTC hour is stored, so the :30 half-hour can't be placed exactly:
+// flooring skews each bucket ~30 min early. Fine at hourly resolution.
+// Counts are unique viewers per hour (daily dedupe), not raw footfall.
+function PeakHoursChart({ hourly }) {
+  const toIST = (h) => (h + 5.5) % 24
+  const ist = Array.from({ length: 24 }, () => 0)
+  for (const row of hourly || []) {
+    const h = Number(row?.hour)
+    if (Number.isInteger(h) && h >= 0 && h < 24) {
+      ist[Math.floor(toIST(h))] += Number(row?.viewers) || 0
+    }
+  }
+  const max = Math.max(1, ...ist)
+  const blocks = [
+    { name: 'Morning', range: [6, 7, 8, 9, 10, 11], icon: 'sunny' },
+    { name: 'Afternoon', range: [12, 13, 14, 15, 16], icon: 'light_mode' },
+    { name: 'Evening', range: [17, 18, 19, 20], icon: 'sunset' },
+    { name: 'Night', range: [21, 22, 23, 0, 1, 2, 3, 4, 5], icon: 'bedtime' }
+  ]
+  const inBlock = (h, range) => range.includes(h)
+  const blockTotals = blocks.map((b) => ist.reduce((s, v, h) => s + (inBlock(h, b.range) ? v : 0), 0))
+  const peakIdx = blockTotals.indexOf(Math.max(...blockTotals, 1))
+  const hasData = blockTotals.some((v) => v > 0)
+  const fmtHour = (h) => {
+    const hh = ((h % 12) === 0 ? 12 : h % 12)
+    return `${hh}${h < 12 ? 'a' : 'p'}`
+  }
+
+  if (!hasData) {
+    return <p className="text-xs text-on-surface-variant text-center py-6">Not enough views yet to spot peak hours.</p>
+  }
+  return (
+    <div>
+      <div className="flex items-end gap-[3px] h-28" role="img" aria-label="Shoppers per hour in Indian time">
+        {ist.map((v, h) => (
+          <div key={h} className="flex-1 flex flex-col justify-end items-center gap-1 h-full" title={`${fmtHour(h)}: ${v} shoppers`}>
+            <div
+              className={`w-full rounded-t-md transition-all ${v === max && max > 0 ? 'bg-primary' : 'bg-primary/35'}`}
+              style={{ height: `${Math.max(4, Math.round((v / max) * 100))}%` }}
+            />
+            {h % 3 === 0 && <span className="text-[8px] font-bold text-on-surface-variant">{fmtHour(h)}</span>}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2 mt-3">
+        {blocks.map((b, i) => (
+          <div key={b.name} className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold ${i === peakIdx ? 'bg-primary/10 border-primary/40 text-primary' : 'bg-surface-container-high border-surface-variant/50 text-on-surface-variant'}`}>
+            <span className="material-symbols-outlined text-base">{b.icon}</span>
+            <span className="flex-1">{b.name}</span>
+            <span>{blockTotals[i]}</span>
+            {i === peakIdx && <span className="text-[9px] bg-primary text-white px-1.5 py-0.5 rounded-full font-black">PEAK</span>}
+          </div>
+        ))}
+      </div>
+      <p className="text-[10px] text-on-surface-variant mt-2">Hours in Indian time. Tip: launch Flash Deals 30 min before your peak block.</p>
     </div>
   )
 }
@@ -105,9 +166,17 @@ export function ShopAnalytics({ shop, products = [] }) {
   const views = Number(totals.detail_opens) || 0
   const whatsapp = Number(totals.whatsapp_clicks) || 0
   const directions = Number(totals.directions_clicks) || 0
+  const calls = Number(totals.call_clicks) || 0
+  const claims = Number(totals.flash_claims) || 0
   const unique = Number(totals.unique_viewers) || 0
   const impressions = Number(totals.impressions) || 0
-  const funnelMax = Math.max(1, impressions || views, views, whatsapp)
+  const funnelMax = Math.max(1, impressions, views, whatsapp, calls, directions, claims)
+  // null (hidden) when there is no denominator — never a fake 100%.
+  // Capped at 100: funnel steps are independent per-action rates (a signed-in
+  // action without a logged-in open can otherwise read 150%).
+  const conv = (part, whole) => (whole > 0 ? Math.min(100, Math.round((part / whole) * 1000) / 10) : null)
+  const keywords = data?.top_keywords || []
+  const areas = data?.area_reach || []
 
   const displayName = (r) => r.product_name || products.find((p) => String(p.id) === String(r.product_id))?.name || ''
   const rows = [...(data?.by_product || [])].sort((a, b) => {
@@ -170,10 +239,12 @@ export function ShopAnalytics({ shop, products = [] }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5 mb-5">
             <KpiCard icon="visibility" label="Product views" value={views} sub={`Last ${days} days`} />
             <KpiCard icon="chat" label="WhatsApp leads" value={whatsapp} sub={views > 0 ? `${Math.round((whatsapp / Math.max(1, views)) * 100)} per 100 views` : 'Share QR to grow'} />
+            <KpiCard icon="call" label="Phone calls" value={calls} sub="Tapped Call Store" />
             <KpiCard icon="near_me" label="Direction taps" value={directions} sub="Want to visit shop" />
+            <KpiCard icon="bolt" label="Deal claims" value={claims} sub="Flash deals claimed" />
             <KpiCard icon="group" label="Unique viewers" value={unique} sub={impressions > 0 ? `${totals.ctr_percent}% opened after seeing` : 'Logged-in buyers'} />
           </div>
 
@@ -185,10 +256,63 @@ export function ShopAnalytics({ shop, products = [] }) {
             <div className="md:col-span-2 bg-surface rounded-2xl border border-surface-variant/50 p-4 flex flex-col gap-2.5 justify-center">
               <h4 className="text-xs font-bold text-on-surface">How people buy</h4>
               {impressions > 0 && <FunnelBar label="Saw in list" value={impressions} max={funnelMax} color="bg-surface-variant" />}
-              <FunnelBar label="Opened product" value={views} max={funnelMax} color="bg-primary" />
-              <FunnelBar label="WhatsApp" value={whatsapp} max={funnelMax} color="bg-emerald-500" />
-              <FunnelBar label="Directions" value={directions} max={funnelMax} color="bg-amber-500" />
-              <p className="text-[10px] text-on-surface-variant mt-1">Many views but few WhatsApp? Try better photo or price.</p>
+              <FunnelBar label="Opened product" value={views} max={funnelMax} color="bg-primary" conv={conv(views, impressions)} />
+              <FunnelBar label="WhatsApp" value={whatsapp} max={funnelMax} color="bg-emerald-500" conv={conv(whatsapp, views)} />
+              <FunnelBar label="Phone calls" value={calls} max={funnelMax} color="bg-sky-500" conv={conv(calls, views)} />
+              <FunnelBar label="Directions" value={directions} max={funnelMax} color="bg-amber-500" conv={conv(directions, views)} />
+              <FunnelBar label="Deal claims" value={claims} max={funnelMax} color="bg-rose-500" conv={conv(claims, views)} />
+              <p className="text-[10px] text-on-surface-variant mt-1">Direction taps = real foot traffic, even without a WhatsApp message.</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-4 mb-5">
+            <div className="bg-surface rounded-2xl border border-surface-variant/50 p-4">
+              <h4 className="text-xs font-bold text-on-surface mb-2 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm text-primary">schedule</span>
+                <span>Peak shopping hours</span>
+              </h4>
+              <PeakHoursChart hourly={data?.hourly} />
+            </div>
+            <div className="flex flex-col gap-4">
+              <div className="bg-surface rounded-2xl border border-surface-variant/50 p-4">
+                <h4 className="text-xs font-bold text-on-surface mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-primary">search</span>
+                  <span>Top search keywords</span>
+                </h4>
+                {keywords.length === 0 ? (
+                  <p className="text-[11px] text-on-surface-variant">No searches led here yet. When buyers type words that show your items, the top words appear here.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {keywords.map((k) => (
+                      <span key={k.query} className="inline-flex items-center gap-1.5 bg-primary/10 border border-primary/25 text-on-surface px-2.5 py-1 rounded-full text-[11px] font-bold">
+                        <span>{k.query}</span>
+                        <span className="text-primary font-black">{k.count}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="bg-surface rounded-2xl border border-surface-variant/50 p-4">
+                <h4 className="text-xs font-bold text-on-surface mb-2 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm text-primary">location_on</span>
+                  <span>Customer areas (pincode)</span>
+                </h4>
+                {areas.length === 0 ? (
+                  <p className="text-[11px] text-on-surface-variant">No area data yet. Shoppers who saved their address contribute their pincode here.</p>
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {areas.map((a) => (
+                      <div key={a.pincode} className="flex items-center gap-2 text-[11px] font-bold">
+                        <span className="bg-surface-container-high border border-surface-variant/60 px-2 py-0.5 rounded-lg text-on-surface">{a.pincode}</span>
+                        <div className="flex-1 h-2 bg-surface-container-high rounded-full overflow-hidden">
+                          <div className="h-full bg-primary/70 rounded-full" style={{ width: `${Math.max(5, Math.round((a.count / Math.max(1, areas[0].count)) * 100))}%` }} />
+                        </div>
+                        <span className="text-on-surface-variant w-8 text-right">{a.count}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -201,14 +325,16 @@ export function ShopAnalytics({ shop, products = [] }) {
               </div>
             ) : (
               <div className="overflow-x-auto rounded-2xl border border-surface-variant/50">
-                <table className="w-full text-xs min-w-[520px]">
+                <table className="w-full text-xs min-w-[640px]">
                   <thead>
                     <tr className="bg-surface-container-high text-on-surface-variant text-[10px] uppercase tracking-wider">
                       {[
                         ['product_name', 'Product'],
                         ['detail_opens', 'Views'],
                         ['whatsapp_clicks', 'WhatsApp'],
+                        ['call_clicks', 'Calls'],
                         ['directions_clicks', 'Visit'],
+                        ['flash_claims', 'Claims'],
                         ['wishlists', 'Saved']
                       ].map(([key, label]) => (
                         <th key={key} className="text-left font-bold px-3 py-2.5">
@@ -229,7 +355,9 @@ export function ShopAnalytics({ shop, products = [] }) {
                         </td>
                         <td className="px-3 py-2.5 font-black text-on-surface">{r.detail_opens || 0}</td>
                         <td className="px-3 py-2.5 font-bold text-emerald-700 dark:text-emerald-400">{r.whatsapp_clicks || 0}</td>
+                        <td className="px-3 py-2.5">{r.call_clicks || 0}</td>
                         <td className="px-3 py-2.5">{r.directions_clicks || 0}</td>
+                        <td className="px-3 py-2.5 font-bold text-rose-600 dark:text-rose-400">{r.flash_claims || 0}</td>
                         <td className="px-3 py-2.5">{r.wishlists || 0}</td>
                       </tr>
                     ))}

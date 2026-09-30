@@ -10,7 +10,7 @@ import {
 } from '../utils/hinglishSearch'
 import { getFlashDealInfo, useFlashDeal } from '../utils/flashDeals'
 import { triggerHaptic } from '../utils/haptics'
-import { trackProductEvent, trackImpression } from '../utils/analytics'
+import { trackProductEvent, trackImpression, trackSearchView } from '../utils/analytics'
 import { ReviewStars } from './ReviewStars'
 import { ShopBadgePill, HeroShopBadge } from './ShopBadge'
 import { apiFetch } from '../lib/api'
@@ -676,6 +676,35 @@ export function BuyerDiscover({
         return a.distanceKm - b.distanceKm
       })
   }, [filteredProducts, maxRadiusKm, targetShopId, userCoords])
+
+  // Latest-value mirrors: the debounce timer below must survive list churn
+  // (GPS fixes, polls, re-sorts) AND auth object-identity churn (token
+  // refreshes) — either would otherwise reset the 600ms timer forever.
+  const searchShopIdsRef = useRef([])
+  searchShopIdsRef.current = [...new Set(
+    hyperlocalProducts
+      .filter((p) => !p.is_affiliate_fallback && p.shop_id)
+      .map((p) => String(p.shop_id))
+  )].slice(0, 5)
+  const searchUserRef = useRef(currentUser)
+  searchUserRef.current = currentUser
+  const searchUid = currentUser?.uid || currentUser?.sub || null
+
+  // Top Keywords supply: debounced search attribution (600ms settle).
+  // Attributes only the NEARBY shops actually rendered — distant,
+  // out-of-radius matches must not earn keyword credit they can't serve.
+  useEffect(() => {
+    const q = deferredSearchQuery.trim()
+    if (q.length < 2) return
+    const timer = setTimeout(() => {
+      try {
+        const ids = searchShopIdsRef.current
+        if (ids.length > 0) trackSearchView(q, ids, searchUserRef.current)
+      } catch {}
+    }, 600)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deferredSearchQuery, searchUid])
 
   // 4. Distant Products (outside selected radius, plus unknown-location once GPS is locked)
   const distantLocalProducts = useMemo(() => {
