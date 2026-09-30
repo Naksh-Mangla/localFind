@@ -1032,7 +1032,8 @@ export function AdminDashboard({ onClose, onLock, onDataChanged }) {
           <button
             onClick={handleLockAndClose}
             title="Lock Admin Session"
-            className="px-3 py-1.5 rounded-full bg-error/10 hover:bg-error/20 text-error border border-error/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
+            aria-label="Lock admin session"
+            className="tap-expand px-3 py-1.5 rounded-full bg-error/10 hover:bg-error/20 text-error border border-error/20 flex items-center gap-1.5 text-xs font-semibold transition-all active:scale-95"
           >
             <span className="material-symbols-outlined text-sm">lock</span>
             <span className="hidden sm:inline">Lock</span>
@@ -1040,9 +1041,10 @@ export function AdminDashboard({ onClose, onLock, onDataChanged }) {
           <button
             onClick={onClose}
             title="Return to Main App"
-            className="w-8 h-8 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-all"
+            aria-label="Close admin panel and return to main app"
+            className="tap-expand w-8 h-8 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-all"
           >
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
       </header>

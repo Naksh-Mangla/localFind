@@ -163,7 +163,10 @@ export function LocationPickerModal({
       onClick={isFirstTimeFallback ? undefined : onClose}
       className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none animate-fadeIn"
     >
-      <div 
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Choose your location"
         onClick={(e) => e.stopPropagation()}
         className="bg-surface rounded-t-[32px] sm:rounded-3xl max-w-lg w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[90dvh] overflow-y-auto overscroll-contain flex flex-col gap-4 animate-slide-up-sheet sm:animate-popIn select-auto pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]"
       >
@@ -190,7 +193,8 @@ export function LocationPickerModal({
           {!isFirstTimeFallback && (
             <button
               onClick={onClose}
-              className="p-1 rounded-full text-on-surface-variant hover:bg-surface-variant transition-colors"
+              aria-label="Close location picker"
+              className="tap-expand p-1 rounded-full text-on-surface-variant hover:bg-surface-variant transition-colors"
             >
               <span className="material-symbols-outlined">close</span>
             </button>
@@ -249,6 +253,8 @@ export function LocationPickerModal({
                   required
                   maxLength={6}
                   inputMode="numeric"
+                  autoComplete="postal-code"
+                  aria-label="6-digit pincode"
                   value={pincode}
                   onChange={async (e) => {
                     const onlyNums = e.target.value.replace(/[^0-9]/g, '').slice(0, 6)
@@ -342,6 +348,7 @@ export function LocationPickerModal({
               <input
                 type="text"
                 required
+                autoComplete="street-address"
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="e.g. Main Market, Sector 14, Indirapuram"

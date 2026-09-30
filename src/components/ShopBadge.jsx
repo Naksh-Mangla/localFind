@@ -64,22 +64,47 @@ export function ShopBadgePill({
   const currentSize = sizeClasses[size] || sizeClasses.sm
   const hasGlow = showGlow && badge.glowEffect
 
-  return (
-    <span
-      onClick={(e) => {
-        if (interactive && onClick) {
+  const label = `${badge.name} (Level ${badge.level}): ${badge.tagline}`
+  if (interactive && onClick) {
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
           e.stopPropagation()
           triggerHaptic('selection')
           onClick(badge)
-        }
-      }}
-      title={`${badge.name} (Level ${badge.level}): ${badge.tagline}`}
+        }}
+        title={label}
+        aria-label={`${label}. Activate to view shop milestones.`}
+        className={`inline-flex items-center border transition-all duration-200 select-none ${badge.bgColor} ${badge.textColor} ${badge.borderColor} ${currentSize.pill} ${
+          hasGlow ? 'badge-glow shadow-crisp-xs' : ''
+        } cursor-pointer hover:scale-105 active:scale-95 ${className}`}
+      >
+        {showIcon && (
+          <span
+            aria-hidden="true"
+            className={`material-symbols-outlined flex-shrink-0 ${currentSize.icon} ${
+              badge.level === 5 ? 'text-emerald-500 fill-1 animate-pulse' : ''
+            }`}
+          >
+            {badge.icon}
+          </span>
+        )}
+        {showName && <span className="truncate">{badge.name}</span>}
+      </button>
+    )
+  }
+
+  return (
+    <span
+      title={label}
       className={`inline-flex items-center border transition-all duration-200 select-none ${badge.bgColor} ${badge.textColor} ${badge.borderColor} ${currentSize.pill} ${
         hasGlow ? 'badge-glow shadow-crisp-xs' : ''
-      } ${interactive ? 'cursor-pointer hover:scale-105 active:scale-95' : ''} ${className}`}
+      } ${className}`}
     >
       {showIcon && (
         <span
+          aria-hidden="true"
           className={`material-symbols-outlined flex-shrink-0 ${currentSize.icon} ${
             badge.level === 5 ? 'text-emerald-500 fill-1 animate-pulse' : ''
           }`}

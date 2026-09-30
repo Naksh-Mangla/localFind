@@ -61,7 +61,7 @@ export function AdminAuthModal({ isOpen, onClose, onUnlockSuccess, initialEmail 
       <div className="fixed inset-0" onClick={onClose} />
 
       {/* Modal Card matching LocalFind Warm Apple/Linear UI */}
-      <div className="relative w-full max-w-md bg-surface-container-lowest dark:bg-zinc-900 border border-surface-variant/60 dark:border-zinc-800 rounded-3xl p-6 sm:p-7 shadow-[0_16px_40px_rgba(0,0,0,0.18)] z-10 text-on-surface">
+      <div role="dialog" aria-modal="true" aria-label="Admin login" className="relative w-full max-w-md bg-surface-container-lowest dark:bg-zinc-900 border border-surface-variant/60 dark:border-zinc-800 rounded-3xl p-6 sm:p-7 shadow-[0_16px_40px_rgba(0,0,0,0.18)] z-10 text-on-surface">
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-3">
@@ -75,9 +75,10 @@ export function AdminAuthModal({ isOpen, onClose, onUnlockSuccess, initialEmail 
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-all"
+            aria-label="Close admin login"
+            className="tap-expand w-8 h-8 rounded-full bg-surface-container-high hover:bg-surface-variant text-on-surface-variant hover:text-on-surface flex items-center justify-center transition-all"
           >
-            ✕
+            <span aria-hidden="true">✕</span>
           </button>
         </div>
 
@@ -99,6 +100,7 @@ export function AdminAuthModal({ isOpen, onClose, onUnlockSuccess, initialEmail 
             <input
               ref={emailInputRef}
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="e.g. nakshmangla@gmail.com"
@@ -115,6 +117,7 @@ export function AdminAuthModal({ isOpen, onClose, onUnlockSuccess, initialEmail 
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter password..."
@@ -124,7 +127,9 @@ export function AdminAuthModal({ isOpen, onClose, onUnlockSuccess, initialEmail 
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface transition-colors"
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-pressed={showPassword}
+                className="tap-expand absolute right-3 top-1/2 -translate-y-1/2 p-1 text-on-surface-variant hover:text-on-surface transition-colors"
               >
                 <span className="material-symbols-outlined text-lg">
                   {showPassword ? 'visibility_off' : 'visibility'}

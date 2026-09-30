@@ -213,7 +213,7 @@ export function StoreQRStandeeModal({ shop = {}, products = [], onClose }) {
     <div className="fixed inset-0 z-50 flex justify-center overflow-y-auto overscroll-contain bg-black/65 backdrop-blur-sm p-4 animate-fadeIn">
       {/* Container Dialog — m-auto (not items-center on parent): centers when
           short, top-aligns + scrolls when taller than the phone screen */}
-      <div className="bg-surface apple-frosted border border-surface-variant/80 rounded-3xl shadow-crisp-xl w-full max-w-lg overflow-hidden m-auto animate-popIn">
+      <div role="dialog" aria-modal="true" aria-label="Store QR standee" className="bg-surface apple-frosted border border-surface-variant/80 rounded-3xl shadow-crisp-xl w-full max-w-lg overflow-hidden m-auto animate-popIn">
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-surface-variant/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -225,7 +225,8 @@ export function StoreQRStandeeModal({ shop = {}, products = [], onClose }) {
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-surface-variant/70 text-on-surface-variant transition-colors active:scale-90"
+            aria-label="Close QR standee"
+            className="tap-expand p-1.5 rounded-full hover:bg-surface-variant/70 text-on-surface-variant transition-colors active:scale-90"
           >
             <span className="material-symbols-outlined text-lg">close</span>
           </button>

@@ -139,7 +139,8 @@ export function Header({
                 else setActiveView('admin')
               }}
               title="Admin Panel (Password Protected)"
-              className={`p-1.5 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
+              aria-label="Open admin panel"
+              className={`tap-expand p-1.5 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
                 activeView === 'admin'
                   ? 'bg-purple-500/20 text-purple-400 border-purple-500/40'
                   : 'bg-surface-container-high/60 text-on-surface-variant border-surface-variant/40 hover:text-on-surface'
@@ -182,7 +183,16 @@ export function Header({
         {/* Left: Clean Brand Logo + Location */}
         <div className="flex items-center gap-5">
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="LocalFind home"
             onClick={() => setActiveView('discover')}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setActiveView('discover')
+              }
+            }}
             className="flex items-center gap-2 cursor-pointer group select-none"
           >
             <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-crisp-xs group-hover:scale-105 transition-transform flex-shrink-0">

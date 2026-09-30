@@ -250,7 +250,10 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
       onClick={onClose}
       className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none animate-fadeIn"
     >
-      <div 
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Details of ${product.name}`}
         onClick={(e) => e.stopPropagation()}
         className="relative w-full max-w-2xl bg-surface rounded-t-[32px] sm:rounded-3xl shadow-crisp-xl overflow-y-auto overscroll-contain border border-surface-variant/70 max-h-[90dvh] flex flex-col scroll-smooth animate-slide-up-sheet sm:animate-popIn select-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
       >
@@ -261,7 +264,8 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
         <div className="sticky top-3 left-0 right-0 z-20 flex justify-between items-center px-4 pointer-events-none -mb-14">
           <button
             onClick={onClose}
-            className="pointer-events-auto w-10 h-10 rounded-full bg-surface/85 backdrop-blur-md shadow-crisp-sm flex items-center justify-center text-on-surface hover:bg-surface transition-transform active:scale-90 border border-surface-variant/40"
+            aria-label="Back to products"
+            className="tap-expand pointer-events-auto w-10 h-10 rounded-full bg-surface/85 backdrop-blur-md shadow-crisp-sm flex items-center justify-center text-on-surface hover:bg-surface transition-transform active:scale-90 border border-surface-variant/40"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
           </button>
@@ -282,7 +286,8 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
             <button
               onClick={handleShareProduct}
               title="Share Product"
-              className="w-10 h-10 rounded-full bg-surface/85 backdrop-blur-md shadow-crisp-sm flex items-center justify-center transition-all active:scale-90 border border-surface-variant/40 text-on-surface-variant hover:text-primary hover:bg-surface"
+              aria-label={`Share ${product.name}`}
+              className="tap-expand w-10 h-10 rounded-full bg-surface/85 backdrop-blur-md shadow-crisp-sm flex items-center justify-center transition-all active:scale-90 border border-surface-variant/40 text-on-surface-variant hover:text-primary hover:bg-surface"
             >
               <span className="material-symbols-outlined text-xl">share</span>
             </button>
@@ -308,7 +313,9 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
                 }
               }}
               title="Save to Wishlist"
-              className={`w-10 h-10 rounded-full backdrop-blur-md shadow-crisp-sm flex items-center justify-center transition-all active:scale-90 border ${
+              aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+              aria-pressed={isWishlisted}
+              className={`tap-expand w-10 h-10 rounded-full backdrop-blur-md shadow-crisp-sm flex items-center justify-center transition-all active:scale-90 border ${
                 isWishlisted
                   ? 'bg-rose-500 text-white border-rose-600 shadow-rose-500/20'
                   : 'bg-surface/85 text-on-surface-variant hover:text-rose-500 hover:bg-surface border-surface-variant/40'

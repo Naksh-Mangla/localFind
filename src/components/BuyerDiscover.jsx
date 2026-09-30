@@ -128,6 +128,10 @@ const ProductCard = React.memo(function ProductCard({
     }
   }, [product?.id, viewer])
 
+  // NOTE: intentionally NOT role="button" — the card contains real
+  // <button>s (wishlist, View) and ARIA forbids interactive descendants
+  // inside role=button. Mouse users get the whole-card onClick; keyboard
+  // users get the labeled View button, which has its own onClick.
   return (
     <div
       ref={cardRef}
@@ -176,7 +180,9 @@ const ProductCard = React.memo(function ProductCard({
           <button
             onClick={(e) => onToggleWishlist(product.id, e)}
             title={isWishlisted ? 'Remove from Saved Wishlist' : 'Save to Wishlist'}
-            className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-crisp-xs transition-all active:scale-75 pointer-events-auto backdrop-blur-md ${
+            aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
+            aria-pressed={isWishlisted}
+            className={`tap-expand w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center shadow-crisp-xs transition-all active:scale-75 pointer-events-auto backdrop-blur-md ${
               isWishlisted
                 ? 'bg-rose-500 text-white shadow-rose-500/25 ring-2 ring-rose-500/20'
                 : 'bg-black/40 text-white/90 hover:text-rose-400 hover:bg-black/60 border border-white/20'
@@ -262,6 +268,8 @@ const ProductCard = React.memo(function ProductCard({
 
           {/* Apple Signature View CTA */}
           <button
+            aria-label={`View ${product.name}`}
+            onClick={() => onSelectProduct(product)}
             className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-0.5 sm:gap-1 active:scale-95 ${
               isDistant
                 ? 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant'
@@ -955,6 +963,7 @@ export function BuyerDiscover({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search 'Cheeni', 'Milk', 'Charger'..."
+                  aria-label="Search products in nearby shops"
                   className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-2.5 sm:py-3 pl-10 sm:pl-11 pr-28 sm:pr-32 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs"
                 />
 
@@ -963,7 +972,8 @@ export function BuyerDiscover({
                     <button
                       onClick={() => setSearchQuery('')}
                       title="Clear search text"
-                      className="p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant/50 transition-colors"
+                      aria-label="Clear search text"
+                      className="tap-expand p-1 text-on-surface-variant hover:text-on-surface rounded-full hover:bg-surface-variant/50 transition-colors"
                     >
                       <span className="material-symbols-outlined text-xs sm:text-sm">close</span>
                     </button>
@@ -973,6 +983,7 @@ export function BuyerDiscover({
                     type="button"
                     onClick={() => setSpeechLanguage((prev) => (prev === 'hi-IN' ? 'en-IN' : 'hi-IN'))}
                     title={`Switch voice language (${speechLanguage === 'hi-IN' ? 'Hindi / Hinglish' : 'English'})`}
+                    aria-label={`Switch voice search language, currently ${speechLanguage === 'hi-IN' ? 'Hindi' : 'English'}`}
                     className="bg-surface/85 hover:bg-surface text-on-surface border border-surface-variant/70 hover:border-primary/40 px-1.5 sm:px-2.5 py-1 rounded-full text-[9px] sm:text-[10px] font-extrabold transition-all shadow-2xs active:scale-95 flex items-center gap-0.5"
                   >
                     <span>{speechLanguage === 'hi-IN' ? 'हिन्दी' : 'ENG'}</span>
@@ -982,7 +993,8 @@ export function BuyerDiscover({
                     type="button"
                     onClick={toggleVoiceSearch}
                     title={isListening ? 'Stop listening' : `Voice search (${speechLanguage === 'hi-IN' ? 'बोलकर खोजें' : 'Speak to search'})`}
-                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all shadow-crisp-xs active:scale-90 ${
+                    aria-label={isListening ? 'Stop voice search' : 'Start voice search'}
+                    className={`tap-expand w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-all shadow-crisp-xs active:scale-90 ${
                       isListening
                         ? 'bg-rose-500 text-white animate-pulse ring-4 ring-rose-500/30 shadow-rose-500/30'
                         : 'bg-primary hover:bg-primary/90 text-on-primary shadow-sm hover:shadow-primary/20'
@@ -1000,6 +1012,8 @@ export function BuyerDiscover({
                 <button
                   onClick={() => setShowFiltersDropdown((prev) => !prev)}
                   title="Filter Categories, Radius & Wishlist"
+                  aria-label="Open filters: categories, radius and wishlist"
+                  aria-expanded={showFiltersDropdown}
                   className={`flex-shrink-0 flex items-center justify-center gap-1.5 p-2.5 sm:p-3 rounded-full transition-all shadow-crisp-xs active:scale-90 border ${
                     showFiltersDropdown || selectedCategory !== 'All' || maxRadiusKm !== 2 || showOnlyWishlist
                       ? 'bg-secondary text-on-secondary border-secondary ring-2 ring-secondary/20 font-bold'
@@ -1442,7 +1456,8 @@ export function BuyerDiscover({
                     onClick={onRefreshProducts}
                     disabled={refreshing}
                     title="Refresh products list"
-                    className="w-8 h-8 rounded-full bg-surface-container-high/80 text-on-surface hover:bg-surface-variant transition-all flex items-center justify-center border border-surface-variant/60 active:scale-90 shadow-crisp-xs"
+                    aria-label={refreshing ? 'Refreshing products' : 'Refresh products list'}
+                    className="tap-expand w-8 h-8 rounded-full bg-surface-container-high/80 text-on-surface hover:bg-surface-variant transition-all flex items-center justify-center border border-surface-variant/60 active:scale-90 shadow-crisp-xs"
                   >
                     <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin text-primary' : ''}`}>
                       refresh

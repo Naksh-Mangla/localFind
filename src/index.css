@@ -70,6 +70,48 @@ a:active,
   transition: scale 0.08s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* ♿ Visible keyboard focus (WCAG 2.4.7): brand ring on every interactive
+   element for keyboard users, without flashing on mouse taps. */
+:focus-visible {
+  outline: 2px solid #9c3e20;
+  outline-offset: 2px;
+  border-radius: inherit;
+}
+.dark :focus-visible {
+  outline-color: #ffb59f;
+}
+
+/* 👆 Invisible 44px-minimum tap area (WCAG 2.5.5): keeps small icons
+   visually compact while giving fingers a full-size target. ONLY for
+   small icon-only buttons — never on absolute/fixed elements (the
+   position rule would break their placement) nor on adjacent pills
+   (overlapping halos steal edge taps). */
+.tap-expand:not(.absolute):not(.fixed):not(.sticky) {
+  position: relative;
+}
+.tap-expand::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* 🎞️ Respect reduced-motion settings: kill spins, pings and slides for
+   users with vestibular sensitivity (WCAG 2.3.3). */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *:not(.animate-spin):not(.animate-spin *),
+  *:not(.animate-spin)::before,
+  *:not(.animate-spin)::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Safe area bottom padding helper for Android gesture bar and iOS home bar */
 .pb-safe {
   padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));

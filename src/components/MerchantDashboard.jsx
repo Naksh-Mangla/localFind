@@ -991,6 +991,7 @@ export function MerchantDashboard({
                   type="text"
                   required
                   minLength={4}
+                  autoComplete="organization"
                   value={shopName}
                   onChange={(e) => setShopName(e.target.value)}
                   placeholder="e.g. Earth & Fire Ceramics"
@@ -1005,6 +1006,7 @@ export function MerchantDashboard({
                 <input
                   type="text"
                   required
+                  autoComplete="name"
                   value={ownerName}
                   onChange={(e) => setOwnerName(e.target.value)}
                   placeholder="e.g. Rajesh Kumar"
@@ -1070,6 +1072,8 @@ export function MerchantDashboard({
                   type="tel"
                   required
                   maxLength={10}
+                  autoComplete="tel"
+                  aria-label="WhatsApp phone number, exactly 10 digits"
                   value={whatsappNumber}
                   onChange={(e) => {
                     const onlyNums = e.target.value.replace(/[^0-9]/g, '')
@@ -1092,6 +1096,7 @@ export function MerchantDashboard({
               <input
                 type="text"
                 required
+                autoComplete="street-address"
                 value={streetAddress}
                 onChange={(e) => setStreetAddress(e.target.value)}
                 placeholder="e.g. Shop #4, Main Commercial Complex"
@@ -1130,6 +1135,8 @@ export function MerchantDashboard({
                       required
                       maxLength={6}
                       inputMode="numeric"
+                      autoComplete="postal-code"
+                      aria-label="6-digit pin code"
                       value={pincodeText}
                       onChange={(e) => handlePincodeChange(e.target.value)}
                       placeholder="e.g. 110001"
@@ -1566,14 +1573,16 @@ export function MerchantDashboard({
                       <button
                         onClick={() => handleOpenEditModal(product)}
                         title="Edit Product"
-                        className="p-2 rounded-xl bg-surface-container-high hover:bg-primary/15 text-on-surface hover:text-primary transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
+                        aria-label={`Edit ${product.name}`}
+                        className="tap-expand p-2 rounded-xl bg-surface-container-high hover:bg-primary/15 text-on-surface hover:text-primary transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
                       >
                         <span className="material-symbols-outlined text-[15px]">edit</span>
                       </button>
                       <button
                         onClick={() => handleDeleteProduct(product.id)}
                         title="Delete Product"
-                        className="p-2 rounded-xl bg-surface-container-high hover:bg-rose-500/15 text-on-surface hover:text-rose-600 transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
+                        aria-label={`Delete ${product.name}`}
+                        className="tap-expand p-2 rounded-xl bg-surface-container-high hover:bg-rose-500/15 text-on-surface hover:text-rose-600 transition-all flex items-center justify-center border border-surface-variant/50 active:scale-95 shadow-2xs"
                       >
                         <span className="material-symbols-outlined text-[15px]">delete</span>
                       </button>
@@ -1596,6 +1605,9 @@ export function MerchantDashboard({
           className="fixed inset-0 z-[999] flex items-center justify-center p-3 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none"
         >
           <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={editingProduct ? 'Edit product' : 'Add new product'}
             onClick={(e) => e.stopPropagation()}
             className="bg-surface rounded-2xl max-w-3xl w-full p-5 sm:p-6 shadow-2xl border border-surface-variant max-h-[90dvh] overflow-y-auto overscroll-contain animate-fadeIn flex flex-col select-auto pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
           >
@@ -1623,8 +1635,9 @@ export function MerchantDashboard({
                   setShowAddProductModal(false)
                   setEditingProduct(null)
                 }}
-                className="p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/60 active:scale-95 transition-all"
+                className="tap-expand p-1.5 rounded-full text-on-surface-variant hover:text-on-surface hover:bg-surface-variant/60 active:scale-95 transition-all"
                 title="Close"
+                aria-label="Close product editor"
               >
                 <span className="material-symbols-outlined text-lg">close</span>
               </button>
@@ -1692,8 +1705,9 @@ export function MerchantDashboard({
                           setImageFile(null)
                           setProductImageUrl('')
                         }}
-                        className="text-rose-600 hover:text-rose-700 text-[10px] font-bold flex items-center gap-0.5 px-2 py-0.5 rounded-md hover:bg-rose-500/10 transition-colors"
+                        className="tap-expand text-rose-600 hover:text-rose-700 text-[10px] font-bold flex items-center gap-0.5 px-2 py-0.5 rounded-md hover:bg-rose-500/10 transition-colors"
                         title="Remove current photo"
+                        aria-label="Remove current product photo"
                       >
                         <span className="material-symbols-outlined text-[13px]">delete</span>
                         <span>Remove Photo</span>
@@ -1999,6 +2013,7 @@ export function MerchantDashboard({
                       type="text"
                       required
                       minLength={4}
+                      autoComplete="organization"
                       value={shopName}
                       onChange={(e) => setShopName(e.target.value)}
                       placeholder="e.g. Earth & Fire Ceramics"
@@ -2013,6 +2028,7 @@ export function MerchantDashboard({
                     <input
                       type="text"
                       required
+                      autoComplete="name"
                       value={ownerName}
                       onChange={(e) => setOwnerName(e.target.value)}
                       placeholder="e.g. Rajesh Kumar"

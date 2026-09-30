@@ -34,7 +34,10 @@ export function ConfirmModal({
       onClick={onCancel}
       className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn"
     >
-      <div 
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
         onClick={(e) => e.stopPropagation()}
         className="bg-surface rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-surface-variant flex flex-col gap-4 text-center"
       >
