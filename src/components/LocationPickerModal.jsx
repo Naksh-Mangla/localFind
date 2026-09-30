@@ -10,7 +10,10 @@ export function LocationPickerModal({
   onSelectLocation,
   onUseGPS,
   locationStatus,
-  isFirstTimeFallback = false
+  isFirstTimeFallback = false,
+  // True on a device that never saved a location: brand-new user onboarding.
+  // We never auto-guess (no IP/GPS fix) — the user types their exact address.
+  freshInstall = false
 }) {
   // Sync with Android back gesture — disabled while mandatory (first run with no
   // saved location), matching the blocked X button, overlay tap and Escape key.
@@ -175,10 +178,12 @@ export function LocationPickerModal({
             </div>
             <div>
               <h3 className="font-headline-lg text-lg font-bold text-on-surface">
-                {isFirstTimeFallback ? "Set Your Location" : "Choose Your Location"}
+                {freshInstall ? "Welcome! Where are you?" : isFirstTimeFallback ? "Set Your Location" : "Choose Your Location"}
               </h3>
               <p className="text-xs text-on-surface-variant">
-                Enter your area to discover physical shops within 2 km
+                {freshInstall
+                  ? "Enter your address once — we save it on this device, even after you close the app"
+                  : "Enter your area to discover physical shops within 2 km"}
               </p>
             </div>
           </div>
@@ -192,20 +197,36 @@ export function LocationPickerModal({
           )}
         </div>
 
-        {/* GPS Inaccurate / Denied Explanation Notice */}
-        <div className="bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-xl flex items-start gap-3">
-          <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-xl flex-shrink-0 mt-0.5">
-            wrong_location
-          </span>
-          <div className="flex-1">
-            <h4 className="text-xs font-bold text-on-surface mb-0.5">
-              Sorry, we couldn't get your exact live GPS location
-            </h4>
-            <p className="text-[11px] text-on-surface-variant leading-relaxed">
-              IP or approximate location can be far away. Please enter your Pincode and Address below to lock in nearby stores:
-            </p>
+        {/* Fresh install: welcome notice. Otherwise: GPS inaccurate/denied notice. */}
+        {freshInstall ? (
+          <div className="bg-primary/10 border border-primary/25 p-3.5 rounded-xl flex items-start gap-3">
+            <span className="material-symbols-outlined text-primary text-xl flex-shrink-0 mt-0.5">
+              home_pin
+            </span>
+            <div className="flex-1">
+              <h4 className="text-xs font-bold text-on-surface mb-0.5">
+                We never guess your location from the internet
+              </h4>
+              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                IP-based location can be kilometres off. Type your Pincode + Address below once — shops within 2 km will appear:
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="bg-amber-500/10 border border-amber-500/30 p-3.5 rounded-xl flex items-start gap-3">
+            <span className="material-symbols-outlined text-amber-600 dark:text-amber-400 text-xl flex-shrink-0 mt-0.5">
+              wrong_location
+            </span>
+            <div className="flex-1">
+              <h4 className="text-xs font-bold text-on-surface mb-0.5">
+                Sorry, we couldn't get your exact live GPS location
+              </h4>
+              <p className="text-[11px] text-on-surface-variant leading-relaxed">
+                IP or approximate location can be far away. Please enter your Pincode and Address below to lock in nearby stores:
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* 3-Field Location Form */}
         <form onSubmit={handleSubmitLocation} className="flex flex-col gap-3.5">

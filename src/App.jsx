@@ -60,6 +60,18 @@ export default function App() {
     'app_view'
   )
 
+  // First-run onboarding: true only when this device has NEVER saved a
+  // location. New users go straight to the address screen — no automatic
+  // GPS/IP attempt, so an IP-guessed city can never become their location.
+  const [isNewUser, setIsNewUser] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
+      return !(Number.isFinite(Number(saved?.lat)) && Number.isFinite(Number(saved?.lng)))
+    } catch {
+      return true
+    }
+  })
+
   const [selectedProduct, setSelectedProduct] = useState(null)
   const handleSelectProduct = useCallback((p) => {
     setSelectedProduct(p)
@@ -95,7 +107,7 @@ export default function App() {
         if (parsed.locationName) return parsed.locationName
       }
     } catch {}
-    return 'Detecting Location...'
+    return 'Set your location'
   })
 
   const [locationStatus, setLocationStatus] = useState(() => {
@@ -304,8 +316,26 @@ export default function App() {
     })
   }, [])
 
-  // Main location detection — auto-runs on app launch and strictly preserves saved manual location
+  // Main location detection — auto-runs on app launch and strictly preserves saved manual location.
+  // NEW users skip all automatic detection: the mandatory address screen
+  // collects their exact location; no GPS/IP fix is ever auto-accepted.
   const detectLocation = useCallback(async () => {
+    let freshInstall = false
+    try {
+      const s = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
+      freshInstall = !(Number.isFinite(Number(s?.lat)) && Number.isFinite(Number(s?.lng)))
+    } catch {
+      freshInstall = true
+    }
+    if (freshInstall) {
+      setUserCoords(null)
+      setUserLocationName('Set your location')
+      setLocationStatus('manual')
+      setIsFirstTimeFallback(true)
+      setShowLocationPicker(true)
+      return
+    }
+
     const savedLocationStr = localStorage.getItem('localfind_saved_location')
     let parsedSaved = null
     try {
@@ -488,6 +518,9 @@ export default function App() {
     setLocationStatus('manual')
     setIsFirstTimeFallback(false)
     setShowLocationPicker(false)
+    // Onboarding complete: this device now owns an exact saved location,
+    // remembered in localStorage across app closes and phone restarts.
+    setIsNewUser(false)
 
     // Persist to localStorage for 100% reliability
     try {
@@ -520,23 +553,30 @@ export default function App() {
     if (pos) {
       const { latitude: lat, longitude: lng, accuracy } = pos.coords
       const isTrueGPS = Number.isFinite(accuracy) && accuracy <= 250 && mode === 'high'
-      setUserCoords({ lat, lng, accuracy })
-      setLocationStatus(isTrueGPS ? 'gps' : 'approx')
-      fetchAddressName(lat, lng, isTrueGPS ? '' : 'Approx', isTrueGPS, ++geoRequestRef.current)
+      let hasSaved = false
+      try {
+        const s = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
+        hasSaved = Number.isFinite(Number(s?.lat)) && Number.isFinite(Number(s?.lng))
+      } catch {}
       if (isTrueGPS) {
+        setUserCoords({ lat, lng, accuracy })
+        setLocationStatus('gps')
+        fetchAddressName(lat, lng, '', true, ++geoRequestRef.current)
         setIsFirstTimeFallback(false)
+        setIsNewUser(false)
+      } else if (hasSaved) {
+        // Returning user: approximate fix shown in memory only, storage untouched.
+        setUserCoords({ lat, lng, accuracy })
+        setLocationStatus('approx')
+        fetchAddressName(lat, lng, 'Approx', false, ++geoRequestRef.current)
       } else {
-        // Approx on a fresh device with nothing saved: send the user back to
-        // manual entry instead of stranding them on an amber dot.
-        let hasSaved = false
-        try {
-          const s = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
-          hasSaved = Number.isFinite(Number(s?.lat)) && Number.isFinite(Number(s?.lng))
-        } catch {}
-        if (!hasSaved) {
-          setIsFirstTimeFallback(true)
-          setShowLocationPicker(true)
-        }
+        // Fresh device + approximate (often IP/Wi-Fi-guessed) fix: NEVER let
+        // it become the location. Keep coords empty, stay on address screen.
+        setUserCoords(null)
+        setLocationStatus('manual')
+        setUserLocationName('Set your location')
+        setIsFirstTimeFallback(true)
+        setShowLocationPicker(true)
       }
     } else {
       setLocationStatus('error')
@@ -729,7 +769,7 @@ export default function App() {
         </Suspense>
       )}
 
-      {/* Manual Location Search / Picker Modal */}
+      {/* First-run address onboarding + manual location picker */}
       <LocationPickerModal
         isOpen={showLocationPicker}
         onClose={() => setShowLocationPicker(false)}
@@ -738,6 +778,7 @@ export default function App() {
         onUseGPS={handleForceLiveGPS}
         locationStatus={locationStatus}
         isFirstTimeFallback={isFirstTimeFallback}
+        freshInstall={isNewUser}
       />
 
       {/* Admin Password Gatekeeper Modal */}
