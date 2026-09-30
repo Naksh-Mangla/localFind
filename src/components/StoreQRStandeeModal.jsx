@@ -210,9 +210,10 @@ export function StoreQRStandeeModal({ shop = {}, products = [], onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm overflow-y-auto animate-fadeIn">
-      {/* Container Dialog */}
-      <div className="bg-surface apple-frosted border border-surface-variant/80 rounded-3xl shadow-crisp-xl w-full max-w-lg overflow-hidden my-auto animate-popIn">
+    <div className="fixed inset-0 z-50 flex justify-center overflow-y-auto overscroll-contain bg-black/65 backdrop-blur-sm p-4 animate-fadeIn">
+      {/* Container Dialog — m-auto (not items-center on parent): centers when
+          short, top-aligns + scrolls when taller than the phone screen */}
+      <div className="bg-surface apple-frosted border border-surface-variant/80 rounded-3xl shadow-crisp-xl w-full max-w-lg overflow-hidden m-auto animate-popIn">
         {/* Modal Header */}
         <div className="p-4 sm:p-5 border-b border-surface-variant/50 flex items-center justify-between">
           <div className="flex items-center gap-2">
