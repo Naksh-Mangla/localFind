@@ -283,7 +283,7 @@ export function LocationPickerModal({
                     }
                   }}
                   placeholder="e.g. 110001"
-                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl py-2.5 pl-9 pr-9 text-xs font-bold text-on-surface focus:ring-1 focus:ring-primary focus:border-primary"
+                  className="w-full bg-surface-container-high border border-surface-variant rounded-xl py-3 pl-9 pr-9 text-xs font-bold text-on-surface focus:ring-1 focus:ring-primary focus:border-primary min-h-[44px]"
                 />
                 {loadingPostal && (
                   <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -352,7 +352,7 @@ export function LocationPickerModal({
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 placeholder="e.g. Main Market, Sector 14, Indirapuram"
-                className="w-full bg-surface-container-high border border-surface-variant rounded-xl py-2.5 pl-9 pr-3 text-xs text-on-surface focus:ring-1 focus:ring-primary focus:border-primary"
+                className="w-full bg-surface-container-high border border-surface-variant rounded-xl py-3 pl-9 pr-3 text-xs text-on-surface focus:ring-1 focus:ring-primary focus:border-primary min-h-[44px]"
               />
             </div>
           </div>
@@ -371,7 +371,7 @@ export function LocationPickerModal({
                 value={landmark}
                 onChange={(e) => setLandmark(e.target.value)}
                 placeholder="e.g. Opposite SBI Bank / Near Metro Pillar 42"
-                className="w-full bg-surface-container-high border border-surface-variant rounded-xl py-2.5 pl-9 pr-3 text-xs text-on-surface focus:ring-1 focus:ring-primary focus:border-primary"
+                className="w-full bg-surface-container-high border border-surface-variant rounded-xl py-3 pl-9 pr-3 text-xs text-on-surface focus:ring-1 focus:ring-primary focus:border-primary min-h-[44px]"
               />
             </div>
           </div>

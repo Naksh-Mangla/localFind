@@ -790,13 +790,13 @@ export default function App() {
       />
 
       {/* 🍎 Ultra-Sleek Floating Pill Dock for Mobile & Android */}
-      <nav className="md:hidden fixed bottom-2.5 left-1/2 -translate-x-1/2 z-40 bg-surface/90 dark:bg-zinc-900/90 apple-frosted shadow-[0_6px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4)] border border-surface-variant/50 rounded-full p-1 inline-flex items-center gap-1 transition-all duration-300 mb-[env(safe-area-inset-bottom,0px)]">
+      <nav aria-label="Primary" className="md:hidden fixed bottom-2.5 left-1/2 -translate-x-1/2 z-40 bg-surface/90 dark:bg-zinc-900/90 apple-frosted shadow-[0_6px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_6px_24px_rgba(0,0,0,0.4)] border border-surface-variant/50 rounded-full p-1 inline-flex items-center gap-1 transition-all duration-300 mb-[env(safe-area-inset-bottom,0px)] max-w-[calc(100vw-1rem)] overflow-x-auto hide-scrollbar">
         <button
           onClick={() => {
             triggerHaptic('selection')
             setActiveView('discover')
           }}
-          className={`flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full transition-all duration-200 active:scale-95 text-[11px] font-bold ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] ${
             activeView === 'discover'
               ? 'bg-primary text-white shadow-xs scale-[1.02]'
               : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'
@@ -811,7 +811,7 @@ export default function App() {
             triggerHaptic('selection')
             setActiveView('merchant')
           }}
-          className={`flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full transition-all duration-200 active:scale-95 text-[11px] font-bold ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] ${
             activeView === 'merchant'
               ? 'bg-primary text-white shadow-xs scale-[1.02]'
               : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'
@@ -827,7 +827,7 @@ export default function App() {
               triggerHaptic('selection')
               handleOpenAdmin()
             }}
-            className={`flex items-center justify-center gap-1.5 py-1.5 px-3.5 rounded-full transition-all duration-200 active:scale-95 text-[11px] font-bold ${
+            className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] ${
               activeView === 'admin'
                 ? 'bg-purple-500 text-white shadow-xs scale-[1.02]'
                 : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'

@@ -36,12 +36,21 @@ export function Header({
   return (
     <>
       {/* 📱 Mobile TopAppBar - Clean Linear/Apple Minimal Chrome */}
-      <header className="md:hidden bg-surface/90 apple-frosted w-full z-20 flex items-center justify-between px-3 h-14 border-b border-surface-variant/40 sticky top-0 pt-[env(safe-area-inset-top,0px)]">
+      <header className="md:hidden bg-surface/90 apple-frosted w-full z-20 flex items-center justify-between gap-1 px-3 min-h-14 py-1.5 border-b border-surface-variant/40 sticky top-0 pt-[max(0.375rem,env(safe-area-inset-top,0px))]">
         {/* Brand Logo & Location Pill */}
-        <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1 mr-1">
           <div
+            role="button"
+            tabIndex={0}
+            aria-label="LocalFind home"
             onClick={() => setActiveView('discover')}
-            className="flex items-center gap-1 cursor-pointer flex-shrink-0 active:scale-95 transition-transform"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                setActiveView('discover')
+              }
+            }}
+            className="tap-expand flex items-center gap-1 cursor-pointer flex-shrink-0 active:scale-95 transition-transform"
           >
             <div className="w-7 h-7 rounded-xl bg-primary flex items-center justify-center shadow-crisp-xs flex-shrink-0">
               <img 
@@ -55,7 +64,8 @@ export function Header({
           {/* Location Chip with Status Dot */}
           <button
             onClick={onDetectLocation}
-            className="flex items-center gap-1.5 min-w-0 py-1 px-2 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/70 flex-1 max-w-[140px] xs:max-w-[180px] sm:max-w-[220px]"
+            aria-label={`Your location: ${userLocationName || 'not set'}. Tap to change.`}
+            className="flex items-center gap-1.5 min-w-0 py-2 px-2.5 rounded-full hover:bg-surface-variant/50 active:scale-95 transition-all border border-surface-variant/50 bg-surface-container-high/70 flex-1 max-w-[150px] xs:max-w-[190px] sm:max-w-[230px] min-h-[36px]"
             title={
               locationStatus === 'gps' || locationStatus === 'success'
                 ? '🛰️ Live Satellite GPS Active'
@@ -77,7 +87,7 @@ export function Header({
                 ? 'bg-rose-500'
                 : 'bg-zinc-400 animate-pulse'
             }`}></span>
-            <span className="text-[10px] xs:text-[11px] font-bold text-on-surface truncate">
+            <span className="text-[11px] xs:text-xs font-bold text-on-surface truncate">
               {userLocationName || 'Select Area'}
             </span>
             <span className="material-symbols-outlined text-[13px] text-on-surface-variant/60 flex-shrink-0">expand_more</span>
@@ -85,12 +95,14 @@ export function Header({
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {onToggleDealAlerts && (
             <button
               onClick={onToggleDealAlerts}
               title={dealAlertsActive ? 'Deal Alerts Active' : 'Enable Deal Alerts'}
-              className={`p-1.5 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
+              aria-label={dealAlertsActive ? 'Deal alerts on. Tap to turn off.' : 'Turn on deal alerts'}
+              aria-pressed={dealAlertsActive}
+              className={`tap-expand p-2 rounded-full border transition-all active:scale-90 flex items-center justify-center ${
                 dealAlertsActive
                   ? 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30'
                   : 'bg-surface-container-high/60 text-on-surface-variant border-surface-variant/40 hover:text-on-surface'
@@ -107,7 +119,8 @@ export function Header({
               onClick={onRefreshProducts}
               disabled={refreshing}
               title={`Sync status: ${syncRAG.tooltip} (Last synced: ${syncRAG.label})`}
-              className="p-1.5 rounded-full border border-surface-variant/40 bg-surface-container-high/60 text-on-surface-variant hover:text-on-surface transition-all active:scale-90"
+              aria-label={refreshing ? 'Syncing products' : 'Sync products now'}
+              className="tap-expand p-2 rounded-full border border-surface-variant/40 bg-surface-container-high/60 text-on-surface-variant hover:text-on-surface transition-all active:scale-90"
             >
               <span className={`material-symbols-outlined text-[16px] ${refreshing ? 'animate-spin text-primary' : ''}`}>
                 sync

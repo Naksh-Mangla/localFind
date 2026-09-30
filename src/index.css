@@ -261,11 +261,13 @@ h1, h2, h3, .font-headline-lg, .font-display-lg {
 }
 
 @layer utilities {
-  /* Hide Scrollbar */
-  .hide-scrollbar::-webkit-scrollbar {
+  /* Hide Scrollbar (both class spellings used across the app) */
+  .hide-scrollbar::-webkit-scrollbar,
+  .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
-  .hide-scrollbar {
+  .hide-scrollbar,
+  .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }

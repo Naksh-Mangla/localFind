@@ -198,13 +198,13 @@ const ProductCard = React.memo(function ProductCard({
       {/* Product Content Body with Clean Structured Rows */}
       <div className="p-2.5 sm:p-4 flex flex-col flex-grow">
         {/* Title */}
-        <h3 className="font-title-md text-xs sm:text-sm md:text-base font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors tracking-tight mb-1">
+        <h3 className="font-title-md text-[13px] sm:text-sm md:text-base font-bold text-on-surface line-clamp-1 group-hover:text-primary transition-colors tracking-tight mb-1">
           {product.name}
         </h3>
 
         {/* Shop Name + Distance & Opening Status Row */}
         <div className="flex items-center justify-between gap-1 mb-1.5 min-w-0">
-          <p className="font-body-sm text-[10px] sm:text-xs text-on-surface-variant truncate flex-1 font-medium flex items-center gap-1">
+          <p className="font-body-sm text-[11px] sm:text-xs text-on-surface-variant truncate flex-1 font-medium flex items-center gap-1">
             <span className="truncate">{product.shop_name}</span>
             {isHero && <HeroShopBadge size="xs" />}
           </p>
@@ -270,7 +270,7 @@ const ProductCard = React.memo(function ProductCard({
           <button
             aria-label={`View ${product.name}`}
             onClick={() => onSelectProduct(product)}
-            className={`px-3 sm:px-4 py-1 sm:py-1.5 rounded-full font-label-caps text-[10px] sm:text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-0.5 sm:gap-1 active:scale-95 ${
+            className={`px-3.5 sm:px-4 py-1.5 rounded-full font-label-caps text-[11px] sm:text-xs font-bold transition-all shadow-crisp-xs flex items-center gap-0.5 sm:gap-1 active:scale-95 min-h-[30px] ${
               isDistant
                 ? 'bg-surface-container-high hover:bg-surface-variant text-on-surface border border-surface-variant'
                 : 'bg-primary hover:bg-primary/90 text-on-primary shadow-sm hover:shadow-primary/20'
@@ -869,12 +869,13 @@ export function BuyerDiscover({
                 <span>{voiceToast}</span>
               </div>
               {isListening && (
-                <button
-                  onClick={toggleVoiceSearch}
-                  className="text-[10px] bg-primary text-on-primary px-2.5 py-0.5 rounded-full font-bold shadow-2xs"
-                >
-                  Done
-                </button>
+                    <button
+                      onClick={toggleVoiceSearch}
+                      aria-label="Stop voice search"
+                      className="tap-expand text-[11px] bg-primary text-on-primary px-3 py-1.5 rounded-full font-bold shadow-2xs"
+                    >
+                      Done
+                    </button>
               )}
             </div>
           )}
@@ -964,7 +965,7 @@ export function BuyerDiscover({
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search 'Cheeni', 'Milk', 'Charger'..."
                   aria-label="Search products in nearby shops"
-                  className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-2.5 sm:py-3 pl-10 sm:pl-11 pr-28 sm:pr-32 text-xs sm:text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs"
+                  className="w-full bg-surface-container-high/80 apple-frosted border border-surface-variant/60 focus:border-primary focus:ring-4 focus:ring-primary/15 rounded-full py-3 pl-10 sm:pl-11 pr-28 sm:pr-32 text-sm md:text-base text-on-surface placeholder-on-surface-variant transition-all shadow-crisp-xs min-h-[44px]"
                 />
 
                 <div className="absolute right-1.5 sm:right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 sm:gap-1.5">
@@ -1171,7 +1172,8 @@ export function BuyerDiscover({
                   <button
                     key={`chip-${cat.label}`}
                     onClick={() => setSelectedCategory(cat.label)}
-                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 ${
+                    aria-pressed={isActive}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold whitespace-nowrap transition-all active:scale-95 flex-shrink-0 min-h-[36px] ${
                       isActive
                         ? 'bg-primary text-on-primary font-bold shadow-crisp-xs'
                         : 'bg-surface-container-high/60 hover:bg-surface-container-high text-on-surface border border-surface-variant/50'
@@ -1210,19 +1212,19 @@ export function BuyerDiscover({
                   <span className="bg-rose-500/10 text-rose-600 dark:text-rose-400 px-2.5 py-0.5 rounded-full font-bold border border-rose-500/20 flex items-center gap-1 shadow-2xs">
                     <span className="material-symbols-outlined text-[12px] fill-current">favorite</span>
                     <span>Wishlist ({wishlistIds.length})</span>
-                    <button onClick={() => setShowOnlyWishlist(false)} className="hover:text-rose-700 font-bold">×</button>
+                    <button onClick={() => setShowOnlyWishlist(false)} aria-label="Clear wishlist filter" className="tap-expand hover:text-rose-700 font-bold px-1">×</button>
                   </span>
                 )}
                 {selectedCategory !== 'All' && (
                   <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold border border-primary/20 flex items-center gap-1 shadow-2xs">
                     <span>{selectedCategory}</span>
-                    <button onClick={() => setSelectedCategory('All')} className="hover:text-primary-container font-bold">×</button>
+                    <button onClick={() => setSelectedCategory('All')} aria-label="Clear category filter" className="tap-expand hover:text-primary-container font-bold px-1">×</button>
                   </span>
                 )}
                 {maxRadiusKm !== 2 && (
                   <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full font-bold border border-primary/20 flex items-center gap-1 shadow-2xs">
                     <span>{maxRadiusKm === 'all' ? 'All Distances' : `${maxRadiusKm} km`}</span>
-                    <button onClick={() => setMaxRadiusKm(2)} className="hover:text-primary-container font-bold">×</button>
+                    <button onClick={() => setMaxRadiusKm(2)} aria-label="Reset distance filter" className="tap-expand hover:text-primary-container font-bold px-1">×</button>
                   </span>
                 )}
               </div>

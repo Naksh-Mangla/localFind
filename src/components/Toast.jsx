@@ -19,7 +19,7 @@ export function Toast({ toast, onClose }) {
   const borderColor = isError ? 'border-red-500/30' : isSuccess ? 'border-emerald-500/30' : 'border-primary/30'
 
   return (
-    <div className="fixed top-5 right-4 left-4 sm:left-auto sm:right-6 z-[130] max-w-md w-full animate-fadeIn">
+    <div className="fixed top-[max(1.25rem,env(safe-area-inset-top,0px))] right-4 left-4 sm:left-auto sm:right-6 z-[130] sm:max-w-md w-auto animate-fadeIn">
       <div className={`bg-surface/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl border ${borderColor} flex items-start gap-3 text-on-surface`}>
         <div className={`p-1.5 rounded-xl bg-surface-container-high ${iconColor} flex items-center justify-center shrink-0`}>
           <span className="material-symbols-outlined text-xl">{iconName}</span>
@@ -30,7 +30,8 @@ export function Toast({ toast, onClose }) {
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded-full text-on-surface-variant hover:bg-surface-variant transition-colors shrink-0"
+          aria-label="Dismiss notification"
+          className="tap-expand p-1 rounded-full text-on-surface-variant hover:bg-surface-variant transition-colors shrink-0"
         >
           <span className="material-symbols-outlined text-base">close</span>
         </button>
