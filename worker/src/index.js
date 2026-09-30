@@ -6,18 +6,22 @@ class AuthError extends Error {}
 // since they are not subject to browser same-origin policy.
 const ALLOWED_ORIGINS = [
   'https://localfind.pages.dev',
+  'https://localfind-app.pages.dev',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
   'http://localhost:5173',
   'http://127.0.0.1:5173'
 ]
 
+// Production frontends + their Pages preview deployments (*.pages.dev).
+const ALLOWED_HTTPS_ROOTS = ['localfind.pages.dev', 'localfind-app.pages.dev']
+
 function isAllowedOrigin(origin) {
   if (!origin || typeof origin !== 'string') return false
   if (ALLOWED_ORIGINS.includes(origin)) return true
   try {
     const u = new URL(origin)
-    return u.protocol === 'https:' && (u.hostname === 'localfind.pages.dev' || u.hostname.endsWith('.localfind.pages.dev'))
+    return u.protocol === 'https:' && ALLOWED_HTTPS_ROOTS.some((root) => u.hostname === root || u.hostname.endsWith(`.${root}`))
   } catch {
     return false
   }
