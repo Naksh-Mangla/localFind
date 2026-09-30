@@ -1,22 +1,114 @@
 class AuthError extends Error {}
 
-const corsHeaders = () => ({
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match, X-Admin-Token, Cache-Control, Pragma',
-  'Access-Control-Expose-Headers': 'ETag, Cache-Control',
-  'Access-Control-Max-Age': '86400',
+// Explicit origin allowlist (best practice over wildcard '*'):
+// the production frontend, its Pages preview deployments, and local dev.
+// Requests without an Origin header (curl, server-to-server) keep '*'
+// since they are not subject to browser same-origin policy.
+const ALLOWED_ORIGINS = [
+  'https://localfind.pages.dev',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+]
+
+function isAllowedOrigin(origin) {
+  if (!origin || typeof origin !== 'string') return false
+  if (ALLOWED_ORIGINS.includes(origin)) return true
+  try {
+    const u = new URL(origin)
+    return u.protocol === 'https:' && (u.hostname === 'localfind.pages.dev' || u.hostname.endsWith('.localfind.pages.dev'))
+  } catch {
+    return false
+  }
+}
+
+const corsHeaders = (request) => {
+  const base = {
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, If-None-Match, X-Admin-Token, Cache-Control, Pragma',
+    'Access-Control-Expose-Headers': 'ETag, Cache-Control',
+    'Access-Control-Max-Age': '86400'
+  }
+  const origin = request?.headers?.get('Origin')
+  // No request (inner handler responses): emit NO ACAO at all. The fetch()
+  // wrapper always adds the correct per-request value afterwards, so a
+  // wildcard here could never leak to a rejected origin via cache or reuse.
+  if (origin === undefined || origin === null) {
+    return request ? { ...base, 'Access-Control-Allow-Origin': '*' } : base
+  }
+  // No Origin header (curl, server-to-server): wildcard is safe — only
+  // browsers enforce CORS, and they always send Origin on CORS requests.
+  // Vary included so caches never mix this with an origin-specific entry.
+  if (!origin) return { ...base, 'Access-Control-Allow-Origin': '*', 'Vary': 'Origin' }
+  // Origin present: ALWAYS Vary, even on rejection — otherwise a shared
+  // cache could serve one origin's CORS outcome to another.
+  if (!isAllowedOrigin(origin)) return { ...base, 'Vary': 'Origin' } // browser blocks the read
+  return { ...base, 'Access-Control-Allow-Origin': origin, 'Vary': 'Origin' }
+}
+
+// Applied centrally in fetch() to EVERY response (including errors and
+// edge-cached hits), so no route can forget them.
+const securityHeaders = () => ({
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Strict-Transport-Security': 'max-age=31536000; includeSubDomains; preload',
-  'Referrer-Policy': 'strict-origin-when-cross-origin'
+  'Referrer-Policy': 'strict-origin-when-cross-origin',
+  'Permissions-Policy': 'geolocation=(), microphone=(), camera=()'
 })
 
-const json = (data, status = 200) =>
+const json = (data, status = 200, extraHeaders = {}) =>
   new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders() }
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(), ...extraHeaders }
   })
+
+// Bounded JSON body reader: rejects oversized payloads before they can
+// exhaust the isolate's memory (DoS via giant JSON). Returns
+// { body, tooLarge }. Handlers: 413 on tooLarge, 400 on null body.
+async function readJsonBody(request, maxBytes = 512 * 1024) {
+  try {
+    const len = Number(request.headers.get('Content-Length'))
+    if (Number.isFinite(len) && len > maxBytes) return { body: null, tooLarge: true }
+    // Stream with an exact BYTE cap and early cancel: a huge chunked body
+    // never fully lands in isolate memory. Bytes (not chars), so Hindi
+    // text and emoji can't overshoot via multi-byte UTF-8.
+    if (request.body) {
+      const reader = request.body.getReader()
+      const chunks = []
+      let total = 0
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        total += value.byteLength
+        if (total > maxBytes) {
+          try { await reader.cancel() } catch {}
+          return { body: null, tooLarge: true }
+        }
+        chunks.push(value)
+      }
+      const bytes = new Uint8Array(total)
+      let off = 0
+      for (const c of chunks) { bytes.set(c, off); off += c.byteLength }
+      try {
+        return { body: JSON.parse(new TextDecoder().decode(bytes)), tooLarge: false }
+      } catch {
+        return { body: null, tooLarge: false }
+      }
+    }
+    const text = await request.text()
+    if (new TextEncoder().encode(text).length > maxBytes) return { body: null, tooLarge: true }
+    try {
+      return { body: JSON.parse(text), tooLarge: false }
+    } catch {
+      return { body: null, tooLarge: false }
+    }
+  } catch {
+    return { body: null, tooLarge: false }
+  }
+}
+
+const BODY_TOO_LARGE = () => json({ error: 'Request body too large' }, 413)
 
 const b64UrlToBytes = (input) => {
   let pad = input.replace(/-/g, '+').replace(/_/g, '/')
@@ -275,7 +367,8 @@ function shouldResetFlashCounter(resetAtISO) {
 // ---------- Request handlers ----------
 
 async function handleCreateShop(request, env, user) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request, 1024 * 1024)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   // Check if existing shop for this owner is banned (expiry-aware: expired bans auto-restore)
@@ -361,7 +454,8 @@ async function handleGetMyShop(env, user) {
 }
 
 async function handleCreateProduct(request, env, user) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request, 1024 * 1024)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const shop_id = cleanText(body.shop_id, 64)
@@ -468,7 +562,8 @@ async function handleCreateProduct(request, env, user) {
 }
 
 async function handleUpdateProduct(request, env, user) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request, 1024 * 1024)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   // Ban check for shopkeeper (expired bans auto-restore)
@@ -602,7 +697,8 @@ async function handleDeleteProduct(request, env, user, url) {
 }
 
 async function handleSaveReview(request, env, user) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const shop_id = cleanText(body.shop_id, 64)
@@ -952,10 +1048,38 @@ async function handleUploadImage(request, env, user) {
 }
 
 // ---------- Admin authorization & Password Hashing ----------
+//
+// SECURITY: no secrets live in source. Set them with:
+//   echo -n "<64+ random hex chars>" | npx wrangler secret put ADMIN_SECRET
+//   echo -n "<first admin password>" | npx wrangler secret put ADMIN_INITIAL_PASSWORD
+// ADMIN_INITIAL_PASSWORD works only until the first password hash exists
+// (first-setup bootstrap), then becomes useless. Missing secrets fail closed.
 
-const ADMIN_JWT_SECRET = 'localfind-admin-secret-2026-key-secure'
-const DEFAULT_ADMIN_PASSWORD = 'NAKSH@12345'
+// HS256 needs a long secret: require >= 32 chars, fail closed otherwise.
+function getAdminSecret(env) {
+  const s = env.ADMIN_SECRET
+  return (typeof s === 'string' && s.length >= 32) ? s : null
+}
 
+// Constant-time string compare (prevents timing side-channels on
+// password hashes and bootstrap secrets).
+function timingSafeEqualStr(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false
+  const enc = new TextEncoder()
+  const ab = enc.encode(a)
+  const bb = enc.encode(b)
+  if (ab.length !== bb.length) return false
+  let diff = 0
+  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i]
+  return diff === 0
+}
+
+function randomSaltHex(bytes = 16) {
+  return Array.from(crypto.getRandomValues(new Uint8Array(bytes))).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+// Legacy verifier: single-round SHA-256(salt:password). Weak by modern
+// standards — kept only to verify old rows, then auto-upgraded to PBKDF2.
 async function hashAdminPassword(password, salt) {
   const enc = new TextEncoder()
   const data = enc.encode(`${salt}:${password}`)
@@ -963,7 +1087,47 @@ async function hashAdminPassword(password, salt) {
   return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
-async function signAdminToken(payload, secret = ADMIN_JWT_SECRET) {
+// Modern KDF: PBKDF2-SHA256, 100k iterations. Stored format:
+//   pbkdf2$<iterations>$<saltHex>$<hashHex>
+const PBKDF2_ITERATIONS = 100000
+
+async function hashAdminPasswordPBKDF2(password, saltHex, iterations = PBKDF2_ITERATIONS) {
+  const enc = new TextEncoder()
+  const saltBytes = Uint8Array.from(saltHex.match(/../g).map(h => parseInt(h, 16)))
+  const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), 'PBKDF2', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: saltBytes, iterations, hash: 'SHA-256' },
+    keyMaterial,
+    256
+  )
+  return Array.from(new Uint8Array(bits)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+function newPBKDF2Hash(password) {
+  const saltHex = randomSaltHex()
+  return hashAdminPasswordPBKDF2(password, saltHex).then(hashHex => ({
+    hash: `pbkdf2$${PBKDF2_ITERATIONS}$${saltHex}$${hashHex}`,
+    salt: saltHex
+  }))
+}
+
+function isPBKDF2Hash(stored) {
+  return typeof stored === 'string' && stored.startsWith('pbkdf2$')
+}
+
+async function verifyPBKDF2Hash(password, stored) {
+  try {
+    const [, iterStr, saltHex, expectedHex] = stored.split('$')
+    const iterations = Number(iterStr)
+    if (!Number.isFinite(iterations) || iterations < 10000 || !saltHex || !expectedHex) return false
+    const computedHex = await hashAdminPasswordPBKDF2(password, saltHex, iterations)
+    return timingSafeEqualStr(computedHex, expectedHex)
+  } catch {
+    return false
+  }
+}
+
+async function signAdminToken(payload, secret) {
   const enc = new TextEncoder()
   const headerB64 = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
   const payloadB64 = btoa(JSON.stringify(payload)).replace(/=/g, '').replace(/\+/g, '-').replace(/\//g, '_')
@@ -980,7 +1144,7 @@ async function signAdminToken(payload, secret = ADMIN_JWT_SECRET) {
   return `${data}.${sigB64}`
 }
 
-async function verifyAdminToken(token, secret = ADMIN_JWT_SECRET) {
+async function verifyAdminToken(token, secret) {
   if (!token || typeof token !== 'string') return null
   const parts = token.split('.')
   if (parts.length !== 3) return null
@@ -1014,9 +1178,10 @@ async function requireAdmin(request, env) {
   const adminHeader = request.headers.get('X-Admin-Token')
   const authHeader = request.headers.get('Authorization')
 
-  // 1. Check custom X-Admin-Token
-  if (adminHeader) {
-    const payload = await verifyAdminToken(adminHeader, env.ADMIN_SECRET || ADMIN_JWT_SECRET)
+  // 1. Check custom X-Admin-Token (skipped entirely when no secret is set)
+  const adminSecret = getAdminSecret(env)
+  if (adminHeader && adminSecret) {
+    const payload = await verifyAdminToken(adminHeader, adminSecret)
     if (payload?.sub) {
       const admin = await env.DB.prepare('SELECT uid, email, role FROM admin_users WHERE uid = ?').bind(payload.sub).first()
       if (admin) return { sub: admin.uid, email: admin.email, adminRole: admin.role, authType: 'admin_token' }
@@ -1026,7 +1191,7 @@ async function requireAdmin(request, env) {
   // 2. Check Authorization Bearer header (could be Admin JWT or Firebase Token)
   if (authHeader?.startsWith('Bearer ')) {
     const rawToken = authHeader.slice(7)
-    const adminPayload = await verifyAdminToken(rawToken, env.ADMIN_SECRET || ADMIN_JWT_SECRET)
+    const adminPayload = adminSecret ? await verifyAdminToken(rawToken, adminSecret) : null
     if (adminPayload?.sub) {
       const admin = await env.DB.prepare('SELECT uid, email, role FROM admin_users WHERE uid = ?').bind(adminPayload.sub).first()
       if (admin) return { sub: admin.uid, email: admin.email, adminRole: admin.role, authType: 'admin_token' }
@@ -1050,15 +1215,81 @@ async function logAdminAction(env, adminUid, action, targetType, targetId, detai
 
 // ---------- Admin API handlers ----------
 
+// Brute-force protection: 5 failed logins per email lock the address for
+// 15 minutes. Unknown emails are tracked too, so lockouts never reveal
+// whether an address is a real admin account (anti-enumeration).
+const LOGIN_MAX_ATTEMPTS = 5
+const LOGIN_LOCK_MS = 15 * 60 * 1000
+
+async function checkLoginAllowed(env, emailKey) {
+  try {
+    const row = await env.DB.prepare(
+      'SELECT attempts, locked_until FROM admin_login_attempts WHERE email_key = ?'
+    ).bind(emailKey).first()
+    if (row?.locked_until) {
+      const untilMs = Date.parse(row.locked_until)
+      if (Number.isFinite(untilMs) && untilMs > Date.now()) {
+        return { allowed: false, retryAfterSec: Math.ceil((untilMs - Date.now()) / 1000) }
+      }
+      // Lazy TTL: lock expired — remove the row so random-email spam
+      // can't bloat the table with dead entries.
+      await env.DB.prepare('DELETE FROM admin_login_attempts WHERE email_key = ?').bind(emailKey).run().catch(() => {})
+    }
+    return { allowed: true }
+  } catch {
+    // Pre-migration DBs have no attempts table yet: allow (availability),
+    // the migration applies the real protection.
+    return { allowed: true }
+  }
+}
+
+async function recordLoginFailure(env, emailKey) {
+  // Single-statement atomic increment: concurrent bursts can't read-then-
+  // write the same counter and lose attempts. Thresholds mirror
+  // LOGIN_MAX_ATTEMPTS (5) / LOGIN_LOCK_MS (15 min) above — keep in sync.
+  try {
+    await env.DB.prepare(
+      `INSERT INTO admin_login_attempts (email_key, attempts, locked_until, updated_at)
+       VALUES (?, 1, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+       ON CONFLICT(email_key) DO UPDATE SET
+         attempts = admin_login_attempts.attempts + 1,
+         locked_until = CASE
+           WHEN admin_login_attempts.attempts + 1 >= 5
+           THEN strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+15 minutes')
+           ELSE admin_login_attempts.locked_until
+         END,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+    ).bind(emailKey).run()
+  } catch (err) {
+    console.warn('Login attempt tracking failed:', err?.message)
+  }
+}
+
+async function clearLoginAttempts(env, emailKey) {
+  try {
+    await env.DB.prepare('DELETE FROM admin_login_attempts WHERE email_key = ?').bind(emailKey).run()
+  } catch {}
+}
+
 async function handleAdminLogin(request, env) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request, 16 * 1024)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const email = cleanText(body.email, 120)?.toLowerCase()
   const password = body.password
 
-  if (!email || !password) {
+  if (!email || typeof password !== 'string' || !password) {
     return json({ error: 'Admin email and password are required' }, 400)
+  }
+
+  const gate = await checkLoginAllowed(env, email)
+  if (!gate.allowed) {
+    return json(
+      { error: 'Too many attempts. Try again later.' },
+      429,
+      { 'Retry-After': String(gate.retryAfterSec || 900), 'Cache-Control': 'no-store' }
+    )
   }
 
   // Find admin user by email (case-insensitive) or UID
@@ -1066,36 +1297,69 @@ async function handleAdminLogin(request, env) {
     'SELECT uid, email, role, password_hash, password_salt FROM admin_users WHERE LOWER(email) = ? OR uid = ?'
   ).bind(email, email).first()
 
+  // Same generic message for unknown emails: no account enumeration.
+  const fail = async () => {
+    await recordLoginFailure(env, email)
+    return json({ error: 'Invalid admin email or password' }, 401, { 'Cache-Control': 'no-store' })
+  }
   if (!admin) {
-    return json({ error: 'Invalid admin email or password' }, 401)
+    // Equalize timing: unknown emails burn the same ~100ms KDF as a real
+    // password check, so response time reveals nothing about the account.
+    await hashAdminPasswordPBKDF2('dummy-login-timing-noise', '00'.repeat(16)).catch(() => {})
+    return fail()
   }
 
   let isMatch = false
-  if (password === DEFAULT_ADMIN_PASSWORD) {
-    isMatch = true
-    // Auto-set the password hash for future security
-    const newSalt = crypto.randomUUID()
-    const newHash = await hashAdminPassword(password, newSalt)
-    await env.DB.prepare(
-      'UPDATE admin_users SET password_hash = ?, password_salt = ? WHERE uid = ?'
-    ).bind(newHash, newSalt, admin.uid).run().catch(() => {})
+  let needsUpgrade = false
+  if (isPBKDF2Hash(admin.password_hash)) {
+    isMatch = await verifyPBKDF2Hash(password, admin.password_hash)
   } else if (admin.password_hash && admin.password_salt) {
+    // Legacy single-round SHA-256 row: verify, then upgrade to PBKDF2 below.
     const computedHash = await hashAdminPassword(password, admin.password_salt)
-    isMatch = (computedHash === admin.password_hash)
+    isMatch = timingSafeEqualStr(computedHash, admin.password_hash)
+    needsUpgrade = isMatch
+  } else {
+    // First-setup bootstrap only: ADMIN_INITIAL_PASSWORD works until a real
+    // hash exists, then becomes useless. Never hardcoded in source.
+    const initial = env.ADMIN_INITIAL_PASSWORD
+    if (typeof initial === 'string' && initial.length >= 8 && timingSafeEqualStr(password, initial)) {
+      isMatch = true
+      needsUpgrade = true
+    }
   }
 
-  if (!isMatch) {
-    return json({ error: 'Invalid admin email or password' }, 401)
+  if (!isMatch) return fail()
+
+  // Transparent upgrade: legacy/bootstrap passwords become PBKDF2 on login.
+  if (needsUpgrade) {
+    try {
+      const { hash, salt } = await newPBKDF2Hash(password)
+      await env.DB.prepare(
+        'UPDATE admin_users SET password_hash = ?, password_salt = ? WHERE uid = ?'
+      ).bind(hash, salt, admin.uid).run()
+    } catch (err) {
+      console.warn('Password hash upgrade failed:', err?.message)
+    }
+  }
+
+  await clearLoginAttempts(env, email)
+
+  // Fail closed without a signing secret: password login is disabled until
+  // ADMIN_SECRET is configured (Firebase-based admins still work).
+  const adminSecret = getAdminSecret(env)
+  if (!adminSecret) {
+    console.error('ADMIN_SECRET missing or too short: admin password login disabled')
+    return json({ error: 'Internal server error' }, 500)
   }
 
   // 24-hour session expiration
   const exp = Date.now() + 24 * 60 * 60 * 1000
   const token = await signAdminToken(
     { sub: admin.uid, email: admin.email, role: admin.role, exp },
-    env.ADMIN_SECRET || ADMIN_JWT_SECRET
+    adminSecret
   )
 
-  await logAdminAction(env, admin.uid, 'admin_login', 'auth', admin.uid, { email: admin.email })
+  await logAdminAction(env, admin.uid, 'admin_login', 'auth', admin.uid, { email: admin.email }).catch(() => {})
 
   return json({
     success: true,
@@ -1105,18 +1369,19 @@ async function handleAdminLogin(request, env) {
       email: admin.email,
       role: admin.role
     }
-  })
+  }, 200, { 'Cache-Control': 'no-store' })
 }
 
 async function handleAdminChangePassword(request, env, admin) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request, 16 * 1024)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const currentPassword = body.current_password
   const newPassword = body.new_password
 
-  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
-    return json({ error: 'New password must be at least 6 characters long' }, 400)
+  if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 8) {
+    return json({ error: 'New password must be at least 8 characters long' }, 400)
   }
 
   const row = await env.DB.prepare(
@@ -1125,20 +1390,29 @@ async function handleAdminChangePassword(request, env, admin) {
 
   if (!row) return json({ error: 'Admin account not found' }, 404)
 
-  if (row.password_hash && row.password_salt) {
+  // Verify the current password (supports legacy rows during transition).
+  if (row.password_hash) {
     if (!currentPassword) return json({ error: 'Current password is required' }, 400)
-    const currentHash = await hashAdminPassword(currentPassword, row.password_salt)
-    if (currentHash !== row.password_hash) {
-      return json({ error: 'Incorrect current password' }, 401)
+    let ok = false
+    if (isPBKDF2Hash(row.password_hash)) {
+      ok = await verifyPBKDF2Hash(currentPassword, row.password_hash)
+    } else if (row.password_salt) {
+      const currentHash = await hashAdminPassword(currentPassword, row.password_salt)
+      ok = timingSafeEqualStr(currentHash, row.password_hash)
+    } else {
+      const initial = env.ADMIN_INITIAL_PASSWORD
+      ok = typeof initial === 'string' && timingSafeEqualStr(currentPassword, initial)
     }
+    if (!ok) return json({ error: 'Incorrect current password' }, 401)
   }
 
-  const newSalt = crypto.randomUUID()
-  const newHash = await hashAdminPassword(newPassword, newSalt)
+  // New passwords are always PBKDF2 (salt duplicated into password_salt for
+  // compatibility with readers that expect the column to be non-empty).
+  const { hash, salt } = await newPBKDF2Hash(newPassword)
 
   await env.DB.prepare(
     'UPDATE admin_users SET password_hash = ?, password_salt = ? WHERE uid = ?'
-  ).bind(newHash, newSalt, row.uid).run()
+  ).bind(hash, salt, row.uid).run()
 
   await logAdminAction(env, admin.sub, 'change_password', 'auth', admin.sub, { updated: true })
 
@@ -1225,7 +1499,8 @@ async function handleAdminListShops(env, url) {
 }
 
 async function handleAdminBanShop(request, env, admin) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const shopId = cleanText(body.shop_id, 64)
@@ -1262,7 +1537,8 @@ async function handleAdminBanShop(request, env, admin) {
 }
 
 async function handleAdminHeroShop(request, env, admin) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const shopId = cleanText(body.shop_id, 64)
@@ -1396,7 +1672,8 @@ async function handleAdminAuditLog(env, url) {
 const ANALYTICS_EVENT_TYPES = ['impression', 'detail_open', 'whatsapp_click', 'directions_click', 'share', 'wishlist', 'review']
 
 async function handleTrackEvent(request, env, user) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request, 64 * 1024)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const event_type = typeof body.event_type === 'string' ? body.event_type.trim() : ''
@@ -1600,7 +1877,8 @@ async function handleGetSubscription(env, user) {
 }
 
 async function handleAdminUpdateSubscription(request, env, admin) {
-  const body = await request.json().catch(() => null)
+  const { body, tooLarge } = await readJsonBody(request)
+  if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const shopId = cleanText(body.shop_id, 64)
@@ -1644,14 +1922,11 @@ async function handleAdminUpdateSubscription(request, env, admin) {
   })
 }
 
-export default {
-  async fetch(request, env, ctx) {
-    if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders() })
+async function routeRequest(request, env, ctx) {
+  const url = new URL(request.url)
 
-    const url = new URL(request.url)
-
-    try {
-      // ---------- Admin routes ----------
+  try {
+    // ---------- Admin routes ----------
       if (url.pathname.startsWith('/api/admin')) {
         // Public admin login endpoint (no auth token required beforehand)
         if (request.method === 'POST' && url.pathname === '/api/admin/login') {
@@ -1804,6 +2079,25 @@ export default {
       console.error('Unhandled worker error:', err)
       return json({ error: 'Internal server error' }, 500)
     }
+}
+
+export default {
+  async fetch(request, env, ctx) {
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: { ...corsHeaders(request), ...securityHeaders() } })
+    }
+
+    const response = await routeRequest(request, env, ctx)
+
+    // Central hardening: per-request CORS (origin allowlist) + security
+    // headers on EVERY response — handlers can never forget them. The
+    // delete-then-set matters: inner handler responses carry a wildcard
+    // ACAO, which must not survive when the origin is rejected.
+    const out = new Response(response.body, response)
+    out.headers.delete('Access-Control-Allow-Origin')
+    for (const [k, v] of Object.entries(corsHeaders(request))) out.headers.set(k, v)
+    for (const [k, v] of Object.entries(securityHeaders())) out.headers.set(k, v)
+    return out
   }
 }
 

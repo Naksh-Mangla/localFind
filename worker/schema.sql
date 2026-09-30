@@ -87,3 +87,24 @@ CREATE INDEX IF NOT EXISTS idx_shops_ban_expiry ON shops(is_banned, banned_until
 CREATE INDEX IF NOT EXISTS idx_shops_badge ON shops(badge_level);
 CREATE INDEX IF NOT EXISTS idx_shops_hero ON shops(is_hero_shop);
 CREATE INDEX IF NOT EXISTS idx_shops_subscription ON shops(subscription_tier);
+CREATE TABLE IF NOT EXISTS product_events (
+  id TEXT PRIMARY KEY,
+  shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  product_id TEXT REFERENCES products(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL,
+  event_type TEXT NOT NULL
+    CHECK(event_type IN ('impression','detail_open','whatsapp_click','directions_click','share','wishlist','review')),
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+  event_date TEXT GENERATED ALWAYS AS (substr(created_at, 1, 10)) STORED,
+  UNIQUE(user_id, product_id, event_type, event_date)
+);
+CREATE INDEX IF NOT EXISTS idx_events_shop_date ON product_events(shop_id, event_date);
+CREATE INDEX IF NOT EXISTS idx_events_product_date ON product_events(product_id, event_date);
+CREATE INDEX IF NOT EXISTS idx_events_shop_type_date ON product_events(shop_id, event_type, event_date);
+CREATE INDEX IF NOT EXISTS idx_events_user_type_date ON product_events(user_id, event_type, event_date, shop_id);
+CREATE TABLE IF NOT EXISTS admin_login_attempts (
+  email_key    TEXT PRIMARY KEY,
+  attempts     INTEGER NOT NULL DEFAULT 0,
+  locked_until TEXT,
+  updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
