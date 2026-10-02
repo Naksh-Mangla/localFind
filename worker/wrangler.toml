@@ -20,6 +20,10 @@ FIREBASE_PROJECT_ID = "localfind-2012"
 #   echo -n "<64+ random hex chars, min 32>" | npx wrangler secret put ADMIN_SECRET
 #   echo -n "<first admin password, min 8 chars>" | npx wrangler secret put ADMIN_INITIAL_PASSWORD
 # ADMIN_INITIAL_PASSWORD works only until the first password hash exists.
+#
+# OPTIONAL bot gate (default OFF): after wiring Firebase App Check in the
+# frontend (reCAPTCHA key + token header), enforce device attestation on all
+# API writes with: echo -n "1" | npx wrangler secret put APPCHECK_ENFORCE
 
 # [[r2_buckets]]
 # binding = "IMAGES_BUCKET"

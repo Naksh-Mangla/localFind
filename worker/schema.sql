@@ -117,3 +117,10 @@ CREATE TABLE IF NOT EXISTS admin_login_attempts (
   locked_until TEXT,
   updated_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
 );
+CREATE TABLE IF NOT EXISTS write_quota (
+  user_id TEXT NOT NULL,
+  scope   TEXT NOT NULL,
+  day     TEXT NOT NULL,
+  count   INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (user_id, scope, day)
+);

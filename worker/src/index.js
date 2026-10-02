@@ -114,6 +114,33 @@ async function readJsonBody(request, maxBytes = 512 * 1024) {
 
 const BODY_TOO_LARGE = () => json({ error: 'Request body too large' }, 413)
 
+// Per-user daily write quotas (anti-spam / anti-bot backstop). Generous
+// limits no legitimate user will touch; scripts hit a wall fast.
+// Scopes: shop_create 5, product_write 100, review_write 20, track 1000,
+// upload 50 — per Firebase UID per UTC day.
+async function checkWriteQuota(env, userId, scope, limit) {
+  try {
+    const today = new Date().toISOString().slice(0, 10)
+    const row = await env.DB.prepare(
+      `INSERT INTO write_quota (user_id, scope, day, count)
+       VALUES (?, ?, ?, 1)
+       ON CONFLICT(user_id, scope, day) DO UPDATE SET count = write_quota.count + 1
+       RETURNING count`
+    ).bind(userId, scope, today).first()
+    return (Number(row?.count) || 1) <= limit
+  } catch {
+    // Pre-migration (no table): fail open for availability; the migration
+    // applies the real protection.
+    return true
+  }
+}
+
+function quotaExceededResponse() {
+  const now = new Date()
+  const retryAfter = Math.max(60, Math.ceil((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1) - now.getTime()) / 1000))
+  return json({ error: 'Daily limit reached. Try again tomorrow.' }, 429, { 'Retry-After': String(retryAfter), 'Cache-Control': 'no-store' })
+}
+
 const b64UrlToBytes = (input) => {
   let pad = input.replace(/-/g, '+').replace(/_/g, '/')
   while (pad.length % 4) pad += '='
@@ -200,12 +227,120 @@ async function verifyFirebaseIdToken(authHeader, env) {
   )
 
   if (!valid) throw new AuthError('Invalid token signature')
+
+  // Bot-spam gate: this app signs in with Google popup only. Anonymous
+  // tokens (mass-minted by scripts via the public Auth REST endpoint) get
+  // no write access. Checked AFTER signature verification — never trust
+  // claims from an unverified token.
+  const provider = payload.firebase?.sign_in_provider
+  if (provider === 'anonymous') throw new AuthError('Anonymous sessions cannot write')
   return payload
+}
+
+// ---------- Firebase App Check (bot / script abuse gate) ----------
+//
+// Optional hardening layer: proves the request came from YOUR app (reCAPTCHA
+// attestation), not a script with a stolen public API key. OFF by default
+// (zero behavior change). To activate:
+//   1. Firebase console → App Check → register the web app (reCAPTCHA v3 key).
+//   2. Frontend: initialize App Check + attach token as X-Firebase-AppCheck.
+//   3. wrangler secret put APPCHECK_ENFORCE = 1 (value must be exactly "1").
+// Until then every check below is a no-op.
+let appCheckJwksCache = { keys: null, fetchedAt: 0 }
+
+async function getAppCheckJwks() {
+  const now = Date.now()
+  if (appCheckJwksCache.keys && now - appCheckJwksCache.fetchedAt < JWKS_TTL_MS) {
+    return appCheckJwksCache.keys
+  }
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch('https://firebaseappcheck.googleapis.com/v1/jwks', { signal: controller.signal })
+    if (!res.ok) throw new Error('Failed to fetch App Check JWKS')
+    const data = await res.json()
+    const keys = data.keys || []
+    if (!keys.length) throw new Error('Empty App Check JWKS response')
+    appCheckJwksCache = { keys, fetchedAt: now }
+    return keys
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+async function verifyAppCheckToken(token, env) {
+  const parts = typeof token === 'string' ? token.split('.') : []
+  if (parts.length !== 3) throw new AuthError('Invalid App Check token')
+  const [headerB64, payloadB64, signatureB64] = parts
+  let header, payload
+  try {
+    header = decodePayload(headerB64)
+    payload = decodePayload(payloadB64)
+  } catch {
+    throw new AuthError('Malformed App Check token')
+  }
+  if (header.alg !== 'RS256' || (header.typ && header.typ !== 'JWT')) throw new AuthError('Unsupported App Check token')
+  if (!payload.exp || typeof payload.exp !== 'number' || payload.exp * 1000 < Date.now()) {
+    throw new AuthError('Expired App Check token')
+  }
+  if (payload.iss !== 'https://firebaseappcheck.googleapis.com/') throw new AuthError('Invalid App Check issuer')
+  // Audience is the Firebase project (string or ["projects/<number>", ...] form).
+  const projectId = env.FIREBASE_PROJECT_ID || 'localfind-2012'
+  const aud = payload.aud
+  const audOk = typeof aud === 'string'
+    ? (aud === projectId || aud.startsWith('projects/'))
+    : Array.isArray(aud) && aud.some((a) => a === projectId || (typeof a === 'string' && a.startsWith('projects/')))
+  if (!audOk) throw new AuthError('Invalid App Check audience')
+
+  const keys = await getAppCheckJwks()
+  const jwk = keys.find((k) => !header.kid || k.kid === header.kid)
+  if (!jwk) throw new AuthError('Unknown App Check signing key')
+  const cryptoKey = await crypto.subtle.importKey(
+    'jwk',
+    { kty: jwk.kty, n: jwk.n, e: jwk.e, alg: 'RS256', ext: true },
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['verify']
+  )
+  const valid = await crypto.subtle.verify(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    b64UrlToBytes(signatureB64),
+    new TextEncoder().encode(`${headerB64}.${payloadB64}`)
+  )
+  if (!valid) throw new AuthError('Invalid App Check signature')
+  return payload
+}
+
+// No-op unless APPCHECK_ENFORCE === '1'. Applied to state-changing API
+// calls only (reads stay open); admin login is exempt so a misconfigured
+// flag can never lock out password recovery.
+async function enforceAppCheck(request, env, url) {
+  if (env.APPCHECK_ENFORCE !== '1') return
+  const method = request.method.toUpperCase()
+  if (method === 'GET' || method === 'HEAD' || method === 'OPTIONS') return
+  if (url.pathname === '/api/admin/login') return
+  const token = request.headers.get('X-Firebase-AppCheck')
+  if (!token) throw new AuthError('App Check attestation required')
+  await verifyAppCheckToken(token, env)
 }
 
 // ---------- Input sanitization helpers ----------
 
 const TIME_REGEX = /^([01]\d|2[0-3]):[0-5]\d$/
+
+// Closed category vocabulary (mirrors BuyerDiscover CATEGORIES + merchant
+// form). Free-text categories let junk/duplicate spellings fragment feeds,
+// filters, and analytics — reject anything outside the list.
+const ALLOWED_CATEGORIES = ['General', 'Handmade', 'Groceries', 'Fashion', 'Electronics', 'Sale']
+
+function sanitizeCategory(value) {
+  if (typeof value !== 'string') return null
+  const trimmed = value.trim().slice(0, 40)
+  if (!trimmed) return null
+  const hit = ALLOWED_CATEGORIES.find((c) => c.toLowerCase() === trimmed.toLowerCase())
+  return hit || null
+}
 
 const cleanText = (value, maxLen) => {
   if (typeof value !== 'string') return null
@@ -371,6 +506,7 @@ function shouldResetFlashCounter(resetAtISO) {
 // ---------- Request handlers ----------
 
 async function handleCreateShop(request, env, user) {
+  if (!(await checkWriteQuota(env, user.sub, 'shop_create', 5))) return quotaExceededResponse()
   const { body, tooLarge } = await readJsonBody(request, 1024 * 1024)
   if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
@@ -458,16 +594,17 @@ async function handleGetMyShop(env, user) {
 }
 
 async function handleCreateProduct(request, env, user) {
+  if (!(await checkWriteQuota(env, user.sub, 'product_write', 100))) return quotaExceededResponse()
   const { body, tooLarge } = await readJsonBody(request, 1024 * 1024)
   if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
 
   const shop_id = cleanText(body.shop_id, 64)
   const name = cleanText(body.name, 120)
-  const category = cleanText(body.category, 40)
+  const category = sanitizeCategory(body.category)
   const price = Number(body.price)
 
-  if (!shop_id || !name || !category) return json({ error: 'shop_id, name and category are required' }, 400)
+  if (!shop_id || !name || !category) return json({ error: 'shop_id, name and valid category are required' }, 400)
   if (!Number.isFinite(price) || price < 0 || price > 10_000_000) {
     return json({ error: 'price must be a valid positive number' }, 400)
   }
@@ -566,6 +703,7 @@ async function handleCreateProduct(request, env, user) {
 }
 
 async function handleUpdateProduct(request, env, user) {
+  if (!(await checkWriteQuota(env, user.sub, 'product_write', 100))) return quotaExceededResponse()
   const { body, tooLarge } = await readJsonBody(request, 1024 * 1024)
   if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
@@ -578,10 +716,10 @@ async function handleUpdateProduct(request, env, user) {
 
   const id = cleanText(body.id, 64)
   const name = cleanText(body.name, 120)
-  const category = cleanText(body.category, 40)
+  const category = sanitizeCategory(body.category)
   const price = Number(body.price)
 
-  if (!id || !name || !category) return json({ error: 'id, name and category are required' }, 400)
+  if (!id || !name || !category) return json({ error: 'id, name and valid category are required' }, 400)
   if (!Number.isFinite(price) || price < 0 || price > 10_000_000) {
     return json({ error: 'price must be a valid positive number' }, 400)
   }
@@ -701,6 +839,7 @@ async function handleDeleteProduct(request, env, user, url) {
 }
 
 async function handleSaveReview(request, env, user) {
+  if (!(await checkWriteQuota(env, user.sub, 'review_write', 20))) return quotaExceededResponse()
   const { body, tooLarge } = await readJsonBody(request)
   if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
@@ -987,6 +1126,7 @@ function sniffImageMime(bytes) {
 }
 
 async function handleUploadImage(request, env, user) {
+  if (!(await checkWriteQuota(env, user.sub, 'upload', 50))) return quotaExceededResponse()
   if (!env.IMAGES_BUCKET) {
     return json({ error: 'R2 bucket binding "IMAGES_BUCKET" not configured on worker.' }, 500)
   }
@@ -1713,6 +1853,7 @@ async function insertEventOnce(env, { shopId, productId, userId, eventType, sear
 }
 
 async function handleTrackEvent(request, env, user) {
+  if (!(await checkWriteQuota(env, user.sub, 'track', 1000))) return quotaExceededResponse()
   const { body, tooLarge } = await readJsonBody(request, 64 * 1024)
   if (tooLarge) return BODY_TOO_LARGE()
   if (!body) return json({ error: 'Invalid JSON body' }, 400)
@@ -2077,6 +2218,9 @@ async function routeRequest(request, env, ctx) {
   const url = new URL(request.url)
 
   try {
+    // Device-attestation gate for writes (no-op unless APPCHECK_ENFORCE='1').
+    await enforceAppCheck(request, env, url)
+
     // ---------- Admin routes ----------
       if (url.pathname.startsWith('/api/admin')) {
         // Public admin login endpoint (no auth token required beforehand)
