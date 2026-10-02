@@ -24,6 +24,16 @@ try {
   }
 } catch {}
 
+try {
+  const savedShopsEtag = localStorage.getItem('localfind_cached_shops_etag')
+  const savedShops = localStorage.getItem('localfind_cached_shops')
+  if (savedShopsEtag) memoryEtagCache.set('/api/shops', savedShopsEtag)
+  if (savedShops) {
+    const parsedShops = JSON.parse(savedShops)
+    if (parsedShops) memoryPayloadCache.set('/api/shops', parsedShops)
+  }
+} catch {}
+
 // Lossy copy for localStorage: drops inline base64 photos (remote URLs kept).
 function slimProductsForStorage(body) {
   if (!Array.isArray(body?.products)) return body
@@ -60,6 +70,8 @@ export function clearApiCache() {
   try {
     localStorage.removeItem('localfind_cached_products_etag')
     localStorage.removeItem('localfind_cached_products')
+    localStorage.removeItem('localfind_cached_shops_etag')
+    localStorage.removeItem('localfind_cached_shops')
   } catch {}
 }
 
@@ -127,10 +139,20 @@ export async function apiFetch(path, options = {}) {
               try {
                 localStorage.setItem('localfind_cached_products_etag', retryEtag)
               } catch {}
+            } else if (path === '/api/shops') {
+              try {
+                localStorage.setItem('localfind_cached_shops_etag', retryEtag)
+              } catch {}
             }
           }
           memoryPayloadCache.set(path, retryBody)
-          persistProductsCache(retryBody)
+          if (path === '/api/products') {
+            persistProductsCache(retryBody)
+          } else if (path === '/api/shops') {
+            try {
+              localStorage.setItem('localfind_cached_shops', JSON.stringify(retryBody))
+            } catch {}
+          }
         }
         return retryBody
       }
@@ -147,11 +169,19 @@ export async function apiFetch(path, options = {}) {
             try {
               localStorage.setItem('localfind_cached_products_etag', etag)
             } catch {}
+          } else if (path === '/api/shops') {
+            try {
+              localStorage.setItem('localfind_cached_shops_etag', etag)
+            } catch {}
           }
         }
         memoryPayloadCache.set(path, body)
         if (path === '/api/products') {
           persistProductsCache(body)
+        } else if (path === '/api/shops') {
+          try {
+            localStorage.setItem('localfind_cached_shops', JSON.stringify(body))
+          } catch {}
         }
       }
 

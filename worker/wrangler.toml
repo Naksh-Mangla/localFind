@@ -7,6 +7,9 @@ binding = "DB"
 database_name = "localfind-db"
 database_id = "65eca607-52b0-4f67-bae9-5441305050fd"
 
+[triggers]
+crons = ["0 2 * * *"]
+
 # [[kv_namespaces]]
 # binding = "JWKS_CACHE"
 # id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"

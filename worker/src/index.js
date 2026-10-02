@@ -442,23 +442,40 @@ function calculateBadgeLevel(fiveStarCount, isHeroShop) {
   return 1
 }
 
-// Recount five-star reviews for a shop, persist badge_level if it changed.
+// Recount five-star reviews for a shop, persist badge_level and denormalized review stats.
 // Returns { fiveStarCount, prevLevel, level, unlocked } or null if shop missing.
 async function refreshShopBadge(env, shopId) {
   const row = await env.DB.prepare(
     `SELECT
+       (SELECT COUNT(*) FROM reviews WHERE shop_id = ?) AS total_count,
+       (SELECT ROUND(AVG(rating), 1) FROM reviews WHERE shop_id = ?) AS avg_rat,
        (SELECT COUNT(*) FROM reviews WHERE shop_id = ? AND rating = 5) AS five,
        badge_level AS lvl,
        is_hero_shop AS hero
      FROM shops WHERE id = ?`
-  ).bind(shopId, shopId).first()
+  ).bind(shopId, shopId, shopId, shopId).first()
   if (!row) return null
   const prev = Number(row.lvl) || 1
   const next = calculateBadgeLevel(Number(row.five) || 0, Boolean(row.hero))
-  if (next !== prev) {
-    await env.DB.prepare('UPDATE shops SET badge_level = ? WHERE id = ?').bind(next, shopId).run()
+  const totalCount = Number(row.total_count) || 0
+  const avgRating = row.avg_rat !== null && row.avg_rat !== undefined ? Number(row.avg_rat) : null
+  const fiveCount = Number(row.five) || 0
+
+  try {
+    await env.DB.prepare(
+      `UPDATE shops SET badge_level = ?, review_count = ?, avg_rating = ?, five_star_reviews_count = ?,
+         updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
+    ).bind(next, totalCount, avgRating, fiveCount, shopId).run()
+  } catch (err) {
+    // Legacy fallback ONLY for pre-migration DBs lacking the new columns.
+    // Any other failure (busy/timeout) rethrows: silently dropping it would
+    // diverge the denormalized stats with a success report.
+    if (!String(err?.message || '').includes('no such column')) throw err
+    if (next !== prev) {
+      await env.DB.prepare('UPDATE shops SET badge_level = ? WHERE id = ?').bind(next, shopId).run()
+    }
   }
-  return { fiveStarCount: Number(row.five) || 0, prevLevel: prev, level: next, unlocked: next > prev }
+  return { fiveStarCount: fiveCount, prevLevel: prev, level: next, unlocked: next > prev }
 }
 
 // ---------- Subscription tier system ----------
@@ -537,11 +554,15 @@ async function handleCreateShop(request, env, user) {
     ? user.email.trim().slice(0, 120)
     : null
 
-  // Atomic upsert with RETURNING id: eliminates redundant follow-up SELECT round-trip
+  // Atomic upsert with RETURNING id: eliminates redundant follow-up SELECT round-trip.
+  // updated_at always moves (D1 clock via strftime, never the Worker's own
+  // clock: isolate-to-DB skew could otherwise write an older timestamp than
+  // the current ETag max and cause false 304s). Any merchant edit must
+  // invalidate cached feeds.
   const id = crypto.randomUUID()
   const row = await env.DB.prepare(
-    `INSERT INTO shops (id, owner_id, owner_email, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO shops (id, owner_id, owner_email, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
      ON CONFLICT(owner_id) DO UPDATE SET
        owner_email = COALESCE(excluded.owner_email, shops.owner_email),
        shop_name   = excluded.shop_name,
@@ -552,7 +573,8 @@ async function handleCreateShop(request, env, user) {
        whatsapp_number = excluded.whatsapp_number,
        lat = excluded.lat,
        lng = excluded.lng,
-       address_text = excluded.address_text
+       address_text = excluded.address_text,
+       updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
      RETURNING id`
   ).bind(
     id,
@@ -934,37 +956,78 @@ async function handleDeleteReview(request, env, user, url) {
   return json({ success: true, badge })
 }
 
-async function handleListShops(env) {
+async function handleListShops(env, url, request, ctx) {
   // Expired bans auto-restore: banned_until in the past counts as unbanned.
-  // Badge fields included per the frontend contract (no owner_email here: public endpoint, no PII).
+  // Badge fields and review stats included per the frontend contract.
+  let results
   try {
-    const { results } = await env.DB.prepare(
-      `SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at,
-         badge_level, is_hero_shop,
-         (SELECT COUNT(*) FROM reviews r WHERE r.shop_id = shops.id AND r.rating = 5) AS five_star_reviews_count,
-         (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = shops.id) AS avg_rating,
-         (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = shops.id) AS review_count
+    const res = await env.DB.prepare(
+      `SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at, updated_at,
+         badge_level, is_hero_shop, five_star_reviews_count, avg_rating, review_count
        FROM shops
        WHERE (is_banned = 0 OR (banned_until IS NOT NULL AND banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
        ORDER BY created_at DESC LIMIT 200`
     ).all()
-    return json({ shops: results || [] })
+    results = res.results || []
   } catch (err) {
-    // Pre-migration DBs lack badge/review tables: legacy shape, feed must not 500
     const msg = String(err.message || '')
-    if (msg.includes('no such table') || msg.includes('no such column')) {
-      const { results } = await env.DB.prepare(
+    if (msg.includes('no such column')) {
+      const res = await env.DB.prepare(
         `SELECT id, owner_id, shop_name, owner_name, description, opening_time, closing_time, whatsapp_number, lat, lng, address_text, created_at,
-           1 AS badge_level, 0 AS is_hero_shop, 0 AS five_star_reviews_count,
-           NULL AS avg_rating, 0 AS review_count
+           badge_level, is_hero_shop,
+           (SELECT COUNT(*) FROM reviews r WHERE r.shop_id = shops.id AND r.rating = 5) AS five_star_reviews_count,
+           (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = shops.id) AS avg_rating,
+           (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = shops.id) AS review_count
          FROM shops
          WHERE (is_banned = 0 OR (banned_until IS NOT NULL AND banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
          ORDER BY created_at DESC LIMIT 200`
       ).all()
-      return json({ shops: results || [] })
+      results = res.results || []
+    } else {
+      throw err
     }
-    throw err
   }
+
+  const cacheControl = 'public, max-age=45, s-maxage=90, stale-while-revalidate=180'
+
+  // ETag must move on ANY visible change: edits, bans, hero flips, and
+  // review-driven badge updates all bump shops.updated_at (created_at alone
+  // never changes after insert, so it can never invalidate).
+  const newest = (r) => (r.updated_at && r.updated_at > (r.created_at || '')) ? r.updated_at : (r.created_at || '0')
+  let latestRecord = 'empty'
+  if (results.length > 0) {
+    latestRecord = results.reduce((max, r) => {
+      const ts = newest(r)
+      return ts > max ? ts : max
+    }, newest(results[0]))
+  }
+  const etag = `W/"${results.length}-${latestRecord}"`
+
+  const clientEtag = request?.headers?.get('If-None-Match')
+  if (clientEtag && clientEtag === etag) {
+    return new Response(null, {
+      status: 304,
+      headers: {
+        'ETag': etag,
+        'Cache-Control': cacheControl,
+        ...corsHeaders(request)
+      }
+    })
+  }
+
+  // NOTE: deliberately NO edge-cache put here. The shops feed mutates on
+  // edits/bans/hero/reviews with no reliable invalidation key, and the Cache
+  // API does not enforce HTTP TTL (staleness would be unbounded). ETag-304
+  // against one indexed D1 query is already cheap and always correct.
+  return new Response(JSON.stringify({ shops: results }), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Cache-Control': cacheControl,
+      'ETag': etag,
+      ...corsHeaders(request)
+    }
+  })
 }
 
 async function handleListProducts(env, url, request, ctx) {
@@ -1006,14 +1069,15 @@ async function handleListProducts(env, url, request, ctx) {
            s.owner_id AS owner_id,
            s.badge_level AS badge_level,
            s.is_hero_shop AS is_hero_shop,
-           (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = p.shop_id AND r.rating = 5) AS five_star_reviews_count,
-           (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.shop_id = p.shop_id) AS avg_rating,
-           (SELECT COUNT(r.id) FROM reviews r WHERE r.shop_id = p.shop_id) AS review_count
-     FROM products p
-     JOIN shops s ON s.id = p.shop_id AND (s.is_banned = 0 OR (s.banned_until IS NOT NULL AND s.banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
-     ${whereClause}
-     ORDER BY p.created_at DESC
-     LIMIT ?`
+           s.five_star_reviews_count AS five_star_reviews_count,
+           s.avg_rating AS avg_rating,
+           s.review_count AS review_count,
+           s.updated_at AS shop_updated_at
+      FROM products p
+      JOIN shops s ON s.id = p.shop_id AND (s.is_banned = 0 OR (s.banned_until IS NOT NULL AND s.banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
+      ${whereClause}
+      ORDER BY p.created_at DESC
+      LIMIT ?`
   bindings.push(limit)
 
   let results
@@ -1054,15 +1118,22 @@ async function handleListProducts(env, url, request, ctx) {
     ? 'public, max-age=45, s-maxage=90, stale-while-revalidate=180'
     : 'no-cache, no-store, must-revalidate'
 
-  // Generate deterministic ETag from count + max(updated_at/created_at) across ALL rows.
+  // Generate deterministic ETag from count + max timestamp across ALL rows.
   // Using results[0] is wrong: list is ORDER BY created_at, so editing a non-newest
   // product leaves results[0] unchanged and clients get a false 304.
+  // shop_updated_at is included: review-driven badge/rating changes bump only
+  // shops.updated_at, and product cards display those stats.
+  const newestProduct = (r) => {
+    let ts = r.updated_at || r.created_at || '0'
+    if (r.shop_updated_at && r.shop_updated_at > ts) ts = r.shop_updated_at
+    return ts
+  }
   let latestRecord = 'empty'
   if (results.length > 0) {
     latestRecord = results.reduce((max, r) => {
-      const ts = r.updated_at || r.created_at || '0'
+      const ts = newestProduct(r)
       return ts > max ? ts : max
-    }, results[0].updated_at || results[0].created_at || '0')
+    }, newestProduct(results[0]))
   }
   const etag = `W/"${results.length}-${latestRecord}"`
 
@@ -1616,6 +1687,9 @@ async function handleAdminListShops(env, url) {
   const filter = url.searchParams.get('filter') || 'all' // 'all', 'active', 'banned'
   const limit = Math.min(200, Number(url.searchParams.get('limit')) || 100)
 
+  // Admin view stays LIVE (subqueries, not denormalized columns): accuracy
+  // beats speed here, and it must be correct even where the backfill
+  // hasn't run or a badge refresh failed halfway.
   let query = `
     SELECT s.*,
            (SELECT COUNT(*) FROM products p WHERE p.shop_id = s.id) AS product_count,
@@ -1670,7 +1744,7 @@ async function handleAdminBanShop(request, env, admin) {
     ? new Date(Date.now() + durationDays * 86400000).toISOString()
     : null
 
-  await env.DB.prepare('UPDATE shops SET is_banned = ?, ban_reason = ?, banned_until = ? WHERE id = ?').bind(banned, reason, bannedUntil, shopId).run()
+  await env.DB.prepare(`UPDATE shops SET is_banned = ?, ban_reason = ?, banned_until = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`).bind(banned, reason, bannedUntil, shopId).run()
 
   // Bump products updated_at for this shop so client ETags invalidate immediately
   await env.DB.prepare("UPDATE products SET updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE shop_id = ?").bind(shopId).run()
@@ -1693,7 +1767,7 @@ async function handleAdminHeroShop(request, env, admin) {
   const shop = await env.DB.prepare('SELECT id, shop_name, badge_level FROM shops WHERE id = ?').bind(shopId).first()
   if (!shop) return json({ error: 'Shop not found' }, 404)
 
-  await env.DB.prepare('UPDATE shops SET is_hero_shop = ? WHERE id = ?').bind(isHero, shopId).run()
+  await env.DB.prepare(`UPDATE shops SET is_hero_shop = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`).bind(isHero, shopId).run()
 
   // Bump products updated_at so feed ETags invalidate immediately (same as ban):
   // otherwise clients keep 304s / edge-cached non-hero cards until TTL expiry.
@@ -1838,7 +1912,8 @@ async function insertEventOnce(env, { shopId, productId, userId, eventType, sear
     `SELECT id FROM product_events
      WHERE user_id = ? AND event_type = ? AND event_date = ? AND shop_id = ?
        AND ((product_id IS NULL AND ? IS NULL) OR product_id = ?)
-       AND ((search_query IS NULL AND ? IS NULL) OR search_query = ?)`
+       AND ((search_query IS NULL AND ? IS NULL) OR search_query = ?)
+     LIMIT 1`
   ).bind(userId, eventType, today, shopId, productId, productId, searchQuery, searchQuery).first()
   if (existing) return 'duplicate'
   // Bare DO NOTHING (no conflict target): atomic backstop for races the
@@ -2096,7 +2171,7 @@ async function handleGetShopAnalytics(env, url, user) {
       timeseries: timeseries.results || [],
       by_product: byProduct.results || []
     })
-    res.headers.set('Cache-Control', 'no-store')
+    res.headers.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=120')
     return res
   } catch (err) {
     if (String(err.message || '').includes('no such table')) {
@@ -2327,7 +2402,10 @@ async function routeRequest(request, env, ctx) {
         return await handleDeleteReview(request, env, user, url)
       }
       if (request.method === 'GET' && url.pathname === '/api/shops') {
-        return await handleListShops(env)
+        // Direct to D1 every time: the shops feed has no edge cache because
+        // mutations (edits/bans/hero/reviews) cannot reliably invalidate it.
+        // Freshness comes from the ETag-304 flow inside handleListShops.
+        return await handleListShops(env, url, request, ctx)
       }
       if (request.method === 'GET' && url.pathname === '/api/products') {
         const shopId = url.searchParams.get('shop_id')
@@ -2397,6 +2475,26 @@ export default {
     for (const [k, v] of Object.entries(corsHeaders(request))) out.headers.set(k, v)
     for (const [k, v] of Object.entries(securityHeaders())) out.headers.set(k, v)
     return out
+  },
+
+  // Automated scheduled database maintenance (runs via Cloudflare Cron Trigger at 2 AM UTC).
+  // Batched deletes: the first run after months without pruning could exceed
+  // D1 statement/CPU limits in one transaction, starving later statements.
+  async scheduled(event, env, ctx) {
+    const prune = async (sql, label) => {
+      try {
+        for (let i = 0; i < 10; i++) {
+          const res = await env.DB.prepare(sql).run()
+          if ((res?.meta?.changes || 0) === 0) break
+        }
+      } catch (e) {
+        console.warn(`Scheduled ${label} cleanup error:`, e?.message)
+      }
+    }
+    // 1. Delete product_events older than 90 days to prevent 500 MB DB size exhaustion
+    await prune("DELETE FROM product_events WHERE event_date < date('now', '-90 days') LIMIT 2000", 'product_events')
+    // 2. Prune old write_quota records older than 2 days
+    await prune("DELETE FROM write_quota WHERE day < date('now', '-2 days') LIMIT 2000", 'write_quota')
   }
 }
 

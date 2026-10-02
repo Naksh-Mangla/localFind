@@ -16,6 +16,10 @@ CREATE TABLE IF NOT EXISTS shops (
   owner_email     TEXT,
   is_hero_shop    INTEGER NOT NULL DEFAULT 0,
   badge_level     INTEGER NOT NULL DEFAULT 1,
+  five_star_reviews_count INTEGER NOT NULL DEFAULT 0,
+  avg_rating      REAL,
+  review_count    INTEGER NOT NULL DEFAULT 0,
+  updated_at      TEXT,
   subscription_tier TEXT NOT NULL DEFAULT 'free',
   subscription_expires_at TEXT,
   flash_deals_used_this_month INTEGER NOT NULL DEFAULT 0,
@@ -104,10 +108,6 @@ CREATE TABLE IF NOT EXISTS product_events (
 CREATE INDEX IF NOT EXISTS idx_events_shop_date ON product_events(shop_id, event_date);
 CREATE INDEX IF NOT EXISTS idx_events_product_date ON product_events(product_id, event_date);
 CREATE INDEX IF NOT EXISTS idx_events_shop_type_date ON product_events(shop_id, event_type, event_date);
-CREATE INDEX IF NOT EXISTS idx_events_user_type_date ON product_events(user_id, event_type, event_date, shop_id);
-CREATE INDEX IF NOT EXISTS idx_events_shop_hour ON product_events(shop_id, hour_of_day, event_date);
-CREATE INDEX IF NOT EXISTS idx_events_shop_search ON product_events(shop_id, search_query, event_date);
-CREATE INDEX IF NOT EXISTS idx_events_shop_pincode ON product_events(shop_id, buyer_pincode, event_date);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_events_dedupe_once
   ON product_events(user_id, shop_id, event_type, event_date,
     COALESCE(product_id, ''), COALESCE(search_query, ''));

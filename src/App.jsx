@@ -560,7 +560,7 @@ export default function App() {
     } catch {}
   }, [])
 
-  // Periodic background sync (every 60s) + Instant Sync on tab focus with Smart Visibility Pause
+  // Periodic background sync (every 120s) + Instant Sync on tab focus with Smart Visibility Pause
   useEffect(() => {
     let lastAutoSync = 0
 
@@ -569,12 +569,12 @@ export default function App() {
       if (document.visibilityState !== 'visible') return
       // Throttle: avoid double-fetch when visibilitychange + focus fire together
       const now = Date.now()
-      if (now - lastAutoSync < (isPolling ? 50000 : 10000)) return
+      if (now - lastAutoSync < (isPolling ? 110000 : 10000)) return
       lastAutoSync = now
       fetchProducts(false)
     }
 
-    const interval = setInterval(() => maybeFetch(true), 60000)
+    const interval = setInterval(() => maybeFetch(true), 120000)
 
     const handleVisibilityOrFocus = () => {
       // Permission may have been revoked in browser settings while away
