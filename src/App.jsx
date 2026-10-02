@@ -34,6 +34,32 @@ const MerchantDashboard = lazyWithRetry(() => import('./components/MerchantDashb
 const ProductDetailModal = lazyWithRetry(() => import('./components/ProductDetailModal').then(m => ({ default: m.ProductDetailModal })))
 const AdminDashboard = lazyWithRetry(() => import('./components/AdminDashboard').then(m => ({ default: m.AdminDashboard })))
 
+// Shared location helpers (single source of truth for freshness + naming).
+
+// True when this device has a saved, usable location.
+function hasSavedLocation() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
+    return Number.isFinite(Number(saved?.lat)) && Number.isFinite(Number(saved?.lng))
+  } catch {
+    return false
+  }
+}
+
+// Best human name for a Nominatim address object.
+function pickDisplayName(addr, statusPrefix = '') {
+  const name =
+    addr?.suburb ||
+    addr?.neighbourhood ||
+    addr?.residential ||
+    addr?.road ||
+    addr?.city_district ||
+    addr?.city ||
+    addr?.town ||
+    'Live GPS Location'
+  return statusPrefix ? `${statusPrefix} - ${name}` : name
+}
+
 export default function App() {
   const { user, signInWithGoogle, signOut } = useAuth()
   const { canInstall, promptInstall } = usePWAInstall()
@@ -63,14 +89,36 @@ export default function App() {
   // First-run onboarding: true only when this device has NEVER saved a
   // location. New users go straight to the address screen — no automatic
   // GPS/IP attempt, so an IP-guessed city can never become their location.
-  const [isNewUser, setIsNewUser] = useState(() => {
+  const [isNewUser, setIsNewUser] = useState(() => !hasSavedLocation())
+
+  // Accurate-GPS suggestion for fresh installs: offered in the address
+  // screen for one-tap accept, never auto-applied, never IP-based.
+  const [gpsSuggestion, setGpsSuggestion] = useState(null)
+
+  // Lightweight reverse-geocode returning just a display name (no state,
+  // no storage) for the GPS suggestion banner.
+  const reverseGeocodeName = useCallback(async (lat, lng) => {
     try {
-      const saved = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
-      return !(Number.isFinite(Number(saved?.lat)) && Number.isFinite(Number(saved?.lng)))
-    } catch {
-      return true
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+      )
+      if (res.ok) {
+        const data = await res.json()
+        const name = pickDisplayName(data.address)
+        if (name !== 'Live GPS Location') return name
+      }
+    } catch (err) {
+      console.warn('Suggestion reverse-geocode error:', err)
     }
-  })
+    return `GPS (${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)})`
+  }, [])
+
+  const isFreshInstall = useCallback(() => !hasSavedLocation(), [])
+
+  // Guards the fire-and-forget fresh-install GPS attempt: cleared on manual
+  // save, GPS accept, or unmount — so a late fix can never resurrect the
+  // banner, even if localStorage writes fail (private mode, quota).
+  const freshGpsAliveRef = useRef(true)
 
   const [selectedProduct, setSelectedProduct] = useState(null)
   const handleSelectProduct = useCallback((p) => {
@@ -235,18 +283,7 @@ export default function App() {
       )
       if (res.ok) {
         const data = await res.json()
-        const addr = data.address || {}
-        const name =
-          addr.suburb ||
-          addr.neighbourhood ||
-          addr.residential ||
-          addr.road ||
-          addr.city_district ||
-          addr.city ||
-          addr.town ||
-          'Live GPS Location'
-        
-        const displayName = statusPrefix ? `${statusPrefix} - ${name}` : name
+        const displayName = pickDisplayName(data.address, statusPrefix)
         if (reqId && geoRequestRef.current !== reqId) return
         setUserLocationName(displayName)
 
@@ -284,8 +321,10 @@ export default function App() {
     }
   }, [])
 
-  // Get GPS position as a Promise — returns position object + mode ('high' | 'low' | null)
-  const getGPSPosition = useCallback(() => {
+  // Get GPS position as a Promise — returns position object + mode ('high' | 'low' | null).
+  // highOnly skips the LOW-accuracy fallback (cell tower / Wi-Fi / IP guess)
+  // so IP-based locations can never leak in where only true GPS is wanted.
+  const getGPSPosition = useCallback((highOnly = false) => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({ pos: null, mode: null })
@@ -296,6 +335,11 @@ export default function App() {
       navigator.geolocation.getCurrentPosition(
         (pos) => resolve({ pos, mode: 'high' }),
         () => {
+          if (highOnly) {
+            console.warn('High-accuracy GPS failed (high-only mode, no IP fallback).')
+            resolve({ pos: null, mode: null })
+            return
+          }
           // Phase 2: HIGH accuracy failed → try LOW accuracy (cell tower / Wi-Fi)
           console.warn('High-accuracy GPS failed, trying low-accuracy fallback...')
           navigator.geolocation.getCurrentPosition(
@@ -317,22 +361,34 @@ export default function App() {
   }, [])
 
   // Main location detection — auto-runs on app launch and strictly preserves saved manual location.
-  // NEW users skip all automatic detection: the mandatory address screen
-  // collects their exact location; no GPS/IP fix is ever auto-accepted.
+  // NEW users: address screen opens immediately AND one high-accuracy GPS
+  // attempt runs in the background (satellite only — no IP fallback).
+  // Priority: accurate GPS (one-tap accept) > manual typing > never IP.
   const detectLocation = useCallback(async () => {
-    let freshInstall = false
-    try {
-      const s = JSON.parse(localStorage.getItem('localfind_saved_location') || 'null')
-      freshInstall = !(Number.isFinite(Number(s?.lat)) && Number.isFinite(Number(s?.lng)))
-    } catch {
-      freshInstall = true
-    }
-    if (freshInstall) {
+    if (isFreshInstall()) {
       setUserCoords(null)
       setUserLocationName('Set your location')
       setLocationStatus('manual')
       setIsFirstTimeFallback(true)
       setShowLocationPicker(true)
+      setGpsSuggestion(null)
+
+      // Background accurate-GPS attempt: offer, never auto-apply.
+      getGPSPosition(true).then(async ({ pos, mode }) => {
+        if (!freshGpsAliveRef.current) return // saved/closed/unmounted meanwhile
+        if (!pos) return // GPS denied/unavailable → manual form stays
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords
+        const isTrueGPS = Number.isFinite(accuracy) && accuracy <= 250 && mode === 'high'
+        if (!isTrueGPS) {
+          console.warn(`Discarding approx fix (±${Math.round(accuracy || 0)}m) for fresh install — no IP guessing.`)
+          return
+        }
+        if (!freshGpsAliveRef.current || !isFreshInstall()) return
+        const locationName = await reverseGeocodeName(lat, lng)
+        if (!freshGpsAliveRef.current || !isFreshInstall()) return
+        setGpsSuggestion({ lat, lng, accuracy, locationName })
+        console.log(`✅ Accurate GPS ready to offer: ${lat}, ${lng} (±${Math.round(accuracy)}m)`)
+      })
       return
     }
 
@@ -409,13 +465,39 @@ export default function App() {
         setUserLocationName('Enter your area')
       }
     }
-  }, [getGPSPosition, fetchAddressName])
+  }, [getGPSPosition, fetchAddressName, isFreshInstall, reverseGeocodeName])
+
+  // One-tap accept of the accurate-GPS suggestion (explicit user action).
+  const handleAcceptGPS = useCallback(() => {
+    if (!gpsSuggestion) return
+    freshGpsAliveRef.current = false
+    const { lat, lng, accuracy, locationName } = gpsSuggestion
+    setUserCoords({ lat, lng, accuracy })
+    setUserLocationName(locationName || 'Live GPS Location')
+    setLocationStatus('gps')
+    setIsFirstTimeFallback(false)
+    setShowLocationPicker(false)
+    setGpsSuggestion(null)
+    setIsNewUser(false)
+    try {
+      localStorage.setItem(
+        'localfind_saved_location',
+        JSON.stringify({ lat, lng, accuracy, locationName, isGPS: true, isManual: false })
+      )
+    } catch (e) {
+      console.warn('Could not save GPS location to localStorage', e)
+    }
+  }, [gpsSuggestion])
 
   // Auto-detect on app launch (once only)
   useEffect(() => {
     if (hasAutoDetectedRef.current) return
     hasAutoDetectedRef.current = true
+    freshGpsAliveRef.current = true
     detectLocation()
+    return () => {
+      freshGpsAliveRef.current = false
+    }
   }, [detectLocation])
 
   // Fetch products from Cloudflare Worker (Silent background updates without unmounting UI)
@@ -518,6 +600,8 @@ export default function App() {
     setLocationStatus('manual')
     setIsFirstTimeFallback(false)
     setShowLocationPicker(false)
+    setGpsSuggestion(null)
+    freshGpsAliveRef.current = false
     // Onboarding complete: this device now owns an exact saved location,
     // remembered in localStorage across app closes and phone restarts.
     setIsNewUser(false)
@@ -779,6 +863,8 @@ export default function App() {
         locationStatus={locationStatus}
         isFirstTimeFallback={isFirstTimeFallback}
         freshInstall={isNewUser}
+        gpsSuggestion={gpsSuggestion}
+        onAcceptGPS={handleAcceptGPS}
       />
 
       {/* Admin Password Gatekeeper Modal */}

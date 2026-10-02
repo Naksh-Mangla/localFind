@@ -13,7 +13,11 @@ export function LocationPickerModal({
   isFirstTimeFallback = false,
   // True on a device that never saved a location: brand-new user onboarding.
   // We never auto-guess (no IP/GPS fix) — the user types their exact address.
-  freshInstall = false
+  freshInstall = false,
+  // Accurate satellite-GPS fix found in background: offered for one-tap
+  // accept via the banner below, never auto-applied. {lat,lng,accuracy,locationName}
+  gpsSuggestion = null,
+  onAcceptGPS = null
 }) {
   // Sync with Android back gesture — disabled while mandatory (first run with no
   // saved location), matching the blocked X button, overlay tap and Escape key.
@@ -200,6 +204,32 @@ export function LocationPickerModal({
             </button>
           )}
         </div>
+
+        {/* 🛰️ Accurate GPS found in background — one-tap accept (never auto-applied) */}
+        {gpsSuggestion && (
+          <div className="bg-emerald-500/10 border border-emerald-500/40 p-3.5 rounded-xl flex items-center gap-3 animate-fadeIn">
+            <span className="material-symbols-outlined text-emerald-600 dark:text-emerald-400 text-2xl flex-shrink-0">
+              satellite_alt
+            </span>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-xs font-black text-on-surface">
+                GPS found you: {gpsSuggestion.locationName}
+              </h4>
+              <p className="text-[11px] text-on-surface-variant">
+                Accurate to ±{Math.round(gpsSuggestion.accuracy || 0)}m from your phone — not the internet.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                triggerHaptic('success')
+                if (onAcceptGPS) onAcceptGPS()
+              }}
+              className="flex-shrink-0 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl text-xs font-black transition-all shadow-crisp-xs active:scale-95 min-h-[44px]"
+            >
+              Use GPS
+            </button>
+          </div>
+        )}
 
         {/* Fresh install: welcome notice. Otherwise: GPS inaccurate/denied notice. */}
         {freshInstall ? (
