@@ -21,41 +21,83 @@ function KpiCard({ icon, label, value, sub }) {
 }
 
 // Simple SVG line chart: zero deps, easy to read on mobile
+// Zero-dep SVG trend chart. Every line toggles via its legend chip
+// (all on by default); scale follows the visible lines only.
+const CHART_SERIES = [
+  { key: 'detail_opens', label: 'Views', color: '#9c3e20', dash: null, width: 2.5 },
+  { key: 'whatsapp_clicks', label: 'WhatsApp', color: '#059669', dash: '6 3', width: 2 },
+  { key: 'call_clicks', label: 'Calls', color: '#0284c7', dash: '2 3', width: 2 },
+  { key: 'flash_claims', label: 'Claims', color: '#e11d48', dash: '8 3 2 3', width: 2 }
+]
+
 function TimeSeriesChart({ points }) {
   const width = 560
   const height = 160
   const pad = 28
+  const [hidden, setHidden] = useState(() => new Set())
   if (!points || points.length === 0) {
     return <p className="text-xs text-on-surface-variant text-center py-6">No views yet — share your Store QR to get first customers.</p>
   }
-  const views = points.map((p) => Number(p.detail_opens) || 0)
-  const leads = points.map((p) => Number(p.whatsapp_clicks) || 0)
-  const max = Math.max(1, ...views, ...leads)
+  const visible = CHART_SERIES.filter((s) => !hidden.has(s.key))
+  const values = (key) => points.map((p) => Number(p[key]) || 0)
+  const max = Math.max(1, ...visible.flatMap((s) => values(s.key)))
   const stepX = points.length > 1 ? (width - pad * 2) / (points.length - 1) : 0
   const y = (v) => height - pad - (v / max) * (height - pad * 2)
   const x = (i) => (points.length > 1 ? pad + i * stepX : width / 2)
   const line = (arr) => arr.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
+  const toggle = (key) => {
+    setHidden((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else if (visible.length > 1) next.add(key) // keep at least one line
+      return next
+    })
+  }
+  const views = values('detail_opens')
 
   return (
     <div className="w-full overflow-hidden">
-      <svg viewBox={`0 0 ${width} ${height}`} className="block w-full h-auto" style={{ minHeight: 120 }} role="img" aria-label="Views over time">
+      <svg viewBox={`0 0 ${width} ${height}`} className="block w-full h-auto" style={{ minHeight: 120 }} role="img" aria-label="Shop activity over time">
         {[0.25, 0.5, 0.75, 1].map((f) => (
           <line key={f} x1={pad} x2={width - pad} y1={y(max * f)} y2={y(max * f)} stroke="currentColor" strokeOpacity="0.08" strokeDasharray="4 4" />
         ))}
-        <path d={line(views)} fill="none" stroke="#9c3e20" strokeWidth="2.5" strokeLinecap="round" />
-        <path d={line(leads)} fill="none" stroke="#059669" strokeWidth="2" strokeDasharray="6 3" strokeLinecap="round" />
+        {visible.map((s) => (
+          <path
+            key={s.key}
+            d={line(values(s.key))}
+            fill="none"
+            stroke={s.color}
+            strokeWidth={s.width}
+            strokeLinecap="round"
+            {...(s.dash ? { strokeDasharray: s.dash } : {})}
+          />
+        ))}
         {/* Markers only on short series: 90 dense points would overplot into a solid band */}
-        {views.length <= 30 && views.map((v, i) => (
+        {views.length <= 30 && !hidden.has('detail_opens') && views.map((v, i) => (
           <circle key={i} cx={x(i)} cy={y(v)} r="3" fill="#9c3e20" stroke="#fff" strokeWidth="1.5">
-            <title>{`${points[i].date}: ${v} views, ${leads[i]} WhatsApp`}</title>
+            <title>{`${points[i].date}: ${v} views`}</title>
           </circle>
         ))}
       </svg>
       <div className="flex items-center justify-between text-[10px] text-on-surface-variant font-semibold mt-1">
         <span>{points[0]?.date?.slice(5)}</span>
-        <span className="flex items-center gap-3">
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-primary inline-block rounded" /> Views</span>
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-emerald-600 inline-block rounded" /> WhatsApp</span>
+        <span className="flex items-center gap-1.5 flex-wrap justify-end">
+          {CHART_SERIES.map((s) => {
+            const off = hidden.has(s.key)
+            return (
+              <button
+                key={s.key}
+                onClick={() => toggle(s.key)}
+                aria-pressed={!off}
+                aria-label={`${off ? 'Show' : 'Hide'} ${s.label} trend line`}
+                title={`${off ? 'Show' : 'Hide'} ${s.label}`}
+                className={`flex items-center gap-1 px-2 py-1 rounded-full border transition-all active:scale-95 ${off ? 'opacity-50 border-surface-variant/60' : 'border-surface-variant/60 hover:border-primary/50'}`}
+              >
+                <span className="w-3 h-0.5 inline-block rounded" style={{ backgroundColor: off ? '#a1a1aa' : s.color }} />
+                <span className={off ? 'line-through' : ''}>{s.label}</span>
+              </button>
+            )
+          })}
         </span>
         <span>{points[points.length - 1]?.date?.slice(5)}</span>
       </div>

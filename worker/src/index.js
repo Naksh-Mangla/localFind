@@ -2101,7 +2101,9 @@ async function handleGetShopAnalytics(env, url, user) {
          SUM(CASE WHEN event_type = 'impression' THEN 1 ELSE 0 END) AS impressions,
          SUM(CASE WHEN event_type = 'detail_open' THEN 1 ELSE 0 END) AS detail_opens,
          SUM(CASE WHEN event_type = 'whatsapp_click' THEN 1 ELSE 0 END) AS whatsapp_clicks,
-         SUM(CASE WHEN event_type = 'directions_click' THEN 1 ELSE 0 END) AS directions_clicks
+         SUM(CASE WHEN event_type = 'directions_click' THEN 1 ELSE 0 END) AS directions_clicks,
+         SUM(CASE WHEN event_type = 'call_click' THEN 1 ELSE 0 END) AS call_clicks,
+         SUM(CASE WHEN event_type = 'flash_claim' THEN 1 ELSE 0 END) AS flash_claims
        FROM product_events
        WHERE shop_id = ? AND event_date >= ?
        GROUP BY event_date ORDER BY event_date ASC`
