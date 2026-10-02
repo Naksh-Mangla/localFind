@@ -37,14 +37,15 @@ function TimeSeriesChart({ points }) {
   const line = (arr) => arr.map((v, i) => `${i === 0 ? 'M' : 'L'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ')
 
   return (
-    <div className="w-full overflow-x-auto">
-      <svg viewBox={`0 0 ${width} ${height}`} className="w-full min-w-[320px] h-40" role="img" aria-label="Views over time">
+    <div className="w-full overflow-hidden">
+      <svg viewBox={`0 0 ${width} ${height}`} className="block w-full h-auto" style={{ minHeight: 120 }} role="img" aria-label="Views over time">
         {[0.25, 0.5, 0.75, 1].map((f) => (
           <line key={f} x1={pad} x2={width - pad} y1={y(max * f)} y2={y(max * f)} stroke="currentColor" strokeOpacity="0.08" strokeDasharray="4 4" />
         ))}
         <path d={line(views)} fill="none" stroke="#9c3e20" strokeWidth="2.5" strokeLinecap="round" />
         <path d={line(leads)} fill="none" stroke="#059669" strokeWidth="2" strokeDasharray="6 3" strokeLinecap="round" />
-        {views.map((v, i) => (
+        {/* Markers only on short series: 90 dense points would overplot into a solid band */}
+        {views.length <= 30 && views.map((v, i) => (
           <circle key={i} cx={x(i)} cy={y(v)} r="3" fill="#9c3e20" stroke="#fff" strokeWidth="1.5">
             <title>{`${points[i].date}: ${v} views, ${leads[i]} WhatsApp`}</title>
           </circle>
