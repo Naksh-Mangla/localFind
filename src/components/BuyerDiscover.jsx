@@ -14,6 +14,7 @@ import { trackProductEvent, trackImpression, trackSearchView } from '../utils/an
 import { ReviewStars } from './ReviewStars'
 import { ShopBadgePill, HeroShopBadge } from './ShopBadge'
 import { apiFetch } from '../lib/api'
+import { SkeletonGrid } from './SkeletonCard'
 
 // Android-optimized: lazy-load free map only when user opens Map tab (saves 140KB on List view)
 const NearbyMap = React.lazy(() => import('./NearbyMap').then(m => ({ default: m.NearbyMap })))
@@ -31,6 +32,70 @@ const CATEGORIES = [
 ]
 
 const DEFAULT_IMG = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80'
+
+// Per-card reveal with observer cleanup + timeout fallback.
+// Each card owns its observer (simpler than a shared registry at this grid
+// size), but it is always disconnected — on intersect, on unmount, and via
+// the fallback timer — so rapid filter changes can't leak observers.
+// The timeout guarantees no card stays at opacity:0 if the observer never
+// fires (old WebView, hidden tab, rapid filter change). Reduced-motion
+// users skip the animation entirely and render visible immediately.
+function Reveal({ index = 0, children }) {
+  const ref = useRef(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // Already visible (e.g. re-render after reveal): nothing to do.
+    if (el.classList.contains('revealed')) return
+
+    // Reduced motion: visible now, no animation, no observer.
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      el.classList.add('revealed')
+      el.style.animationDelay = '0ms'
+      return
+    }
+
+    let done = false
+    const reveal = () => {
+      if (done) return
+      done = true
+      el.style.animationDelay = `${Math.min(index * 50, 400)}ms`
+      el.classList.add('revealed')
+    }
+
+    // Fallback: reveal anyway after 1.2s even if intersection never fires.
+    const fallback = setTimeout(reveal, 1200)
+
+    let observer = null
+    if (typeof IntersectionObserver === 'function') {
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            reveal()
+            clearTimeout(fallback)
+            observer.disconnect()
+          }
+        },
+        { threshold: 0.1 }
+      )
+      observer.observe(el)
+    } else {
+      reveal()
+    }
+
+    return () => {
+      clearTimeout(fallback)
+      if (observer) observer.disconnect()
+    }
+  }, [index])
+
+  return (
+    <div ref={ref} className="card-reveal">
+      {children}
+    </div>
+  )
+}
 
 // ⚡ Isolated Live Flash Deal Countdown Badge (Subscribes to shared 1s ticker, 0 timer storms)
 const FlashCountdownBadge = React.memo(function FlashCountdownBadge({ deal }) {
@@ -297,7 +362,8 @@ export function BuyerDiscover({
   onChangeLocation,
   locationStatus,
   dealAlertsActive = false,
-  onToggleDealAlerts
+  onToggleDealAlerts,
+  catalogTruncated = false
 }) {
   const [searchQuery, setSearchQuery] = useState('')
   // ⚡ Non-blocking deferred search query for 60+ FPS responsive typing on 1.6 GHz processors
@@ -1464,6 +1530,19 @@ export function BuyerDiscover({
             </section>
           )}
 
+          {/* 🦴 Skeleton Loading State */}
+          {viewMode === 'list' && loading && (
+            <section className="mb-8 animate-fadeIn">
+              <div className="flex items-center gap-2 mb-3.5 px-1">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                  <span className="material-symbols-outlined text-lg animate-pulse">storefront</span>
+                </div>
+                <div className="h-5 skeleton-bone w-40 rounded-md" />
+              </div>
+              <SkeletonGrid count={8} />
+            </section>
+          )}
+
           {/* Hyperlocal Nearby Products Grid */}
           {viewMode === 'list' && !loading && (
             <section className="mb-8">
@@ -1478,6 +1557,14 @@ export function BuyerDiscover({
                       <span className="text-[10px] font-bold bg-primary/10 text-primary px-2.5 py-0.5 rounded-full">
                         {hyperlocalProducts.length} items
                       </span>
+                      {catalogTruncated && (
+                        <span
+                          title="The feed shows the 100 newest products. Older listings are hidden until pagination lands."
+                          className="text-[10px] font-medium text-on-surface-variant/70"
+                        >
+                          · showing 100 newest
+                        </span>
+                      )}
                     </h2>
                   </div>
                 </div>
@@ -1533,15 +1620,16 @@ export function BuyerDiscover({
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
                   {hyperlocalProducts.map((product, index) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      onSelectProduct={onSelectProduct}
-                      isWishlisted={wishlistSet.has(product.id)}
-                      onToggleWishlist={toggleWishlist}
-                      priority={index < 4}
-                      viewer={currentUser}
-                    />
+                    <Reveal key={product.id} index={index}>
+                      <ProductCard
+                        product={product}
+                        onSelectProduct={onSelectProduct}
+                        isWishlisted={wishlistSet.has(product.id)}
+                        onToggleWishlist={toggleWishlist}
+                        priority={index < 4}
+                        viewer={currentUser}
+                      />
+                    </Reveal>
                   ))}
                 </div>
               )}

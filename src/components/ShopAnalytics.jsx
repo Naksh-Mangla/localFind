@@ -7,6 +7,55 @@ const RANGES = [
   { days: 90, label: '90 days' }
 ]
 
+function AnimatedNumber({ value }) {
+  const [displayValue, setDisplayValue] = useState(0)
+  // Live mirror of what's on screen: updated every frame, so a value change
+  // mid-flight continues from the currently displayed number instead of
+  // jumping back to the previous animation's start.
+  const liveRef = React.useRef(0)
+  const num = typeof value === 'number' ? value : parseFloat(value)
+
+  useEffect(() => {
+    if (!Number.isFinite(num)) return
+    // Reduced motion: jump straight to the value, no count-up.
+    if (typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      setDisplayValue(num)
+      liveRef.current = num
+      return
+    }
+    const duration = 400
+    const start = liveRef.current
+    if (start === num) {
+      setDisplayValue(num)
+      return
+    }
+    const startTime = performance.now()
+    let frame = 0
+
+    const step = (now) => {
+      const progress = Math.min((now - startTime) / duration, 1)
+      const current = start + (num - start) * progress
+      liveRef.current = current
+      setDisplayValue(current)
+      if (progress < 1) {
+        frame = requestAnimationFrame(step)
+      } else {
+        setDisplayValue(num)
+        liveRef.current = num
+      }
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [num])
+
+  if (!Number.isFinite(num)) return <span>{value}</span>
+  const isInteger = Number.isInteger(num)
+  const text = isInteger
+    ? Math.round(displayValue).toLocaleString()
+    : displayValue.toLocaleString(undefined, { maximumFractionDigits: 1 })
+  return <span className="tabular-nums">{text}</span>
+}
+
 function KpiCard({ icon, label, value, sub }) {
   return (
     <div className="bg-surface-container-lowest dark:bg-zinc-900 border border-surface-variant/60 rounded-2xl p-4 flex flex-col gap-1 shadow-crisp-xs min-w-0">
@@ -14,7 +63,9 @@ function KpiCard({ icon, label, value, sub }) {
         <span className="material-symbols-outlined text-base text-primary">{icon}</span>
         <span className="text-[11px] font-bold uppercase tracking-wider truncate">{label}</span>
       </div>
-      <div className="text-2xl font-black text-on-surface tracking-tight">{value}</div>
+      <div className="text-2xl font-black text-on-surface tracking-tight">
+        <AnimatedNumber value={value} />
+      </div>
       {sub && <div className="text-[11px] text-on-surface-variant font-medium">{sub}</div>}
     </div>
   )

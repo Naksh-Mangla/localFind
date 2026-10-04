@@ -11,6 +11,7 @@ import { AdminAuthModal } from './components/AdminAuthModal'
 import { isDealAlertsEnabled, enableDealAlerts, disableDealAlerts, checkAndNotifyNewDeals } from './utils/notifications'
 import { triggerHaptic } from './utils/haptics'
 import { trackDetailOpen } from './utils/analytics'
+import { ViewTransition } from './components/ViewTransition'
 
 // Performance optimization: Robust lazy loader with automatic deployment chunk-stale retry
 const lazyWithRetry = (importFn) =>
@@ -500,16 +501,42 @@ export default function App() {
     }
   }, [detectLocation])
 
+  // Sync clock for incremental polls (ref avoids stale closure in intervals).
+  const lastSyncedAtRef = useRef(Date.now())
+  useEffect(() => {
+    lastSyncedAtRef.current = lastSyncedAt
+  }, [lastSyncedAt])
+
+  // Live snapshot of the catalog for the incremental merge below. Merging
+  // from the ref (instead of a setProducts updater) keeps the updater pure
+  // and lets the truncated-flag update live outside of it.
+  const productsRef = useRef([])
+  useEffect(() => {
+    productsRef.current = products
+  }, [products])
+
+  // True when the server page was exactly full: older products exist beyond
+  // the 100-newest window. Surfaced in Discover as "showing 100 newest".
+  const [catalogTruncated, setCatalogTruncated] = useState(false)
+
   // Fetch products from Cloudflare Worker (Silent background updates without unmounting UI)
-  const fetchProducts = useCallback(async (isManualRefresh = false) => {
+  // Full fetch: initial load + manual pull-to-refresh + periodic
+  // reconciliation. Capped at 100 rows — an explicit page (worker default
+  // stays 250 for old clients). Photos are the bulk (~45KB each after WebP
+  // compression), so a bounded page keeps first paint fast on 4G.
+  // unconditional=true skips the ETag/edge cache (one full 200) without
+  // touching the UI loading state — used by the reconciliation poll, since
+  // an ETag-conditional fetch can 304 even when older rows were deleted.
+  const fetchProducts = useCallback(async (isManualRefresh = false, unconditional = false) => {
     try {
       if (isManualRefresh) {
         setIsRefreshing(true)
         clearApiCache()
       }
-      const data = await apiFetch('/api/products', isManualRefresh ? { bustCache: true } : {})
+      const data = await apiFetch('/api/products?limit=100', (isManualRefresh || unconditional) ? { bustCache: true } : {})
       if (data && Array.isArray(data.products)) {
         setProducts(data.products)
+        setCatalogTruncated(Boolean(data.truncated))
         checkAndNotifyNewDeals(data.products, userCoords)
       }
       setLastSyncedAt(Date.now())
@@ -520,6 +547,69 @@ export default function App() {
       setIsRefreshing(false)
     }
   }, [userCoords])
+
+  // Incremental poll: asks only "what changed since my last sync?" via the
+  // worker's ?since= filter. No-change reply is ~20 bytes (vs 5-15MB for a
+  // full re-download of 100 base64 photos). Changed rows arrive with full
+  // images and are merged by id — existing photos are never re-downloaded.
+  // Limits: worker has no delete tombstones, so deletions only reconcile on
+  // the periodic full fetch (every 6th poll) or manual pull-to-refresh.
+  const pollCountRef = useRef(0)
+  const fetchProductsIncremental = useCallback(async () => {
+    try {
+      pollCountRef.current += 1
+      // Every 6th poll (~12 min) do an UNCONDITIONAL full fetch to reconcile
+      // deletions and cap drift. Conditional (ETag) would 304 whenever the
+      // newest page is unchanged — exactly the case where an older row was
+      // deleted — so the deleted card would persist indefinitely.
+      if (pollCountRef.current % 6 === 0) {
+        await fetchProducts(false, true)
+        return
+      }
+      // 5-min overlap covers client/server clock skew; duplicates are
+      // harmless (merged by id below).
+      const sinceMs = (lastSyncedAtRef.current || Date.now()) - 5 * 60 * 1000
+      const sinceISO = new Date(sinceMs).toISOString()
+      // limit=500 (worker max): a bulk import changing >100 rows in one
+      // window must not be truncated behind the advancing lastSyncedAt.
+      // Deltas are normally 0-2 rows, so the high cap costs nothing.
+      const data = await apiFetch(`/api/products?since=${encodeURIComponent(sinceISO)}&limit=500`)
+      if (data && Array.isArray(data.products) && data.products.length > 0) {
+        const byId = new Map(productsRef.current.map((p) => [String(p.id), p]))
+        for (const p of data.products) {
+          // Slim-row guard: a ?slim=1 row carries image_url:null + has_image.
+          // Merging it blindly would wipe the photo we already hold — keep
+          // the existing full row and only take non-image fields.
+          const key = String(p.id)
+          const existing = byId.get(key)
+          if (p.image_url == null && p.has_image && existing?.image_url) {
+            byId.set(key, { ...p, image_url: existing.image_url })
+          } else {
+            byId.set(key, p)
+          }
+        }
+        // The delta feed carries no truncated flag, but growth past the
+        // 100-newest page is detectable locally: upgrade the cap notice
+        // immediately instead of waiting for the next full fetch.
+        // (Only ever upgrades false→true here. The full fetch remains the
+        // source of truth both ways.)
+        if (byId.size > 100) setCatalogTruncated(true)
+        // Server order is created_at DESC (newest first). Map preserves
+        // insertion, so freshly added products would land at the bottom —
+        // re-sort every merge so a new listing appears at the top, exactly
+        // like a full fetch. Stable for unchanged sets (same keys, same
+        // relative order), capped to the 100-newest page when grown.
+        let merged = [...byId.values()].sort((a, b) =>
+          String(b.created_at || '').localeCompare(String(a.created_at || '')))
+        if (merged.length > 100) merged = merged.slice(0, 100)
+        setProducts(merged)
+        checkAndNotifyNewDeals(data.products, userCoords)
+      }
+      setLastSyncedAt(Date.now())
+    } catch (err) {
+      console.warn('Incremental product sync failed (keeping cached catalog):', err)
+    }
+  }, [userCoords, fetchProducts])
 
   useEffect(() => {
     fetchProducts(false)
@@ -561,6 +651,8 @@ export default function App() {
   }, [])
 
   // Periodic background sync (every 120s) + Instant Sync on tab focus with Smart Visibility Pause
+  // Polls are incremental (?since=): ~20 bytes when nothing changed, so 100
+  // background users cost less than 1 full re-download did before.
   useEffect(() => {
     let lastAutoSync = 0
 
@@ -571,7 +663,7 @@ export default function App() {
       const now = Date.now()
       if (now - lastAutoSync < (isPolling ? 110000 : 10000)) return
       lastAutoSync = now
-      fetchProducts(false)
+      fetchProductsIncremental()
     }
 
     const interval = setInterval(() => maybeFetch(true), 120000)
@@ -589,7 +681,7 @@ export default function App() {
       document.removeEventListener('visibilitychange', handleVisibilityOrFocus)
       window.removeEventListener('focus', handleVisibilityOrFocus)
     }
-  }, [fetchProducts])
+  }, [fetchProductsIncremental])
 
   // Handle manual location selection from LocationPickerModal
   const handleSelectManualLocation = useCallback(({ lat, lng, accuracy, locationName, pincode, address, landmark }) => {
@@ -736,110 +828,99 @@ export default function App() {
         onInstall={promptInstall}
       />
 
-      {/* View Router with Smooth Transitions */}
-      <div className="flex-1 transition-all duration-300">
-        {activeView === 'admin' ? (
-          isUnlocked ? (
-            <div className="animate-fadeIn">
-              <Suspense
-                fallback={
-                  <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
-                    <div className="w-10 h-10 rounded-full border-2 border-purple-400 border-t-transparent animate-spin mb-3"></div>
-                    <span className="text-xs font-bold text-on-surface-variant">Loading Admin Panel...</span>
+      {/* View Router with Smooth Directional Transitions */}
+      <div className="flex-1 overflow-x-hidden">
+        <ViewTransition viewKey={activeView} viewOrder={['discover', 'merchant', 'admin']}>
+          {(currentView) => (
+            <>
+              {currentView === 'admin' ? (
+                isUnlocked ? (
+                  <div>
+                    <Suspense
+                      fallback={
+                        <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+                          <div className="w-10 h-10 rounded-full border-2 border-purple-400 border-t-transparent animate-spin mb-3"></div>
+                          <span className="text-xs font-bold text-on-surface-variant">Loading Admin Panel...</span>
+                        </div>
+                      }
+                    >
+                      <AdminDashboard
+                        onClose={() => {
+                          clearApiCache()
+                          fetchProducts(true)
+                          setActiveView('discover')
+                        }}
+                        onLock={() => {
+                          lockAdmin()
+                          clearApiCache()
+                          fetchProducts(true)
+                          setActiveView('discover')
+                        }}
+                        onDataChanged={() => {
+                          clearApiCache()
+                          fetchProducts(true)
+                        }}
+                      />
+                    </Suspense>
                   </div>
-                }
-              >
-                <AdminDashboard
-                  onClose={() => {
-                    clearApiCache()
-                    fetchProducts(true)
-                    setActiveView('discover')
-                  }}
-                  onLock={() => {
-                    lockAdmin()
-                    clearApiCache()
-                    fetchProducts(true)
-                    setActiveView('discover')
-                  }}
-                  onDataChanged={() => {
-                    clearApiCache()
-                    fetchProducts(true)
-                  }}
-                />
-              </Suspense>
-            </div>
-          ) : (
-            <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center animate-fadeIn">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl mb-3">
-                🔒
-              </div>
-              <h3 className="text-base font-bold text-on-surface mb-1">Admin Panel Locked</h3>
-              <p className="text-xs text-on-surface-variant mb-4">Please enter your admin credentials to continue.</p>
-              <button
-                onClick={() => setShowAdminAuthModal(true)}
-                className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-bold rounded-xl shadow-md active:scale-95 transition-all"
-              >
-                Unlock with Password
-              </button>
-            </div>
-          )
-        ) : activeView === 'discover' ? (
-          <div className="animate-fadeIn">
-            <BuyerDiscover
-              products={products}
-              userCoords={userCoords}
-              currentUser={user}
-              onSelectProduct={handleSelectProduct}
-              loading={initialLoading && products.length === 0}
-              onRefreshProducts={() => fetchProducts(true)}
-              refreshing={isRefreshing}
-              lastSyncedAt={lastSyncedAt}
-              onChangeLocation={() => setShowLocationPicker(true)}
-              locationStatus={locationStatus}
-              dealAlertsActive={dealAlertsActive}
-              onToggleDealAlerts={handleToggleDealAlerts}
-            />
-          </div>
-        ) : activeView === 'merchant' ? (
-          <div className="animate-fadeIn">
-            <Suspense
-              fallback={
-                <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
-                  <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin mb-3"></div>
-                  <span className="text-xs font-bold text-on-surface-variant">Opening Shop Dashboard...</span>
+                ) : (
+                  <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+                    <div className="w-12 h-12 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 text-xl mb-3">
+                      🔒
+                    </div>
+                    <h3 className="text-base font-bold text-on-surface mb-1">Admin Panel Locked</h3>
+                    <p className="text-xs text-on-surface-variant mb-4">Please enter your admin credentials to continue.</p>
+                    <button
+                      onClick={() => setShowAdminAuthModal(true)}
+                      className="px-5 py-2.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-xs font-bold rounded-xl shadow-md active:scale-95 transition-all hover-glow-ring"
+                    >
+                      Unlock with Password
+                    </button>
+                  </div>
+                )
+              ) : currentView === 'merchant' ? (
+                <div>
+                  <Suspense
+                    fallback={
+                      <div className="min-h-[50vh] flex flex-col items-center justify-center p-6 text-center">
+                        <div className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent animate-spin mb-3"></div>
+                        <span className="text-xs font-bold text-on-surface-variant">Opening Shop Dashboard...</span>
+                      </div>
+                    }
+                  >
+                    <MerchantDashboard
+                      user={user}
+                      signInWithGoogle={signInWithGoogle}
+                      signOut={signOut}
+                      userCoords={userCoords}
+                      onRefreshProducts={() => fetchProducts(true)}
+                      lastSyncedAt={lastSyncedAt}
+                      onSwitchToBuyer={() => setActiveView('discover')}
+                    />
+                  </Suspense>
                 </div>
-              }
-            >
-              <MerchantDashboard
-                user={user}
-                signInWithGoogle={signInWithGoogle}
-                signOut={signOut}
-                userCoords={userCoords}
-                onRefreshProducts={() => fetchProducts(true)}
-                lastSyncedAt={lastSyncedAt}
-                onSwitchToBuyer={() => setActiveView('discover')}
-              />
-            </Suspense>
-          </div>
-        ) : (
-          // Unknown view (e.g. stale ?view=admin for non-admins) falls back to discover
-          <div className="animate-fadeIn">
-            <BuyerDiscover
-              products={products}
-              userCoords={userCoords}
-              currentUser={user}
-              onSelectProduct={handleSelectProduct}
-              loading={initialLoading && products.length === 0}
-              onRefreshProducts={() => fetchProducts(true)}
-              refreshing={isRefreshing}
-              lastSyncedAt={lastSyncedAt}
-              onChangeLocation={() => setShowLocationPicker(true)}
-              locationStatus={locationStatus}
-              dealAlertsActive={dealAlertsActive}
-              onToggleDealAlerts={handleToggleDealAlerts}
-            />
-          </div>
-        )}
+              ) : (
+                <div>
+                  <BuyerDiscover
+                    products={products}
+                    userCoords={userCoords}
+                    currentUser={user}
+                    onSelectProduct={handleSelectProduct}
+                    loading={initialLoading && products.length === 0}
+                    onRefreshProducts={() => fetchProducts(true)}
+                    refreshing={isRefreshing}
+                    lastSyncedAt={lastSyncedAt}
+                    onChangeLocation={() => setShowLocationPicker(true)}
+                    locationStatus={locationStatus}
+                    dealAlertsActive={dealAlertsActive}
+                    onToggleDealAlerts={handleToggleDealAlerts}
+                    catalogTruncated={catalogTruncated}
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </ViewTransition>
       </div>
 
       {/* Product Detail Modal */}
@@ -849,6 +930,9 @@ export default function App() {
             product={selectedProduct}
             onClose={() => setSelectedProduct(null)}
             onReviewSubmitted={() => fetchProducts(false)}
+            onProductGone={(id) =>
+              setProducts((prev) => prev.filter((p) => String(p.id) !== String(id)))
+            }
           />
         </Suspense>
       )}
@@ -882,7 +966,7 @@ export default function App() {
             triggerHaptic('selection')
             setActiveView('discover')
           }}
-          className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] nav-pill-ripple ${
             activeView === 'discover'
               ? 'bg-primary text-white shadow-xs scale-[1.02]'
               : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'
@@ -897,7 +981,7 @@ export default function App() {
             triggerHaptic('selection')
             setActiveView('merchant')
           }}
-          className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] nav-pill-ripple ${
             activeView === 'merchant'
               ? 'bg-primary text-white shadow-xs scale-[1.02]'
               : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'
@@ -913,7 +997,7 @@ export default function App() {
               triggerHaptic('selection')
               handleOpenAdmin()
             }}
-            className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] ${
+            className={`flex items-center justify-center gap-1.5 py-2 px-4 rounded-full transition-all duration-200 active:scale-95 text-xs font-bold whitespace-nowrap min-h-[36px] nav-pill-ripple ${
               activeView === 'admin'
                 ? 'bg-purple-500 text-white shadow-xs scale-[1.02]'
                 : 'text-on-surface-variant/80 hover:text-on-surface hover:bg-surface-variant/30'

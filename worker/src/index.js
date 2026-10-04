@@ -1035,34 +1035,65 @@ async function handleListProducts(env, url, request, ctx) {
   const category = url ? url.searchParams.get('category') : null
   const flashOnly = url ? (url.searchParams.get('flash_deals_only') === '1' || url.searchParams.get('flash_deals_only') === 'true') : false
   const since = url ? url.searchParams.get('since') : null
+  // D1-only image optimization: ?slim=1 omits the fat base64 image_url column
+  // (returns has_image + image_len instead). Use for background polls and
+  // first-paint text feed; fetch full images only for visible/shop detail.
+  const slim = url ? (url.searchParams.get('slim') === '1' || url.searchParams.get('slim') === 'true') : false
   const limitParam = url ? Number(url.searchParams.get('limit')) : NaN
+  // Default stays 250 for backward compat (old clients with no ?limit= param
+  // keep getting what they got before). The app sends ?limit=100 explicitly.
   const limit = Number.isFinite(limitParam) && limitParam > 0 ? Math.min(500, limitParam) : 250
 
+  // Since-filter fragments as shared consts: the main query watches shop
+  // timestamps too (review-driven badge/rating edits bump only
+  // shops.updated_at, but cards display those stats), while the fallback
+  // targets pre-migration DBs that may lack shops.updated_at and gets the
+  // product-only variant — degrading to "product edits only" there instead
+  // of 500ing. Built from the same consts (not string surgery), so editing
+  // one fragment can never silently desync the other.
+  const SINCE_MAIN = '(p.updated_at > ? OR p.created_at > ? OR s.updated_at > ?)'
+  const SINCE_FALLBACK = '(p.updated_at > ? OR p.created_at > ?)'
   const conditions = []
   const bindings = []
+  const conditionsFallback = []
+  const bindingsFallback = []
+  const pushCond = (sql, params, sqlFb = sql, paramsFb = params) => {
+    conditions.push(sql)
+    bindings.push(...params)
+    conditionsFallback.push(sqlFb)
+    bindingsFallback.push(...paramsFb)
+  }
 
   if (shopId) {
-    conditions.push('p.shop_id = ?')
-    bindings.push(cleanText(shopId, 64))
+    const id = cleanText(shopId, 64)
+    pushCond('p.shop_id = ?', [id])
   }
   if (category && category !== 'All') {
-    conditions.push('p.category = ?')
-    bindings.push(cleanText(category, 40))
+    const cat = cleanText(category, 40)
+    pushCond('p.category = ?', [cat])
   }
   if (flashOnly) {
-    conditions.push("p.is_flash_deal = 1 AND (p.flash_deal_ends_at IS NULL OR p.flash_deal_ends_at > datetime('now'))")
+    pushCond("p.is_flash_deal = 1 AND (p.flash_deal_ends_at IS NULL OR p.flash_deal_ends_at > datetime('now'))")
   }
   if (since) {
     const sanitizedSince = sanitizeFlashEndsAt(since)
     if (sanitizedSince) {
-      conditions.push('(p.updated_at > ? OR p.created_at > ?)')
-      bindings.push(sanitizedSince, sanitizedSince)
+      pushCond(SINCE_MAIN, [sanitizedSince, sanitizedSince, sanitizedSince], SINCE_FALLBACK, [sanitizedSince, sanitizedSince])
     }
   }
 
   const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : ''
+  const whereClauseFallback = conditionsFallback.length > 0 ? `WHERE ${conditionsFallback.join(' AND ')}` : ''
+  // NOTE: the limit+1 probe is appended to both binding arrays after the
+  // SELECT strings below (main: bindings, fallback: bindingsFallback).
+  // Slim feed selects NULL instead of the fat TEXT column: same rows, ~95%
+  // smaller JSON when products carry 30-60KB base64 photos. has_image lets
+  // the client decide whether a detail fetch is needed.
+  const imageSelect = slim
+    ? `NULL AS image_url, (CASE WHEN p.image_url IS NOT NULL AND p.image_url != '' THEN 1 ELSE 0 END) AS has_image, LENGTH(COALESCE(p.image_url,'')) AS image_len,`
+    : `p.image_url,`
   const query = `
-    SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
+    SELECT p.id, p.shop_id, p.name, p.price, p.category, ${imageSelect}
            p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
            p.version, p.updated_at, p.created_at,
            s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
@@ -1076,9 +1107,11 @@ async function handleListProducts(env, url, request, ctx) {
       FROM products p
       JOIN shops s ON s.id = p.shop_id AND (s.is_banned = 0 OR (s.banned_until IS NOT NULL AND s.banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
       ${whereClause}
-      ORDER BY p.created_at DESC
-      LIMIT ?`
-  bindings.push(limit)
+       ORDER BY p.created_at DESC
+       LIMIT ?`
+  // Probe one row past the page: distinguishes "page exactly full, nothing
+  // more" from "more rows beyond the page" with no extra COUNT query.
+  bindings.push(limit + 1)
 
   let results
   try {
@@ -1086,11 +1119,15 @@ async function handleListProducts(env, url, request, ctx) {
     const res = await stmt.bind(...bindings).all()
     results = res.results || []
   } catch (err) {
-    // Fallback if reviews/badge columns not yet migrated (first deploy) - don't break product feed
+    // Fallback if reviews/badge columns not yet migrated (first deploy) - don't break product feed.
+    // NOTE: the fallback deliberately omits BOTH the badge aliases AND the
+    // s.updated_at alias / shop-timestamp since disjunct — a pre-migration DB
+    // may lack shops.updated_at too, and selecting it here would turn this
+    // safety net into a hard 500. Shop-stat deltas reconcile post-migration.
     const msg = String(err.message || '')
     if (msg.includes('no such table: reviews') || msg.includes('no such column')) {
       const fallbackQuery = `
-        SELECT p.id, p.shop_id, p.name, p.price, p.category, p.image_url,
+        SELECT p.id, p.shop_id, p.name, p.price, p.category, ${imageSelect}
                p.is_affiliate_fallback, p.affiliate_link, p.is_flash_deal, p.flash_deal_discount, p.flash_deal_ends_at,
                p.version, p.updated_at, p.created_at,
                s.shop_name, s.owner_name, s.description, s.opening_time, s.closing_time, s.whatsapp_number, s.lat, s.lng, s.address_text,
@@ -1101,11 +1138,12 @@ async function handleListProducts(env, url, request, ctx) {
                NULL AS avg_rating, 0 AS review_count
          FROM products p
          JOIN shops s ON s.id = p.shop_id AND (s.is_banned = 0 OR (s.banned_until IS NOT NULL AND s.banned_until <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')))
-         ${whereClause}
+         ${whereClauseFallback}
          ORDER BY p.created_at DESC
          LIMIT ?`
+      bindingsFallback.push(limit + 1)
       const stmt2 = env.DB.prepare(fallbackQuery)
-      const res2 = await stmt2.bind(...bindings).all()
+      const res2 = await stmt2.bind(...bindingsFallback).all()
       results = res2.results || []
     } else {
       throw err
@@ -1113,16 +1151,36 @@ async function handleListProducts(env, url, request, ctx) {
   }
 
   // Determine if this is a global query eligible for Cloudflare Edge RAM & CDN caching
-  const isGlobalPublicQuery = !shopId && !since && (!category || category === 'All') && !flashOnly
+  // Slim global feeds are cacheable too (URL differs, so cache key differs).
+  // Cache-busted URLs (?_cb=, manual refresh / reconciliation polls) are
+  // NEVER written: each carries a unique timestamp and would insert a
+  // never-reused entry, churning useful entries out (read path already
+  // excludes them the same way).
+  const hasCacheBust = url ? url.searchParams.has('_cb') : false
+  const isGlobalPublicQuery = !hasCacheBust && !shopId && !since && (!category || category === 'All') && !flashOnly
   const cacheControl = isGlobalPublicQuery
     ? 'public, max-age=45, s-maxage=90, stale-while-revalidate=180'
     : 'no-cache, no-store, must-revalidate'
+
+  // truncated flag: true only when rows exist beyond the page. The probe
+  // row is trimmed BEFORE the ETag is computed, so the ETag count always
+  // matches the rows actually returned (previously it counted the probe).
+  // NOTE: in a >limit catalog, deleting a non-newest row leaves count,
+  // timestamp and flag identical → still 304s. Clients must not rely on the
+  // ETag alone for deletions (the app forces an unconditional full fetch
+  // every 6th poll for exactly this reason).
+  const truncated = results.length > limit
+  if (truncated) results = results.slice(0, limit)
 
   // Generate deterministic ETag from count + max timestamp across ALL rows.
   // Using results[0] is wrong: list is ORDER BY created_at, so editing a non-newest
   // product leaves results[0] unchanged and clients get a false 304.
   // shop_updated_at is included: review-driven badge/rating changes bump only
   // shops.updated_at, and product cards display those stats.
+  // slim and truncated flags are part of the ETag: a slim response must
+  // never 304-match a full response (and vice versa), and a truncated page
+  // must never 304-match a complete one, otherwise the UI would stick on
+  // imageless rows or a stale cap notice.
   const newestProduct = (r) => {
     let ts = r.updated_at || r.created_at || '0'
     if (r.shop_updated_at && r.shop_updated_at > ts) ts = r.shop_updated_at
@@ -1135,7 +1193,7 @@ async function handleListProducts(env, url, request, ctx) {
       return ts > max ? ts : max
     }, newestProduct(results[0]))
   }
-  const etag = `W/"${results.length}-${latestRecord}"`
+  const etag = `W/"${results.length}-${latestRecord}${slim ? '-slim' : ''}${truncated ? '-truncated' : ''}"`
 
   // Zero-Bandwidth ETag check: Return 304 Not Modified if client catalog is already up to date
   const clientEtag = request?.headers?.get('If-None-Match')
@@ -1150,7 +1208,7 @@ async function handleListProducts(env, url, request, ctx) {
     })
   }
 
-  const response = new Response(JSON.stringify({ products: results, app_version: '2.4.0' }), {
+  const response = new Response(JSON.stringify({ products: results, truncated, app_version: '2.4.0' }), {
     status: 200,
     headers: {
       'Content-Type': 'application/json',

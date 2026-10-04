@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { formatDistance } from '../utils/haversine'
 import { getRAGStatus, parseTimestamp } from '../utils/syncRAG'
 import { getStoreOpenStatus } from '../utils/storeHours'
@@ -11,9 +11,39 @@ import { apiFetch } from '../lib/api'
 import { trackProductEvent } from '../utils/analytics'
 import { ReviewStars } from './ReviewStars'
 
-export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
+export function ProductDetailModal({ product, onClose, onReviewSubmitted, onProductGone }) {
+  // Smooth Apple-style exit choreography (guarded: no double-close from
+  // backdrop + Escape + Android back landing inside the 250ms exit window).
+  const [isExiting, setIsExiting] = useState(false)
+  const closeTimerRef = useRef(null)
+  // Call sites pass inline arrows (new identity every parent render).
+  // Reading onClose via ref keeps handleClose — and every effect keyed on
+  // it — stable, so listeners/overflow aren't torn down on each render.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+  // Optional (App passes it): drop the card from the feed when verified gone.
+  const onProductGoneRef = useRef(onProductGone)
+  useEffect(() => {
+    onProductGoneRef.current = onProductGone
+  })
+  const handleClose = useCallback(() => {
+    if (closeTimerRef.current) return
+    setIsExiting(true)
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null
+      setIsExiting(false)
+      onCloseRef.current()
+    }, 250)
+  }, [])
+
+  // Unmount safety: a parent that closes directly must not get a stale
+  // onClose after unmount.
+  useEffect(() => () => clearTimeout(closeTimerRef.current), [])
+
   // Sync with Android hardware & gesture back button
-  useAndroidBackHandler(Boolean(product), onClose, 'product_detail')
+  useAndroidBackHandler(Boolean(product), handleClose, 'product_detail')
 
   const { user, signInWithGoogle } = useAuth()
   const [reviews, setReviews] = useState([])
@@ -35,8 +65,14 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
     }
   })
 
-  // Resync wishlist when a different product is opened in the same mounted modal
+  // Resync wishlist when a different product is opened in the same mounted modal.
+  // Also drop any pending exit: starting an exit on product A (backdrop tap)
+  // then opening B within 250ms would otherwise render B mid-exit with its
+  // close blocked, until A's stale timer kills B via onClose.
   useEffect(() => {
+    clearTimeout(closeTimerRef.current)
+    closeTimerRef.current = null
+    setIsExiting(false)
     try {
       const saved = JSON.parse(localStorage.getItem('localfind_wishlist') || '[]')
       setIsWishlisted(saved.includes(product?.id))
@@ -80,7 +116,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
     }
     const handleKeyDown = (e) => {
       if (e.key === 'Escape') {
-        onClose()
+        handleClose()
       }
     }
     window.addEventListener('storage', handleStorage)
@@ -95,7 +131,7 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
       window.removeEventListener('keydown', handleKeyDown)
       document.body.style.overflow = originalOverflow
     }
-  }, [product?.id, onClose])
+  }, [product?.id, handleClose])
 
   // Fetch live shop reviews (shop-level, live avg)
   useEffect(() => {
@@ -137,7 +173,71 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
     }
   }, [product?.avg_rating, product?.review_count])
 
+  // Stale-card guard: the Discover list can lag deletions/bans by up to ~12
+  // min (delta polls carry no tombstones). Verify this product still exists
+  // via a tiny slim shop feed (ids only, no photos). Fail-open: a network
+  // error never marks the product gone — only a successful reply missing
+  // the id does (deleted product or banned shop hides the whole list).
+  const [gone, setGone] = useState(false)
+  useEffect(() => {
+    setGone(false)
+    if (!product?.id || !product?.shop_id) return
+    let cancelled = false
+    // limit=500 (worker max): a shop with 100+ listings must still find an
+    // older listing — a newest-100 page would false-positive it as deleted.
+    const verify = async () => {
+      try {
+        const data = await apiFetch(`/api/products?shop_id=${encodeURIComponent(product.shop_id)}&slim=1&limit=500`)
+        if (cancelled) return
+        const ids = new Set((data.products || []).map((p) => String(p.id)))
+        if (!ids.has(String(product.id))) {
+          setGone(true)
+          try {
+            onProductGoneRef.current?.(product.id)
+          } catch {}
+        }
+      } catch {
+        // Fail open: keep showing the cached card on network errors.
+      }
+    }
+    verify()
+    return () => { cancelled = true }
+  }, [product?.id, product?.shop_id])
+
   if (!product) return null
+
+  // Listing removed while the buyer was browsing: fail gracefully instead
+  // of showing order/WhatsApp actions for a product that no longer exists.
+  if (gone) {
+    return (
+      <div
+        onClick={handleClose}
+        className={`fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md ${isExiting ? 'animate-backdrop-out' : 'animate-backdrop-in'}`}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Listing no longer available"
+          onClick={(e) => e.stopPropagation()}
+          className={`relative w-full max-w-sm bg-surface rounded-t-[32px] sm:rounded-3xl shadow-crisp-xl border border-surface-variant/70 p-6 text-center flex flex-col gap-3 ${isExiting ? 'animate-sheet-down sm:animate-springScaleOut' : 'animate-sheet-up sm:animate-springScaleIn'}`}
+        >
+          <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center bg-surface-container-high text-on-surface-variant">
+            <span className="material-symbols-outlined text-2xl">search_off</span>
+          </div>
+          <h3 className="text-base font-bold text-on-surface">No longer available</h3>
+          <p className="text-xs text-on-surface-variant leading-relaxed">
+            This listing was just removed by the shopkeeper. It has been taken off your feed.
+          </p>
+          <button
+            onClick={handleClose}
+            className="mt-1 w-full bg-primary text-white py-2.5 px-4 rounded-xl text-xs font-bold shadow-md active:scale-95 transition-all"
+          >
+            Back to products
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   // Android Native Web Share Handler — deep-link so recipients land on this product
   const getProductShareUrl = () => {
@@ -293,15 +393,15 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
 
   return (
     <div 
-      onClick={onClose}
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none animate-fadeIn"
+      onClick={handleClose}
+      className={`fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/75 backdrop-blur-md overflow-hidden overscroll-none select-none ${isExiting ? 'animate-backdrop-out' : 'animate-backdrop-in'}`}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-label={`Details of ${product.name}`}
         onClick={(e) => e.stopPropagation()}
-        className="relative w-full max-w-2xl bg-surface rounded-t-[32px] sm:rounded-3xl shadow-crisp-xl overflow-y-auto overscroll-contain border border-surface-variant/70 max-h-[90dvh] flex flex-col scroll-smooth animate-slide-up-sheet sm:animate-popIn select-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))]"
+        className={`relative w-full max-w-2xl bg-surface rounded-t-[32px] sm:rounded-3xl shadow-crisp-xl overflow-y-auto overscroll-contain border border-surface-variant/70 max-h-[90dvh] flex flex-col scroll-smooth select-auto pb-[calc(1rem+env(safe-area-inset-bottom,0px))] ${isExiting ? 'animate-sheet-down sm:animate-springScaleOut' : 'animate-sheet-up sm:animate-springScaleIn'}`}
       >
         {/* Mobile Drag Handle */}
         <div className="w-12 h-1 bg-on-surface/20 rounded-full mx-auto mt-2.5 mb-1 sm:hidden"></div>
@@ -309,9 +409,9 @@ export function ProductDetailModal({ product, onClose, onReviewSubmitted }) {
         {/* Floating Action Buttons (Sticky at top of modal) */}
         <div className="sticky top-3 left-0 right-0 z-20 flex justify-between items-center px-4 pointer-events-none -mb-14">
           <button
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Back to products"
-            className="tap-expand pointer-events-auto w-10 h-10 rounded-full bg-surface/85 backdrop-blur-md shadow-crisp-sm flex items-center justify-center text-on-surface hover:bg-surface transition-transform active:scale-90 border border-surface-variant/40"
+            className="tap-expand pointer-events-auto w-10 h-10 rounded-full bg-surface/85 backdrop-blur-md shadow-crisp-sm flex items-center justify-center text-on-surface hover:bg-surface transition-transform active:scale-90 border border-surface-variant/40 hover-glow-ring"
           >
             <span className="material-symbols-outlined text-lg">arrow_back</span>
           </button>

@@ -10,17 +10,28 @@ const memoryPayloadCache = new Map()
 const memoryEtagCache = new Map()
 
 // Initialize product cache from localStorage for instant offline/0ms boot.
-// CAUTION: the persisted copy may be "slim" (inline photos stripped, marked
-// with _slim) to fit the ~5MB quota. A slim copy must NEVER seed the memory
-// cache: a later 304 would serve imageless products and the UI would stick on
-// placeholder images. Slim boots force one unconditional fetch instead (below).
+// CAUTION: the persisted copy is always "slim" (inline photos stripped,
+// marked with _slim) to fit the ~5MB quota. A slim copy must NEVER seed the
+// memory cache: a later 304 would serve imageless products and the UI would
+// stick on placeholder images.
+// Only the live ?limit=100 key is seeded (nothing else reads the cache).
+// Saved ETags are deliberately NOT seeded: a stale ETag without its payload
+// can never attach (see the If-None-Match guard below), and a pre-update
+// 250-row ETag could never 304-match the 100-row page anyway — first fetch
+// after upgrade is one plain 200. A legacy full copy (_slim:false, written
+// by older builds) still seeds once and is then refreshed normally —
+// sliced to the live 100-row page so first paint never shows 250 rows that
+// snap down to 100 (plus a late cap notice) seconds later.
 try {
-  const savedEtag = localStorage.getItem('localfind_cached_products_etag')
   const savedProducts = localStorage.getItem('localfind_cached_products')
-  if (savedEtag) memoryEtagCache.set('/api/products', savedEtag)
   if (savedProducts) {
     const parsed = JSON.parse(savedProducts)
-    if (parsed && !parsed._slim) memoryPayloadCache.set('/api/products', parsed)
+    if (parsed && !parsed._slim) {
+      const sliced = Array.isArray(parsed.products) && parsed.products.length > 100
+        ? { ...parsed, products: parsed.products.slice(0, 100) }
+        : parsed
+      memoryPayloadCache.set('/api/products?limit=100', sliced)
+    }
   }
 } catch {}
 
@@ -48,19 +59,16 @@ function slimProductsForStorage(body) {
   }
 }
 
-// Persist the catalog: prefer the FULL copy (photos included) so later boots
-// can serve 304s with images; fall back to the slim copy only on quota errors.
-// A single data-URL photo (~200KB) can otherwise exhaust the ~5MB quota and
-// silently kill instant boot for photo-heavy catalogs.
+// Persist the catalog: ALWAYS store the slim copy (base64 photos stripped).
+// D1-only: full copies with inline data-URL photos (~45-90KB each) exhaust
+// the ~5MB localStorage quota after ~50 products and throw on every boot.
+// Text + remote URLs are enough for instant boot; photos load from memory
+// cache / network. This never throws for photo-heavy catalogs.
 function persistProductsCache(body) {
   if (!body) return
   try {
-    localStorage.setItem('localfind_cached_products', JSON.stringify({ ...body, _slim: false }))
-  } catch {
-    try {
-      localStorage.setItem('localfind_cached_products', JSON.stringify(slimProductsForStorage(body)))
-    } catch {}
-  }
+    localStorage.setItem('localfind_cached_products', JSON.stringify(slimProductsForStorage(body)))
+  } catch {}
 }
 
 // Clear all cached responses in memory and localStorage for instant refresh
@@ -77,9 +85,15 @@ export function clearApiCache() {
 
 export async function apiFetch(path, options = {}) {
   const isGet = !options.method || options.method.toUpperCase() === 'GET'
+  // Delta polls (?since= on the products feed) carry a fresh timestamp per
+  // call, so caching them by exact URL would grow memoryEtagCache /
+  // memoryPayloadCache forever with never-reused entries. They are tiny
+  // anyway — bypass all caches. Scoped to the products feed so a future
+  // endpoint with its own `since` param isn't silently uncached.
+  const isDeltaPoll = isGet && path.startsWith('/api/products') && path.includes('since=')
 
   // In-flight GET request deduplication: reuse active Promise if identical request is already running
-  if (isGet && inFlightRequests.has(path) && !options.bustCache) {
+  if (isGet && !isDeltaPoll && inFlightRequests.has(path) && !options.bustCache) {
     return inFlightRequests.get(path)
   }
 
@@ -101,7 +115,11 @@ export async function apiFetch(path, options = {}) {
       }
 
       // Attach ETag for 304 Not Modified zero-bandwidth validation on GET queries
-      if (isGet && !options.bustCache && !headers['If-None-Match'] && memoryEtagCache.has(path)) {
+      // (skipped for delta polls — timestamp-unique URLs would never 304-hit).
+      // Also skipped when memory holds no usable payload (slim boot cache):
+      // a 304 would be unusable and force an immediate retry, costing two
+      // round-trips instead of one plain 200.
+      if (isGet && !isDeltaPoll && !options.bustCache && !headers['If-None-Match'] && memoryEtagCache.has(path) && memoryPayloadCache.has(path)) {
         headers['If-None-Match'] = memoryEtagCache.get(path)
       }
 
@@ -135,7 +153,7 @@ export async function apiFetch(path, options = {}) {
           const retryEtag = retry.headers.get('ETag')
           if (retryEtag) {
             memoryEtagCache.set(path, retryEtag)
-            if (path === '/api/products') {
+            if (path === '/api/products' || path === '/api/products?limit=100') {
               try {
                 localStorage.setItem('localfind_cached_products_etag', retryEtag)
               } catch {}
@@ -146,7 +164,7 @@ export async function apiFetch(path, options = {}) {
             }
           }
           memoryPayloadCache.set(path, retryBody)
-          if (path === '/api/products') {
+          if (path === '/api/products' || path === '/api/products?limit=100') {
             persistProductsCache(retryBody)
           } else if (path === '/api/shops') {
             try {
@@ -160,12 +178,15 @@ export async function apiFetch(path, options = {}) {
       const body = await res.json().catch(() => null)
       if (!res.ok) throw new Error(body?.error ?? `Request failed (${res.status})`)
 
-      // Save fresh ETag and payload into fast memory & localStorage
-      if (isGet && body) {
+      // Save fresh ETag and payload into fast memory & localStorage.
+      // Delta polls (?since=) are never cached: timestamp-unique URLs would
+      // accumulate forever, and a delta must never overwrite the
+      // full-catalog ETag/payload — it is a patch, not the catalog.
+      if (isGet && body && !isDeltaPoll) {
         const etag = res.headers.get('ETag')
         if (etag) {
           memoryEtagCache.set(path, etag)
-          if (path === '/api/products') {
+          if (path === '/api/products' || path === '/api/products?limit=100') {
             try {
               localStorage.setItem('localfind_cached_products_etag', etag)
             } catch {}
@@ -176,7 +197,7 @@ export async function apiFetch(path, options = {}) {
           }
         }
         memoryPayloadCache.set(path, body)
-        if (path === '/api/products') {
+        if (path === '/api/products' || path === '/api/products?limit=100') {
           persistProductsCache(body)
         } else if (path === '/api/shops') {
           try {
@@ -187,14 +208,14 @@ export async function apiFetch(path, options = {}) {
 
       return body
     } finally {
-      if (isGet) {
+      if (isGet && !isDeltaPoll) {
         // Clear from in-flight cache after short window
         setTimeout(() => inFlightRequests.delete(path), 300)
       }
     }
   })()
 
-  if (isGet) {
+  if (isGet && !isDeltaPoll) {
     inFlightRequests.set(path, fetchPromise)
   }
 

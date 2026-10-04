@@ -555,7 +555,7 @@ export function MerchantDashboard({
 
   // Compress local image file to lightweight compressed Base64 Data URL (WebP, ~20-35KB)
   // This stores the image directly inside the D1 database — 100% free, no credit card, no R2 needed!
-  const compressImageToBase64 = (file, maxDim = 500, quality = 0.72) => {
+  const compressImageToBase64 = (file, maxDim = 400, quality = 0.68) => {
     return new Promise((resolve, reject) => {
       const render = (src) => {
         try {
@@ -628,12 +628,16 @@ export function MerchantDashboard({
     })
   }
 
-  // Compress to ultra-lightweight size (~20-40KB) so thousands of images fit in free D1 DB
-  const compressWithinLimit = async (file, limitChars = 120000) => {
-    const first = await compressImageToBase64(file, 500, 0.72)
+  // Compress to ultra-lightweight size (~20-35KB) so thousands of images fit in free D1 DB.
+  // D1-only: no R2/Firestore. Grid cards are ~300px wide, so 400px WebP is
+  // visually identical to 500px but ~45% smaller. 60k chars ~= 45KB binary.
+  const compressWithinLimit = async (file, limitChars = 60000) => {
+    const first = await compressImageToBase64(file, 400, 0.68)
     if (first.length <= limitChars) return first
-    const second = await compressImageToBase64(file, 400, 0.6)
+    const second = await compressImageToBase64(file, 320, 0.58)
     if (second.length <= limitChars) return second
+    const third = await compressImageToBase64(file, 280, 0.5)
+    if (third.length <= limitChars) return third
     throw new Error('Photo is still too big after compression. Please use a smaller photo or paste an image link.')
   }
 
@@ -948,9 +952,35 @@ export function MerchantDashboard({
 
   if (loadingShop) {
     return (
-      <main className="pt-24 px-container-margin max-w-2xl mx-auto text-center">
-        <div className="p-8 bg-surface-container-low rounded-xl animate-pulse">
-          <p className="text-on-surface-variant font-medium">Loading your shop details...</p>
+      <main className="pt-20 md:pt-24 px-container-margin max-w-4xl mx-auto pb-24 animate-fadeIn">
+        {/* Shimmer Shop Banner */}
+        <div className="bg-surface-container-lowest p-6 rounded-3xl border border-surface-variant/60 shadow-crisp-xs mb-6 flex items-center gap-4">
+          <div className="w-16 h-16 rounded-2xl skeleton-bone shrink-0" />
+          <div className="flex-1 flex flex-col gap-2">
+            <div className="h-6 w-48 skeleton-bone rounded-lg" />
+            <div className="h-4 w-32 skeleton-bone rounded-md" />
+          </div>
+        </div>
+
+        {/* Shimmer Stats Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-surface-container-lowest p-4 rounded-2xl border border-surface-variant/60 flex flex-col gap-2">
+              <div className="h-4 w-16 skeleton-bone rounded-md" />
+              <div className="h-7 w-20 skeleton-bone rounded-lg" />
+            </div>
+          ))}
+        </div>
+
+        {/* Shimmer Products Grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-surface-container-lowest rounded-2xl p-3 border border-surface-variant/60 flex flex-col gap-2">
+              <div className="aspect-square w-full skeleton-bone rounded-xl" />
+              <div className="h-4 w-3/4 skeleton-bone rounded-md mt-1" />
+              <div className="h-4 w-1/2 skeleton-bone rounded-md" />
+            </div>
+          ))}
         </div>
       </main>
     )

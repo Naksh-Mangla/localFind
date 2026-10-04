@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { getRAGStatus } from '../utils/syncRAG'
 import { triggerHaptic } from '../utils/haptics'
 
@@ -26,6 +26,54 @@ export function Header({
     return () => clearInterval(timer)
   }, [])
 
+  // 🍎 Scroll-responsive header: compact mode after scrolling 20px
+  const [isScrolled, setIsScrolled] = useState(false)
+  useEffect(() => {
+    let ticking = false
+    let rafId = 0
+    const handleScroll = () => {
+      if (!ticking) {
+        rafId = requestAnimationFrame(() => {
+          ticking = false
+          setIsScrolled(window.scrollY > 20)
+        })
+        ticking = true
+      }
+    }
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      cancelAnimationFrame(rafId)
+    }
+  }, [])
+
+  // 🍎 Bell wiggle animation state for deal alert toggle.
+  // Restart-safe: setting true→true is a no-op for CSS (class already
+  // present, no reflow), so rapid toggles within 500ms would play the wiggle
+  // only once. Drop the class first and re-add on the next task instead.
+  const [bellWiggle, setBellWiggle] = useState(false)
+  const wiggleTimerRef = useRef(null)
+  const handleDealAlertToggle = useCallback(() => {
+    setBellWiggle(false)
+    clearTimeout(wiggleTimerRef.current)
+    wiggleTimerRef.current = setTimeout(() => {
+      setBellWiggle(true)
+      wiggleTimerRef.current = setTimeout(() => setBellWiggle(false), 500)
+    }, 30)
+    if (onToggleDealAlerts) onToggleDealAlerts()
+  }, [onToggleDealAlerts])
+
+  // Unmount safety: no setState after unmount.
+  useEffect(() => () => clearTimeout(wiggleTimerRef.current), [])
+
+  // Initial scroll check: a restored scrolled position (back nav / reload)
+  // must start compacted, not wait for the first scroll event.
+  useEffect(() => {
+    try {
+      setIsScrolled(window.scrollY > 20)
+    } catch {}
+  }, [])
+
   const syncRAG = getRAGStatus(lastSyncedAt)
   const getAvatarUrl = (userObj) => {
     if (userObj?.photoURL) return userObj.photoURL
@@ -36,7 +84,7 @@ export function Header({
   return (
     <>
       {/* 📱 Mobile TopAppBar - Clean Linear/Apple Minimal Chrome */}
-      <header className="md:hidden bg-surface/90 apple-frosted w-full z-20 flex items-center justify-between gap-1 px-3 min-h-14 py-1.5 border-b border-surface-variant/40 sticky top-0 pt-[max(0.375rem,env(safe-area-inset-top,0px))]">
+      <header className={`md:hidden bg-surface/90 apple-frosted w-full z-20 flex items-center justify-between gap-1 px-3 min-h-14 py-1.5 border-b border-surface-variant/40 sticky top-0 pt-[max(0.375rem,env(safe-area-inset-top,0px))] transition-all duration-300 ${isScrolled ? 'header-scrolled' : ''}`}>
         {/* Brand Logo & Location Pill */}
         <div className="flex items-center gap-2 min-w-0 flex-1 mr-1">
           <div
@@ -52,11 +100,11 @@ export function Header({
             }}
             className="tap-expand flex items-center gap-1 cursor-pointer flex-shrink-0 active:scale-95 transition-transform"
           >
-            <div className="w-7 h-7 rounded-xl bg-primary flex items-center justify-center shadow-crisp-xs flex-shrink-0">
+            <div className={`rounded-xl bg-primary flex items-center justify-center shadow-crisp-xs flex-shrink-0 transition-all duration-300 ${isScrolled ? 'w-6 h-6' : 'w-7 h-7'}`}>
               <img 
                 src="/logo.svg" 
                 alt="LocalFind" 
-                className="w-4 h-4 object-contain flex-shrink-0" 
+                className={`object-contain flex-shrink-0 transition-all duration-300 ${isScrolled ? 'w-3.5 h-3.5' : 'w-4 h-4'}`}
               />
             </div>
           </div>
@@ -98,7 +146,7 @@ export function Header({
         <div className="flex items-center gap-2 flex-shrink-0">
           {onToggleDealAlerts && (
             <button
-              onClick={onToggleDealAlerts}
+              onClick={handleDealAlertToggle}
               title={dealAlertsActive ? 'Deal Alerts Active' : 'Enable Deal Alerts'}
               aria-label={dealAlertsActive ? 'Deal alerts on. Tap to turn off.' : 'Turn on deal alerts'}
               aria-pressed={dealAlertsActive}
@@ -108,7 +156,7 @@ export function Header({
                   : 'bg-surface-container-high/60 text-on-surface-variant border-surface-variant/40 hover:text-on-surface'
               }`}
             >
-              <span className="material-symbols-outlined text-[16px]">
+              <span className={`material-symbols-outlined text-[16px] ${bellWiggle ? 'animate-bell-wiggle' : ''}`}>
                 {dealAlertsActive ? 'notifications_active' : 'notifications'}
               </span>
             </button>
@@ -309,7 +357,7 @@ export function Header({
           {/* Deal Alerts Icon Toggle */}
           {onToggleDealAlerts && (
             <button
-              onClick={onToggleDealAlerts}
+              onClick={handleDealAlertToggle}
               title={dealAlertsActive ? 'Deal Alerts Active (Tap to mute)' : 'Turn on Local Flash Deal Alerts'}
               className={`p-2 rounded-full border transition-all active:scale-95 flex items-center justify-center ${
                 dealAlertsActive
@@ -317,7 +365,7 @@ export function Header({
                   : 'bg-surface-container-high/60 text-on-surface-variant border-surface-variant/40 hover:text-on-surface'
               }`}
             >
-              <span className="material-symbols-outlined text-lg">
+              <span className={`material-symbols-outlined text-lg ${bellWiggle ? 'animate-bell-wiggle' : ''}`}>
                 {dealAlertsActive ? 'notifications_active' : 'notifications'}
               </span>
             </button>
